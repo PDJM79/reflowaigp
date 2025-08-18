@@ -90,22 +90,41 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
       if (practiceError) throw practiceError;
 
-      // Create current user record (practice manager)
-      const currentUserAssignment = roleAssignments.find(a => a.role === 'practice_manager');
-      if (!currentUserAssignment) throw new Error('Practice manager role is required');
-
-      const { error: userError } = await supabase
+      // Check if user already exists
+      const { data: existingUser } = await supabase
         .from('users')
-        .insert({
-          auth_user_id: user.id,
-          email: user.email!,
-          name: currentUserAssignment.name,
-          role: 'practice_manager',
-          practice_id: practice.id,
-          is_practice_manager: true
-        });
+        .select('id, practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
 
-      if (userError) throw userError;
+      if (existingUser) {
+        // Update existing user to be practice manager
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            name: practiceManagerAssignment.name,
+            role: 'practice_manager',
+            practice_id: practice.id,
+            is_practice_manager: true
+          })
+          .eq('auth_user_id', user.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create new user record (practice manager)
+        const { error: userError } = await supabase
+          .from('users')
+          .insert({
+            auth_user_id: user.id,
+            email: user.email!,
+            name: practiceManagerAssignment.name,
+            role: 'practice_manager',
+            practice_id: practice.id,
+            is_practice_manager: true
+          });
+
+        if (userError) throw userError;
+      }
 
       // Create role assignments (only for filled ones)
       const { error: rolesError } = await supabase
