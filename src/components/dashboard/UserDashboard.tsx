@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { RAGBadge, RAGStatus } from './RAGBadge';
 import { supabase } from '@/integrations/supabase/client';
 
 export function UserDashboard() {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { userTasks, otherTasks, loading } = useTaskData();
   const [isPracticeManager, setIsPracticeManager] = useState(false);
@@ -239,15 +241,27 @@ export function UserDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/processes')}
+                  >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     View All Processes
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/risk-register')}
+                  >
                     <AlertTriangle className="h-4 w-4 mr-2" />
                     Risk Register
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/team')}
+                  >
                     <User className="h-4 w-4 mr-2" />
                     Team Dashboard
                   </Button>
