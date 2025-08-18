@@ -16,30 +16,16 @@ interface OrganizationSetupProps {
 
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const [organizationName, setOrganizationName] = useState('');
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([
-    { role: 'practice_manager', name: '', email: '' }
-  ]);
+  // Initialize with all available roles, empty name/email
+  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>(
+    AVAILABLE_ROLES.map(role => ({ role: role.value, name: '', email: '' }))
+  );
   const [loading, setLoading] = useState(false);
-
-  const addRoleAssignment = () => {
-    setRoleAssignments([...roleAssignments, { role: '', name: '', email: '' }]);
-  };
-
-  const removeRoleAssignment = (index: number) => {
-    if (roleAssignments.length > 1) {
-      setRoleAssignments(roleAssignments.filter((_, i) => i !== index));
-    }
-  };
 
   const updateRoleAssignment = (index: number, field: keyof RoleAssignment, value: string) => {
     const updated = [...roleAssignments];
     updated[index] = { ...updated[index], [field]: value };
     setRoleAssignments(updated);
-  };
-
-  const getAvailableRoles = (currentIndex: number) => {
-    // Allow all roles since we now support multiple roles per person
-    return AVAILABLE_ROLES;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,14 +41,30 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       return;
     }
 
-    const invalidAssignments = roleAssignments.filter(
-      assignment => !assignment.role || !assignment.name.trim() || !assignment.email.trim()
+    // Only check for filled assignments (allow empty ones to be skipped)
+    const filledAssignments = roleAssignments.filter(
+      assignment => assignment.name.trim() || assignment.email.trim()
+    );
+
+    const invalidAssignments = filledAssignments.filter(
+      assignment => !assignment.name.trim() || !assignment.email.trim()
     );
 
     if (invalidAssignments.length > 0) {
       toast({
         title: "Incomplete role assignments",
-        description: "Please fill in all role assignments completely",
+        description: "Please complete all started role assignments (both name and email required)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Ensure at least practice manager is assigned
+    const practiceManagerAssignment = filledAssignments.find(a => a.role === 'practice_manager');
+    if (!practiceManagerAssignment) {
+      toast({
+        title: "Practice Manager required",
+        description: "Please assign someone to the Practice Manager role",
         variant: "destructive",
       });
       return;
@@ -105,11 +107,11 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
       if (userError) throw userError;
 
-      // Create role assignments
+      // Create role assignments (only for filled ones)
       const { error: rolesError } = await supabase
         .from('role_assignments')
         .insert(
-          roleAssignments.map(assignment => ({
+          filledAssignments.map(assignment => ({
             practice_id: practice.id,
             role: assignment.role as any,
             assigned_name: assignment.name,
@@ -177,77 +179,46 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-semibold">Role Assignments</Label>
                   <div className="text-sm text-muted-foreground">
-                    Tip: You can assign multiple roles to the same person
+                    Assign people to roles (leave empty if not needed)
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addRoleAssignment}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Role
-                  </Button>
                 </div>
 
-                {roleAssignments.map((assignment, index) => (
-                  <Card key={index} className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                      <div className="space-y-2">
-                        <Label>Role</Label>
-                        <Select
-                          value={assignment.role}
-                          onValueChange={(value) => updateRoleAssignment(index, 'role', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getAvailableRoles(index).map((role) => (
-                              <SelectItem key={role.value} value={role.value}>
-                                {role.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                {roleAssignments.map((assignment, index) => {
+                  const roleInfo = AVAILABLE_ROLES.find(r => r.value === assignment.role);
+                  return (
+                    <Card key={assignment.role} className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div className="space-y-2">
+                          <Label className="font-medium">{roleInfo?.label}</Label>
+                          <div className="text-sm text-muted-foreground">
+                            {assignment.role === 'practice_manager' && '(Required)'}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Name</Label>
+                          <Input
+                            value={assignment.name}
+                            onChange={(e) => updateRoleAssignment(index, 'name', e.target.value)}
+                            placeholder="Full name"
+                            required={assignment.role === 'practice_manager'}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={assignment.email}
+                            onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
+                            placeholder="email@example.com"
+                            required={assignment.role === 'practice_manager'}
+                          />
+                        </div>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input
-                          value={assignment.name}
-                          onChange={(e) => updateRoleAssignment(index, 'name', e.target.value)}
-                          placeholder="Full name"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
-                          type="email"
-                          value={assignment.email}
-                          onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
-                          placeholder="email@example.com"
-                        />
-                      </div>
-                      
-                      <div className="flex justify-end">
-                        {roleAssignments.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeRoleAssignment(index)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
 
               <div className="flex justify-end gap-4">
