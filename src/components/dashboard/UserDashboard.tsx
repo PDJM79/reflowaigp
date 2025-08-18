@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTaskData } from '@/hooks/useTaskData';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
+import { RoleManagement } from '@/components/admin/RoleManagement';
 import { supabase } from '@/integrations/supabase/client';
 
 export function UserDashboard() {
@@ -16,6 +17,7 @@ export function UserDashboard() {
   const { userTasks, otherTasks, loading } = useTaskData();
   const [isPracticeManager, setIsPracticeManager] = useState(false);
   const [userName, setUserName] = useState('');
+  const [showRoleManagement, setShowRoleManagement] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -85,7 +87,11 @@ export function UserDashboard() {
           </div>
           <div className="flex items-center gap-2">
             {isPracticeManager && (
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => setShowRoleManagement(true)}
+              >
                 <Settings className="h-4 w-4" />
                 Change Roles/Designations
               </Button>
@@ -271,6 +277,10 @@ export function UserDashboard() {
           </div>
         </div>
       </div>
+
+      {showRoleManagement && (
+        <RoleManagement onClose={() => setShowRoleManagement(false)} />
+      )}
     </div>
   );
 }

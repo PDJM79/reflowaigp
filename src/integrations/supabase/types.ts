@@ -599,6 +599,13 @@ export type Database = {
     }
     Enums: {
       evidence_type: "photo" | "note" | "signature"
+      frequency:
+        | "daily"
+        | "weekly"
+        | "monthly"
+        | "quarterly"
+        | "annually"
+        | "as_needed"
       issue_status: "open" | "in_progress" | "resolved"
       process_frequency:
         | "daily"
@@ -608,6 +615,12 @@ export type Database = {
         | "six_monthly"
         | "annual"
       process_status: "pending" | "in_progress" | "complete" | "blocked"
+      responsible_role:
+        | "practice_manager"
+        | "nurse"
+        | "doctor"
+        | "admin_staff"
+        | "receptionist"
       step_status: "pending" | "complete" | "not_complete"
       user_role:
         | "practice_manager"
@@ -749,6 +762,14 @@ export const Constants = {
   public: {
     Enums: {
       evidence_type: ["photo", "note", "signature"],
+      frequency: [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "annually",
+        "as_needed",
+      ],
       issue_status: ["open", "in_progress", "resolved"],
       process_frequency: [
         "daily",
@@ -759,6 +780,13 @@ export const Constants = {
         "annual",
       ],
       process_status: ["pending", "in_progress", "complete", "blocked"],
+      responsible_role: [
+        "practice_manager",
+        "nurse",
+        "doctor",
+        "admin_staff",
+        "receptionist",
+      ],
       step_status: ["pending", "complete", "not_complete"],
       user_role: [
         "practice_manager",
