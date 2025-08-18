@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, ArrowRight, CheckCircle, Upload, Camera, X } from 'lucide-react';
@@ -51,6 +52,7 @@ export default function StepExecution() {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [showCamera, setShowCamera] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   const currentStepIndex = parseInt(stepIndex || '0');
 
@@ -109,6 +111,15 @@ export default function StepExecution() {
 
   const handleCompleteStep = async () => {
     if (!stepInstance) return;
+
+    if (!isConfirmed) {
+      useToastHook({
+        title: "Confirmation Required",
+        description: "Please confirm that this step is as expected before completing.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -484,6 +495,24 @@ export default function StepExecution() {
                   )}
                 </div>
 
+                {/* Confirmation Section */}
+                <div className="border-t pt-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="step-confirmation"
+                      checked={isConfirmed}
+                      onCheckedChange={(checked) => setIsConfirmed(checked as boolean)}
+                      className="mt-1"
+                    />
+                    <label
+                      htmlFor="step-confirmation"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      I confirm I am happy that this step of this process is as expected
+                    </label>
+                  </div>
+                </div>
+
                 {/* Notes */}
                 <div>
                   <h3 className="font-medium mb-2">Notes & Comments</h3>
@@ -512,7 +541,8 @@ export default function StepExecution() {
                     )}
                     <Button 
                       onClick={handleCompleteStep}
-                      disabled={submitting}
+                      disabled={submitting || !isConfirmed}
+                      className={!isConfirmed ? "opacity-50 cursor-not-allowed" : ""}
                     >
                       {submitting ? 'Completing...' : (
                         <>
