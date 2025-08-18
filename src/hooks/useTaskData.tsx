@@ -22,91 +22,84 @@ export function useTaskData() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchTasks = async () => {
-      try {
-        // Get user's practice info
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id, name, role')
-          .eq('auth_user_id', user.id)
-          .single();
+  const fetchTasks = async () => {
+    try {
+      // Get user's practice info
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, practice_id, name, role')
+        .eq('auth_user_id', user.id)
+        .single();
 
-        if (!userData) return;
+      if (!userData) return;
 
-        // Get all role assignments for the practice
-        const { data: roleAssignments } = await supabase
-          .from('role_assignments')
-          .select('*')
-          .eq('practice_id', userData.practice_id);
+      // Get process instances for the practice with template info
+      const { data: processInstances } = await supabase
+        .from('process_instances')
+        .select(`
+          *,
+          process_templates!inner (
+            name,
+            responsible_role,
+            steps
+          ),
+          users!assignee_id (
+            name,
+            role
+          )
+        `)
+        .eq('practice_id', userData.practice_id);
 
-        if (!roleAssignments) return;
+      if (!processInstances) return;
 
-        // Create mock tasks based on roles
-        const mockTasks: Task[] = [
-          {
-            id: '1',
-            name: 'Weekly Staff Meeting Documentation',
-            dueAt: '2:00 PM',
-            status: 'green',
-            progress: '2/3 complete',
-            assigneeName: roleAssignments.find(r => r.role === 'practice_manager')?.assigned_name || 'Practice Manager',
-            assigneeRole: 'Practice Manager',
-            isCurrentUser: userData.role === 'practice_manager'
-          },
-          {
-            id: '2',
-            name: 'Patient Safety Round',
-            dueAt: '11:00 AM',
-            status: 'amber',
-            progress: '1/4 complete',
-            assigneeName: roleAssignments.find(r => r.role === 'nurse_lead')?.assigned_name || 'Nurse Lead',
-            assigneeRole: 'Nurse Lead',
-            isCurrentUser: userData.role === 'nurse_lead'
-          },
-          {
-            id: '3',
-            name: 'Equipment Maintenance Check',
-            dueAt: '4:00 PM',
-            status: 'red',
-            progress: 'Overdue',
-            assigneeName: roleAssignments.find(r => r.role === 'hca')?.assigned_name || 'Healthcare Assistant',
-            assigneeRole: 'Healthcare Assistant',
-            isCurrentUser: userData.role === 'hca'
-          },
-          {
-            id: '4',
-            name: 'Clinical Governance Review',
-            dueAt: '9:00 AM',
-            status: 'green',
-            progress: 'Complete',
-            assigneeName: roleAssignments.find(r => r.role === 'cd_lead_gp')?.assigned_name || 'CD Lead GP',
-            assigneeRole: 'CD Lead GP',
-            isCurrentUser: userData.role === 'cd_lead_gp'
-          },
-          {
-            id: '5',
-            name: 'Reception Audit',
-            dueAt: '1:00 PM',
-            status: 'amber',
-            progress: '3/5 complete',
-            assigneeName: roleAssignments.find(r => r.role === 'reception_lead')?.assigned_name || 'Reception Lead',
-            assigneeRole: 'Reception Lead',
-            isCurrentUser: userData.role === 'reception_lead'
-          },
-        ];
+      // Convert to Task format
+      const tasks: Task[] = processInstances.map(instance => {
+        const template = instance.process_templates;
+        const assignee = instance.users;
+        
+        // Calculate progress based on step completion
+        let progress = '0/0 complete';
+        let status: 'green' | 'amber' | 'red' = 'red';
+        
+        if (instance.status === 'complete') {
+          status = 'green';
+          progress = 'Complete';
+        } else if (instance.status === 'in_progress') {
+          status = 'amber';
+          progress = 'In Progress';
+        } else if (new Date(instance.due_at) < new Date()) {
+          status = 'red';
+          progress = 'Overdue';
+        }
 
-        // Split tasks based on current user
-        const userTasksList = mockTasks.filter(task => task.isCurrentUser);
-        const otherTasksList = mockTasks.filter(task => !task.isCurrentUser);
+        return {
+          id: instance.id,
+          name: template?.name || 'Unnamed Process',
+          dueAt: new Date(instance.due_at).toLocaleDateString(),
+          status,
+          progress,
+          assigneeName: assignee?.name || 'Unassigned',
+          assigneeRole: assignee?.role || 'Unknown',
+          isCurrentUser: instance.assignee_id === userData.id
+        };
+      });
 
-        setUserTasks(userTasksList);
-        setOtherTasks(otherTasksList);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Split tasks based on current user
+      const userTasksList = tasks.filter(task => task.isCurrentUser);
+      const otherTasksList = tasks.filter(task => !task.isCurrentUser);
+
+      setUserTasks(userTasksList);
+      setOtherTasks(otherTasksList);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      
+      // Fallback to empty arrays on error
+      setUserTasks([]);
+      setOtherTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
     fetchTasks();
   }, [user]);
