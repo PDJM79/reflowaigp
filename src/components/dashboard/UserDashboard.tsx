@@ -1,6 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge } from './RAGBadge';
 import { LogOut, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
@@ -36,21 +37,18 @@ export function UserDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-background border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Practice Processes</h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome back, {user?.email}
-            </p>
-          </div>
+    <div className="min-h-screen bg-background">
+      <AppHeader>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            Welcome back, {user?.email}
+          </p>
           <Button onClick={signOut} variant="outline" size="sm">
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
         </div>
-      </header>
+      </AppHeader>
 
       <main className="container mx-auto px-4 py-8">
         <div className="grid gap-6">

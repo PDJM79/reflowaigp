@@ -8,26 +8,26 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 215 28% 17%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 215 28% 17%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
 
     --primary: 196 76% 39%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 196 76% 94%;
-    --secondary-foreground: 196 76% 15%;
+    --secondary: 215 25% 25%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 215 25% 25%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 196 76% 94%;
-    --accent-foreground: 196 76% 15%;
+    --accent: 215 25% 25%;
+    --accent-foreground: 210 40% 98%;
     
     /* RAG Status Colors */
     --success: 142 76% 36%;
@@ -40,8 +40,8 @@ All colors MUST be HSL.
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 215 25% 25%;
+    --input: 215 25% 25%;
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
