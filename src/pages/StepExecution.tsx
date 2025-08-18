@@ -6,12 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { ArrowLeft, ArrowRight, CheckCircle, Upload, Camera, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Upload, Camera, X, HelpCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { CameraCapture } from '@/components/evidence/CameraCapture';
 import { FileUpload } from '@/components/evidence/FileUpload';
+import { StepHelpChat } from '@/components/help/StepHelpChat';
 import { toast } from 'sonner';
 
 interface StepInstance {
@@ -53,6 +54,7 @@ export default function StepExecution() {
   const [showCamera, setShowCamera] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [showHelpChat, setShowHelpChat] = useState(false);
 
   const currentStepIndex = parseInt(stepIndex || '0');
 
@@ -419,11 +421,22 @@ export default function StepExecution() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Step {currentStepIndex + 1}: {stepInstance.title}
-                  {stepInstance.status === 'completed' && (
-                    <CheckCircle className="h-5 w-5 text-success" />
-                  )}
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    Step {currentStepIndex + 1}: {stepInstance.title}
+                    {stepInstance.status === 'completed' && (
+                      <CheckCircle className="h-5 w-5 text-success" />
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowHelpChat(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    Ask for help
+                  </Button>
                 </CardTitle>
                 <CardDescription>
                   {currentStep?.description || 'Complete this step to proceed with the process'}
@@ -615,7 +628,7 @@ export default function StepExecution() {
         </div>
       </div>
 
-      {/* Camera and File Upload Dialogs */}
+      {/* Camera, File Upload, and Help Chat Dialogs */}
       <CameraCapture
         isOpen={showCamera}
         onClose={() => setShowCamera(false)}
@@ -628,6 +641,14 @@ export default function StepExecution() {
         onClose={() => setShowFileUpload(false)}
         onUpload={handleFileUpload}
         title="Upload File Evidence"
+      />
+
+      <StepHelpChat
+        isOpen={showHelpChat}
+        onClose={() => setShowHelpChat(false)}
+        stepTitle={stepInstance?.title || 'Current Step'}
+        stepDescription={currentStep?.description}
+        processName={processTemplate?.name || 'Current Process'}
       />
     </div>
   );
