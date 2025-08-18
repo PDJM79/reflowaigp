@@ -38,10 +38,8 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   };
 
   const getAvailableRoles = (currentIndex: number) => {
-    const usedRoles = roleAssignments
-      .map((assignment, index) => index !== currentIndex ? assignment.role : null)
-      .filter(Boolean);
-    return AVAILABLE_ROLES.filter(role => !usedRoles.includes(role.value));
+    // Allow all roles since we now support multiple roles per person
+    return AVAILABLE_ROLES;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,17 +68,8 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       return;
     }
 
-    // Check for duplicate roles
-    const roles = roleAssignments.map(a => a.role);
-    const duplicateRoles = roles.filter((role, index) => roles.indexOf(role) !== index);
-    if (duplicateRoles.length > 0) {
-      toast({
-        title: "Duplicate roles",
-        description: "Each role can only be assigned once",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Allow duplicate roles since one person can have multiple roles
+    // No validation needed for duplicates anymore
 
     setLoading(true);
     try {
