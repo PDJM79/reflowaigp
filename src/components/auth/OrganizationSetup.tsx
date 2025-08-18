@@ -176,6 +176,9 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-semibold">Role Assignments</Label>
+                  <div className="text-sm text-muted-foreground">
+                    Tip: You can assign multiple roles to the same person
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
