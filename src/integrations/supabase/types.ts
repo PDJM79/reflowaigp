@@ -595,7 +595,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_practice_id: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      is_practice_manager: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       evidence_type: "photo" | "note" | "signature"
