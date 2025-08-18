@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { ArrowLeft, ArrowRight, CheckCircle, Upload, Camera } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Upload, Camera, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { CameraCapture } from '@/components/evidence/CameraCapture';
+import { FileUpload } from '@/components/evidence/FileUpload';
+import { toast } from 'sonner';
 
 interface StepInstance {
   id: string;
@@ -27,16 +30,27 @@ interface ProcessTemplate {
   steps: any;
 }
 
+interface Evidence {
+  id: string;
+  type: 'photo' | 'note' | 'signature';
+  storage_path: string;
+  mime_type?: string;
+  created_at: string;
+}
+
 export default function StepExecution() {
   const { taskId, stepIndex } = useParams<{ taskId: string; stepIndex: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { toast: useToastHook } = useToast();
   const [stepInstance, setStepInstance] = useState<StepInstance | null>(null);
   const [processTemplate, setProcessTemplate] = useState<ProcessTemplate | null>(null);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
 
   const currentStepIndex = parseInt(stepIndex || '0');
 
@@ -72,6 +86,15 @@ export default function StepExecution() {
           if (step) {
             setStepInstance(step);
             setNotes(step.notes || '');
+            
+            // Fetch evidence for this step
+            const { data: evidenceData } = await supabase
+              .from('evidence')
+              .select('*')
+              .eq('step_instance_id', step.id)
+              .order('created_at', { ascending: false });
+            
+            setEvidence(evidenceData || []);
           }
         }
       } catch (error) {
@@ -99,7 +122,7 @@ export default function StepExecution() {
         })
         .eq('id', stepInstance.id);
 
-      toast({
+      useToastHook({
         title: "Step Completed",
         description: "Your progress has been saved successfully.",
       });
@@ -117,7 +140,7 @@ export default function StepExecution() {
           })
           .eq('id', taskId);
 
-        toast({
+        useToastHook({
           title: "Process Completed",
           description: "Congratulations! You have completed the entire process.",
         });
@@ -129,7 +152,7 @@ export default function StepExecution() {
       }
     } catch (error) {
       console.error('Error completing step:', error);
-      toast({
+      useToastHook({
         title: "Error",
         description: "Failed to complete step. Please try again.",
         variant: "destructive"
@@ -152,17 +175,177 @@ export default function StepExecution() {
         })
         .eq('id', stepInstance.id);
 
-      toast({
+      useToastHook({
         title: "Draft Saved",
         description: "Your progress has been saved as a draft.",
       });
     } catch (error) {
       console.error('Error saving draft:', error);
-      toast({
+      useToastHook({
         title: "Error",
         description: "Failed to save draft. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handlePhotoCapture = async (blob: Blob) => {
+    if (!stepInstance || !user) return;
+
+    try {
+      // Get user ID from users table
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) {
+        toast.error('User not found');
+        return;
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const filename = `evidence/${stepInstance.id}/${timestamp}_photo.jpg`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('evidence')
+        .upload(filename, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast.error('Failed to upload photo');
+        return;
+      }
+
+      // Save evidence record to database
+      const { data: evidenceData, error: evidenceError } = await supabase
+        .from('evidence')
+        .insert({
+          step_instance_id: stepInstance.id,
+          user_id: userData.id,
+          type: 'photo',
+          storage_path: filename,
+          mime_type: 'image/jpeg'
+        })
+        .select()
+        .single();
+
+      if (evidenceError) {
+        console.error('Evidence error:', evidenceError);
+        toast.error('Failed to save evidence record');
+        return;
+      }
+
+      // Update evidence list
+      setEvidence(prev => [evidenceData, ...prev]);
+      toast.success('Photo captured and saved successfully');
+
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      toast.error('Failed to capture photo');
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!stepInstance || !user) return;
+
+    try {
+      // Get user ID from users table
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) {
+        toast.error('User not found');
+        return;
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop() || 'bin';
+      const filename = `evidence/${stepInstance.id}/${timestamp}_${file.name}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('evidence')
+        .upload(filename, file, {
+          contentType: file.type,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast.error('Failed to upload file');
+        return;
+      }
+
+      // Save evidence record to database
+      const { data: evidenceData, error: evidenceError } = await supabase
+        .from('evidence')
+        .insert({
+          step_instance_id: stepInstance.id,
+          user_id: userData.id,
+          type: 'note', // Use 'note' for file uploads since we only have photo/note/signature
+          storage_path: filename,
+          mime_type: file.type
+        })
+        .select()
+        .single();
+
+      if (evidenceError) {
+        console.error('Evidence error:', evidenceError);
+        toast.error('Failed to save evidence record');
+        return;
+      }
+
+      // Update evidence list
+      setEvidence(prev => [evidenceData, ...prev]);
+      toast.success('File uploaded successfully');
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    }
+  };
+
+  const deleteEvidence = async (evidenceId: string, storagePath: string) => {
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('evidence')
+        .remove([storagePath]);
+
+      if (storageError) {
+        console.error('Storage deletion error:', storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('evidence')
+        .delete()
+        .eq('id', evidenceId);
+
+      if (dbError) {
+        console.error('Database deletion error:', dbError);
+        toast.error('Failed to delete evidence');
+        return;
+      }
+
+      // Update evidence list
+      setEvidence(prev => prev.filter(e => e.id !== evidenceId));
+      toast.success('Evidence deleted successfully');
+
+    } catch (error) {
+      console.error('Error deleting evidence:', error);
+      toast.error('Failed to delete evidence');
     }
   };
 
@@ -250,15 +433,55 @@ export default function StepExecution() {
                 <div>
                   <h3 className="font-medium mb-2">Evidence Collection</h3>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Button variant="outline" className="h-20 flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex-col gap-2"
+                      onClick={() => setShowCamera(true)}
+                    >
                       <Camera className="h-6 w-6" />
                       Take Photo
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex-col gap-2"
+                      onClick={() => setShowFileUpload(true)}
+                    >
                       <Upload className="h-6 w-6" />
                       Upload File
                     </Button>
                   </div>
+
+                  {/* Evidence List */}
+                  {evidence.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <h4 className="text-sm font-medium">Collected Evidence</h4>
+                      {evidence.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="flex items-center justify-between p-2 bg-muted rounded border"
+                        >
+                          <div className="flex items-center gap-2">
+                            {item.type === 'photo' ? (
+                              <Camera className="h-4 w-4 text-blue-500" />
+                            ) : (
+                              <Upload className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span className="text-sm">
+                              {item.type === 'photo' ? 'Photo' : 'File'} - {new Date(item.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteEvidence(item.id, item.storage_path)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -361,6 +584,21 @@ export default function StepExecution() {
           </div>
         </div>
       </div>
+
+      {/* Camera and File Upload Dialogs */}
+      <CameraCapture
+        isOpen={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handlePhotoCapture}
+        title="Take Photo Evidence"
+      />
+      
+      <FileUpload
+        isOpen={showFileUpload}
+        onClose={() => setShowFileUpload(false)}
+        onUpload={handleFileUpload}
+        title="Upload File Evidence"
+      />
     </div>
   );
 }
