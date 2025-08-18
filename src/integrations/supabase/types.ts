@@ -478,13 +478,6 @@ export type Database = {
             referencedRelation: "practices"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "role_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       step_instances: {
