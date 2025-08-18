@@ -260,6 +260,38 @@ export type Database = {
           },
         ]
       }
+      organization_setup: {
+        Row: {
+          created_at: string
+          id: string
+          practice_id: string
+          setup_completed: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          practice_id: string
+          setup_completed?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          practice_id?: string
+          setup_completed?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_setup_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practices: {
         Row: {
           created_at: string | null
@@ -407,6 +439,54 @@ export type Database = {
           },
         ]
       }
+      role_assignments: {
+        Row: {
+          assigned_email: string
+          assigned_name: string
+          created_at: string
+          id: string
+          practice_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_email: string
+          assigned_name: string
+          created_at?: string
+          id?: string
+          practice_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_email?: string
+          assigned_name?: string
+          created_at?: string
+          id?: string
+          practice_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       step_instances: {
         Row: {
           created_at: string | null
@@ -470,6 +550,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean | null
+          is_practice_manager: boolean | null
           name: string
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
@@ -481,6 +562,7 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean | null
+          is_practice_manager?: boolean | null
           name: string
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
@@ -492,6 +574,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean | null
+          is_practice_manager?: boolean | null
           name?: string
           practice_id?: string
           role?: Database["public"]["Enums"]["user_role"]
