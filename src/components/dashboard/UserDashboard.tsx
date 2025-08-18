@@ -39,8 +39,8 @@ export function UserDashboard() {
   }, [user]);
 
   const handleTaskClick = (taskId: string) => {
-    // TODO: Navigate to process execution page
     console.log('Navigate to task:', taskId);
+    window.location.href = `/task/${taskId}`;
   };
 
   const getStatusIcon = (status: RAGStatus) => {
