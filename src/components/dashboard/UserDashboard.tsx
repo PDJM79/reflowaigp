@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTaskData } from '@/hooks/useTaskData';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function UserDashboard() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export function UserDashboard() {
   const [isPracticeManager, setIsPracticeManager] = useState(false);
   const [userName, setUserName] = useState('');
   const [showRoleManagement, setShowRoleManagement] = useState(false);
+  const [assigningTasks, setAssigningTasks] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -62,6 +64,46 @@ export function UserDashboard() {
     if (status === 'green') return 'Continue';
     if (status === 'red') return 'Urgent';
     return 'Start';
+  };
+
+  const assignAllTasksToMe = async () => {
+    if (!user) return;
+    
+    setAssigningTasks(true);
+    try {
+      // Get the current user's ID from the users table
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) {
+        toast.error('Could not find user data');
+        return;
+      }
+
+      // Update all process instances in the practice to assign to current user
+      const { error } = await supabase
+        .from('process_instances')
+        .update({ assignee_id: userData.id })
+        .eq('practice_id', userData.practice_id);
+
+      if (error) {
+        console.error('Error assigning tasks:', error);
+        toast.error('Failed to assign tasks');
+        return;
+      }
+
+      toast.success('All tasks have been assigned to you!');
+      // Refresh the page to show updated task assignments
+      window.location.reload();
+    } catch (error) {
+      console.error('Error assigning tasks:', error);
+      toast.error('Failed to assign tasks');
+    } finally {
+      setAssigningTasks(false);
+    }
   };
 
   if (loading) {
@@ -270,6 +312,19 @@ export function UserDashboard() {
                   >
                     <User className="h-4 w-4 mr-2" />
                     Team Dashboard
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={assignAllTasksToMe}
+                    disabled={assigningTasks}
+                  >
+                    {assigningTasks ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-4 w-4 mr-2" />
+                    )}
+                    Assign All Tasks to Me
                   </Button>
                 </div>
               </CardContent>
