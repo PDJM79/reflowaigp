@@ -218,9 +218,17 @@ serve(async (req) => {
   }
 
   try {
+    // Debug logging to understand the environment
+    console.log('=== DEBUGGING ENVIRONMENT ===');
+    console.log('All environment variables:', Object.keys(Deno.env.toObject()));
+    console.log('OpenAI key exists:', !!Deno.env.get('OPENAI_API_KEY'));
+    console.log('OpenAI key length:', Deno.env.get('OPENAI_API_KEY')?.length || 0);
+    console.log('Custom assistant ID:', CUSTOM_ASSISTANT_ID);
+    
     // Early validation - check if OpenAI API key is available
     if (!openAIApiKey) {
       console.error('OpenAI API key is missing from environment variables');
+      console.error('Available env vars containing OPENAI:', Object.keys(Deno.env.toObject()).filter(key => key.includes('OPENAI')));
       throw new Error('OpenAI API key is not configured. Please check the function secrets.');
     }
 
