@@ -99,6 +99,64 @@ export default function StepExecution() {
               .order('created_at', { ascending: false });
             
             setEvidence(evidenceData || []);
+          } else if (template) {
+            // No step instances exist yet - create them automatically
+            console.log('No step instances found, creating them...');
+            
+            // Parse steps from template
+            let stepsArray: any[] = [];
+            if (template.steps) {
+              if (Array.isArray(template.steps)) {
+                stepsArray = template.steps;
+              } else if (typeof template.steps === 'object' && template.steps !== null) {
+                // Convert object to array if it contains array-like data
+                const stepsObj = template.steps as any;
+                if (Array.isArray(stepsObj)) {
+                  stepsArray = stepsObj;
+                } else {
+                  // If it's an object but not array-like, try to extract values
+                  stepsArray = Object.values(stepsObj).filter(step => 
+                    step && typeof step === 'object' && (step as any).title
+                  );
+                }
+              }
+            }
+            
+            if (Array.isArray(stepsArray) && stepsArray.length > 0) {
+              // Create all step instances
+              const stepsToCreate = stepsArray.map((step: any, index: number) => ({
+                process_instance_id: taskId,
+                step_index: index,
+                title: step.title || step.description || `Step ${index + 1}`,
+                status: 'pending' as const
+              }));
+
+              const { data: createdSteps, error: createError } = await supabase
+                .from('step_instances')
+                .insert(stepsToCreate)
+                .select()
+                .order('step_index', { ascending: true });
+
+              if (createError) {
+                console.error('Error creating step instances:', createError);
+              } else if (createdSteps && createdSteps[currentStepIndex]) {
+                // Set the current step instance
+                const currentStepInstance = createdSteps[currentStepIndex];
+                setStepInstance(currentStepInstance);
+                setNotes('');
+                
+                // Also update the process to started
+                await supabase
+                  .from('process_instances')
+                  .update({ 
+                    status: 'in_progress',
+                    started_at: new Date().toISOString()
+                  })
+                  .eq('id', taskId);
+                  
+                console.log('Created step instances and started process');
+              }
+            }
           }
         }
       } catch (error) {
