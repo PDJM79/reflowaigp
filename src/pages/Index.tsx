@@ -5,6 +5,7 @@ import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
 import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
+import { DirectPasswordReset } from '@/components/admin/DirectPasswordReset';
 import { useOrganizationSetup } from '@/hooks/useOrganizationSetup';
 import { Loader2 } from 'lucide-react';
 
@@ -15,6 +16,12 @@ const Index = () => {
   
   // Check if user needs to change password
   const needsPasswordChange = user?.user_metadata?.force_password_change === true;
+
+  // Show direct password reset if URL has reset parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('reset') === 'phil') {
+    return <DirectPasswordReset />;
+  }
 
   if (authLoading || setupLoading || masterLoading) {
     return (
