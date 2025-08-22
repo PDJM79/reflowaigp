@@ -409,19 +409,6 @@ export function UserDashboard() {
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
-                    onClick={createMissingAccounts}
-                    disabled={creatingAccounts}
-                  >
-                    {creatingAccounts ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4 mr-2" />
-                    )}
-                    Create Missing User Accounts
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
                     onClick={assignAllTasksToMe}
                     disabled={assigningTasks}
                   >
