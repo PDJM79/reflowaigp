@@ -111,7 +111,22 @@ export default function TaskDetail() {
 
       // Always create step instances when starting a process
       if (processTemplate.steps) {
-        const stepsArray = Array.isArray(processTemplate.steps) ? processTemplate.steps : [];
+        // Parse steps with same logic as display
+        let stepsArray = [];
+        if (Array.isArray(processTemplate.steps)) {
+          stepsArray = processTemplate.steps;
+        } else if (typeof processTemplate.steps === 'string') {
+          try {
+            stepsArray = JSON.parse(processTemplate.steps);
+          } catch (e) {
+            console.error('Error parsing steps JSON:', e);
+            stepsArray = [];
+          }
+        } else if (typeof processTemplate.steps === 'object') {
+          stepsArray = processTemplate.steps;
+        }
+        
+        if (Array.isArray(stepsArray) && stepsArray.length > 0) {
         
         // First, check if step instances already exist
         const { data: existingSteps } = await supabase
@@ -136,6 +151,7 @@ export default function TaskDetail() {
             .from('step_instances')
             .insert(stepsToCreate);
         }
+      }
       }
 
       // Navigate to first step
@@ -194,8 +210,29 @@ export default function TaskDetail() {
   }
 
   const completedSteps = stepInstances.filter(s => s.status === 'complete').length;
-  const stepsArray = Array.isArray(processTemplate.steps) ? processTemplate.steps : [];
-  const totalSteps = stepsArray.length;
+  
+  // Parse steps from template - handle both array and JSON string formats
+  let stepsArray = [];
+  if (processTemplate.steps) {
+    if (Array.isArray(processTemplate.steps)) {
+      stepsArray = processTemplate.steps;
+    } else if (typeof processTemplate.steps === 'string') {
+      try {
+        stepsArray = JSON.parse(processTemplate.steps);
+      } catch (e) {
+        console.error('Error parsing steps JSON:', e);
+        stepsArray = [];
+      }
+    } else if (typeof processTemplate.steps === 'object') {
+      // Handle object format from database
+      stepsArray = processTemplate.steps;
+    }
+  }
+  
+  console.log('Raw steps data:', processTemplate.steps);
+  console.log('Parsed steps array:', stepsArray);
+  
+  const totalSteps = Array.isArray(stepsArray) ? stepsArray.length : 0;
 
   return (
     <div className="min-h-screen bg-background">
