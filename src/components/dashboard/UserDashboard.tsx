@@ -28,25 +28,33 @@ export function UserDashboard() {
 
     const fetchUserInfo = async () => {
       try {
-        const { data } = await supabase
+        console.log('Fetching user info for auth user:', user.id);
+        const { data, error } = await supabase
           .from('users')
           .select('name, is_practice_manager, role, practice_id')
           .eq('auth_user_id', user.id)
           .single();
 
+        console.log('User dashboard data:', data, 'Error:', error);
+        
         if (data) {
           setUserName(data.name);
           setIsPracticeManager(data.is_practice_manager);
           setUserRole(data.role);
 
+          console.log('User role:', data.role, 'Practice ID:', data.practice_id);
+
           // Fetch all process templates where the user's role is responsible
-          const { data: templates } = await supabase
+          const { data: templates, error: templatesError } = await supabase
             .from('process_templates')
             .select('name, responsible_role, frequency')
             .eq('practice_id', data.practice_id)
             .eq('responsible_role', data.role);
 
+          console.log('Process templates for role:', templates, 'Error:', templatesError);
           setAllProcessesByRole(templates || []);
+        } else {
+          console.log('No user data found in dashboard');
         }
       } catch (error) {
         console.error('Error fetching user info:', error);

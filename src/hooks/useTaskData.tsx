@@ -24,14 +24,19 @@ export function useTaskData() {
 
   const fetchTasks = async () => {
     try {
+      console.log('Fetching tasks for user:', user.id);
       // Get user's practice info
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, practice_id, name, role')
         .eq('auth_user_id', user.id)
         .single();
 
-      if (!userData) return;
+      console.log('User data:', userData, 'Error:', userError);
+      if (!userData) {
+        console.log('No user data found for auth user:', user.id);
+        return;
+      }
 
       // Get practice manager for default assignment
       const { data: practiceManager } = await supabase
@@ -42,7 +47,7 @@ export function useTaskData() {
         .single();
 
       // Get process instances for the practice with template info
-      const { data: processInstances } = await supabase
+      const { data: processInstances, error: processError } = await supabase
         .from('process_instances')
         .select(`
           *,
@@ -58,7 +63,11 @@ export function useTaskData() {
         `)
         .eq('practice_id', userData.practice_id);
 
-      if (!processInstances) return;
+      console.log('Process instances:', processInstances, 'Error:', processError);
+      if (!processInstances) {
+        console.log('No process instances found for practice:', userData.practice_id);
+        return;
+      }
 
       // Auto-assign unassigned processes to practice manager
       const unassignedProcesses = processInstances.filter(p => !p.assignee_id);
@@ -127,9 +136,16 @@ export function useTaskData() {
         };
       });
 
+      console.log('All tasks:', tasks);
+      console.log('Current user ID:', userData.id);
+      console.log('Task assignee IDs:', tasks.map(t => ({ name: t.name, assignee_id: processInstances.find(p => p.id === t.id)?.assignee_id })));
+
       // Split tasks based on current user
       const userTasksList = tasks.filter(task => task.isCurrentUser);
       const otherTasksList = tasks.filter(task => !task.isCurrentUser);
+
+      console.log('User tasks:', userTasksList);
+      console.log('Other tasks:', otherTasksList);
 
       setUserTasks(userTasksList);
       setOtherTasks(otherTasksList);
