@@ -135,7 +135,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       
       for (const assignment of nonPracticeManagerAssignments) {
         try {
-          const response = await fetch('/functions/v1/create-user-accounts', {
+          const response = await fetch(`${window.location.origin}/functions/v1/create-user-accounts`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
