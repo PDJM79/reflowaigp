@@ -4,17 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, LogOut } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RoleAssignment, AVAILABLE_ROLES } from '@/types/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OrganizationSetupProps {
   onComplete: () => void;
 }
 
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
+  const { signOut } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
   // Initialize with all available roles, empty name/email
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>(
@@ -175,6 +177,16 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
     const updated = [...roleAssignments];
     updated[index] = { ...updated[index], [field]: value };
     setRoleAssignments(updated);
+  };
+
+  const handleExit = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force redirect to login even if signOut fails
+      window.location.href = '/';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -421,7 +433,16 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                 })}
               </div>
 
-              <div className="flex justify-end gap-4">
+              <div className="flex justify-between gap-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleExit}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Exit to Login
+                </Button>
                 <Button type="submit" disabled={loading}>
                   {loading ? 'Setting up...' : 'Complete Setup'}
                 </Button>
