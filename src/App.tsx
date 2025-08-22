@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { MasterUserProvider } from "@/hooks/useMasterUser";
 import Index from "./pages/Index";
+import ResetPassword from "./pages/ResetPassword";
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
 import AllProcesses from "./pages/AllProcesses";
@@ -27,6 +28,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/task/:taskId" element={<TaskDetail />} />
               <Route path="/task/:taskId/step/:stepIndex" element={<StepExecution />} />
               <Route path="/processes" element={<AllProcesses />} />
