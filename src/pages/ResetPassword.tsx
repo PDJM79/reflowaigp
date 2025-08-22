@@ -112,7 +112,8 @@ export default function ResetPassword() {
       if (error) throw error;
 
       toast.success('Password updated successfully!');
-      navigate('/');
+      // Force full page refresh to ensure clean auth state
+      window.location.href = '/';
     } catch (error: any) {
       console.error('Password update error:', error);
       toast.error(error.message || 'Failed to update password');
