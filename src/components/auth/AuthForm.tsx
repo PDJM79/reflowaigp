@@ -107,6 +107,36 @@ export function AuthForm() {
                 </Button>
               </form>
             </TabsContent>
+            
+            <TabsContent value="admin">
+              <form onSubmit={handleAdminSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-email">Administrator Email</Label>
+                  <Input
+                    id="admin-email"
+                    type="email"
+                    placeholder="admin@practice.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password">Administrator Password</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Administrator Sign In
+                </Button>
+              </form>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
