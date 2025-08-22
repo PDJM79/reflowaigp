@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
@@ -30,6 +30,7 @@ export function UserDashboard() {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
+  const [passingTask, setPassingTask] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -173,6 +174,59 @@ export function UserDashboard() {
     }
   };
 
+  const passTaskToPracticeManager = async (taskId: string) => {
+    if (!user) return;
+    
+    setPassingTask(taskId);
+    try {
+      // Get the current user's practice ID
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) {
+        toast.error('Could not find user data');
+        return;
+      }
+
+      // Find the practice manager for this practice
+      const { data: practiceManager } = await supabase
+        .from('users')
+        .select('id')
+        .eq('practice_id', userData.practice_id)
+        .eq('is_practice_manager', true)
+        .single();
+
+      if (!practiceManager) {
+        toast.error('No practice manager found');
+        return;
+      }
+
+      // Update the task to assign it to the practice manager
+      const { error } = await supabase
+        .from('process_instances')
+        .update({ assignee_id: practiceManager.id })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error passing task:', error);
+        toast.error('Failed to pass task to practice manager');
+        return;
+      }
+
+      toast.success('Task passed to practice manager!');
+      // Refresh the page to show updated task assignments
+      window.location.reload();
+    } catch (error) {
+      console.error('Error passing task:', error);
+      toast.error('Failed to pass task to practice manager');
+    } finally {
+      setPassingTask(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -272,6 +326,24 @@ export function UserDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <RAGBadge status={task.status} />
+                        {!isPracticeManager && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              passTaskToPracticeManager(task.id);
+                            }}
+                            disabled={passingTask === task.id}
+                          >
+                            {passingTask === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ArrowRight className="h-3 w-3" />
+                            )}
+                            Pass to PM
+                          </Button>
+                        )}
                         <Button size="sm" variant={task.status === 'red' ? 'destructive' : 'default'}>
                           {getButtonText(task.status)}
                         </Button>
