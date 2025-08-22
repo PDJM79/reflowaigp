@@ -144,7 +144,7 @@ export default function TaskDetail() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'complete':
         return <CheckCircle className="h-4 w-4 text-success" />;
       case 'in_progress':
         return <Play className="h-4 w-4 text-warning" />;
@@ -181,7 +181,7 @@ export default function TaskDetail() {
     );
   }
 
-  const completedSteps = stepInstances.filter(s => s.status === 'completed').length;
+  const completedSteps = stepInstances.filter(s => s.status === 'complete').length;
   const stepsArray = Array.isArray(processTemplate.steps) ? processTemplate.steps : [];
   const totalSteps = stepsArray.length;
 
@@ -302,16 +302,16 @@ export default function TaskDetail() {
                   </Button>
                 ) : (
                   <div className="space-y-2">
-                    <Button 
-                      onClick={() => {
-                        const nextStep = stepInstances.find(s => s.status !== 'completed');
-                        if (nextStep) {
-                          handleContinueToStep(nextStep.step_index);
-                        }
-                      }}
-                      className="w-full"
-                      disabled={completedSteps === totalSteps}
-                    >
+                     <Button 
+                       onClick={() => {
+                         const nextStep = stepInstances.find(s => s.status !== 'complete');
+                         if (nextStep) {
+                           handleContinueToStep(nextStep.step_index);
+                         }
+                       }}
+                       className="w-full"
+                       disabled={completedSteps === totalSteps}
+                     >
                       Continue Process
                     </Button>
                     {completedSteps === totalSteps && (
