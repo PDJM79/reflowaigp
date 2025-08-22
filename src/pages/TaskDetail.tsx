@@ -109,15 +109,27 @@ export default function TaskDetail() {
         })
         .eq('id', processInstance.id);
 
-      // Create step instances if they don't exist
-      if (stepInstances.length === 0 && processTemplate.steps) {
+      // Always create step instances when starting a process
+      if (processTemplate.steps) {
         const stepsArray = Array.isArray(processTemplate.steps) ? processTemplate.steps : [];
-        const stepsToCreate = stepsArray.map((step: any, index: number) => ({
-          process_instance_id: processInstance.id,
-          step_index: index,
-          title: step.title || step.description || `Step ${index + 1}`,
-          status: 'pending' as const
-        }));
+        
+        // First, check if step instances already exist
+        const { data: existingSteps } = await supabase
+          .from('step_instances')
+          .select('step_index')
+          .eq('process_instance_id', processInstance.id);
+
+        const existingIndices = existingSteps?.map(s => s.step_index) || [];
+        
+        // Create missing step instances
+        const stepsToCreate = stepsArray
+          .map((step: any, index: number) => ({
+            process_instance_id: processInstance.id,
+            step_index: index,
+            title: step.title || step.description || `Step ${index + 1}`,
+            status: 'pending' as const
+          }))
+          .filter((_, index) => !existingIndices.includes(index));
 
         if (stepsToCreate.length > 0) {
           await supabase
