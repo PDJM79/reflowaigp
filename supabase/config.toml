@@ -1,5 +1,8 @@
 project_id = "eeqfqklcdstbziedsnxc"
 
+[functions.step-help-chat]
+verify_jwt = true
+
 [functions.create-user-accounts]
 verify_jwt = false
 
