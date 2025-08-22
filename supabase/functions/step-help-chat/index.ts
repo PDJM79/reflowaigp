@@ -3,6 +3,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+// Log API key status for debugging (without exposing the actual key)
+console.log('OpenAI API Key status:', openAIApiKey ? 'Present' : 'Missing');
+console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('OPENAI')));
+
 // CONFIGURE YOUR GPT ASSISTANT ID HERE
 // Replace with your specific GPT Assistant ID from https://platform.openai.com/assistants
 const CUSTOM_ASSISTANT_ID = Deno.env.get('STEP_ASSISTANT_ID') || null;
@@ -214,6 +218,12 @@ serve(async (req) => {
   }
 
   try {
+    // Early validation - check if OpenAI API key is available
+    if (!openAIApiKey) {
+      console.error('OpenAI API key is missing from environment variables');
+      throw new Error('OpenAI API key is not configured. Please check the function secrets.');
+    }
+
     const { message, stepTitle, stepDescription, processName, conversationHistory } = await req.json();
 
     if (!message) {
