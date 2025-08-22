@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, Loader2, CheckCircle } from 'lucide-react';
+import { Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,21 +14,80 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
+  const [sessionError, setSessionError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user came from password reset email
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsValidSession(true);
-      } else {
-        toast.error('Invalid or expired reset link');
-        navigate('/');
-      }
+    const handleAuthStateChange = () => {
+      // Handle auth state changes from the reset link
+      const handlePasswordReset = async () => {
+        try {
+          // Check URL hash for auth tokens (common with email links)
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const type = hashParams.get('type');
+
+          console.log('URL hash params:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
+
+          if (type === 'recovery' && accessToken) {
+            // This is a password recovery link
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || ''
+            });
+
+            if (error) {
+              console.error('Session error:', error);
+              setSessionError(`Session error: ${error.message}`);
+              return;
+            }
+
+            if (data.session) {
+              setIsValidSession(true);
+              console.log('Valid recovery session established');
+              return;
+            }
+          }
+
+          // Fallback: check for existing session
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('Session check error:', sessionError);
+            setSessionError(`Session check error: ${sessionError.message}`);
+            return;
+          }
+
+          if (session) {
+            setIsValidSession(true);
+            console.log('Existing session found');
+          } else {
+            setSessionError('No valid session found. Please use the reset link from your email.');
+            console.log('No session found');
+          }
+        } catch (error) {
+          console.error('Auth handling error:', error);
+          setSessionError(`Auth error: ${error}`);
+        }
+      };
+
+      handlePasswordReset();
     };
 
-    checkSession();
+    handleAuthStateChange();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, !!session);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsValidSession(true);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,10 +127,40 @@ export default function ResetPassword() {
         <AppHeader />
         <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[calc(100vh-80px)]">
           <Card className="w-full max-w-md">
-            <CardContent className="text-center py-8">
-              <div className="text-muted-foreground">
-                Checking reset link...
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-orange-500" />
+                Reset Link Issue
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {sessionError ? (
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium text-red-600 mb-2">Error:</p>
+                  <p>{sessionError}</p>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">
+                  Checking reset link...
+                </div>
+              )}
+              
+              <div className="text-xs text-muted-foreground space-y-2">
+                <p><strong>Troubleshooting:</strong></p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Make sure you clicked the link from your email</li>
+                  <li>Check if the link has expired (links expire after 1 hour)</li>
+                  <li>Try requesting a new password reset</li>
+                </ul>
               </div>
+              
+              <Button 
+                onClick={() => navigate('/')} 
+                variant="outline" 
+                className="w-full"
+              >
+                Back to Login
+              </Button>
             </CardContent>
           </Card>
         </div>

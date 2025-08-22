@@ -42,13 +42,16 @@ export function AuthForm() {
 
     setResetLoading(true);
     try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      console.log('Sending reset email with redirect:', redirectUrl);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;
 
-      toast.success('Password reset email sent! Check your inbox.');
+      toast.success('Password reset email sent! Check your inbox and click the link.');
       setShowForgotPassword(false);
     } catch (error: any) {
       console.error('Password reset error:', error);
