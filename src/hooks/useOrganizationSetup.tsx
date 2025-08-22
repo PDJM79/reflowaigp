@@ -18,15 +18,18 @@ export function useOrganizationSetup() {
         // Check if user exists in users table
         const { data: userData } = await supabase
           .from('users')
-          .select('practice_id')
+          .select('practice_id, is_practice_manager')
           .eq('auth_user_id', user.id)
           .single();
 
         if (!userData) {
-          // New user needs setup
+          // New user needs setup (assumes they are a practice manager)
           setNeedsSetup(true);
+        } else if (!userData.is_practice_manager) {
+          // Non-practice managers never need organization setup
+          setNeedsSetup(false);
         } else {
-          // Check if organization setup is complete
+          // Practice managers: check if organization setup is complete
           const { data: setupData } = await supabase
             .from('organization_setup')
             .select('setup_completed')
@@ -37,8 +40,9 @@ export function useOrganizationSetup() {
         }
       } catch (error) {
         console.error('Error checking setup status:', error);
-        // On error, assume setup is needed
-        setNeedsSetup(true);
+        // For existing users, assume no setup needed
+        // Only new practice managers should see setup
+        setNeedsSetup(false);
       } finally {
         setLoading(false);
       }
