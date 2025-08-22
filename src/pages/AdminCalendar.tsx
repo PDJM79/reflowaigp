@@ -11,7 +11,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format, startOfMonth, endOfMonth, addDays, isSameDay, parseISO } from 'date-fns';
-import { CalendarDays, BarChart3, Settings, ChevronLeft, ChevronRight, Edit3, Eye } from 'lucide-react';
+import { CalendarDays, BarChart3, Settings, ChevronLeft, ChevronRight, Edit3, Eye, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,7 +28,7 @@ interface ProcessInstance {
 }
 
 export default function AdminCalendar() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewDate, setViewDate] = useState<Date>(new Date());
@@ -197,6 +197,10 @@ export default function AdminCalendar() {
             <Button onClick={() => navigate('/')} variant="outline">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
+            </Button>
+            <Button onClick={signOut} variant="outline">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
             </Button>
           </div>
         </div>
