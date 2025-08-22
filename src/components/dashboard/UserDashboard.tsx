@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2 } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
@@ -11,6 +11,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
 import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
+import { PasswordReset } from '@/components/admin/PasswordReset';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -26,6 +27,7 @@ export function UserDashboard() {
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [showCreateMasterUser, setShowCreateMasterUser] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
 
@@ -451,15 +453,25 @@ export function UserDashboard() {
                     )}
                     Assign All Tasks to Me
                   </Button>
-                  {isPracticeManager && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => setShowCreateMasterUser(true)}
-                    >
-                      <Crown className="h-4 w-4 mr-2" />
-                      Create Master User
-                    </Button>
+                  {(isPracticeManager || isMasterUser) && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => setShowCreateMasterUser(true)}
+                      >
+                        <Crown className="h-4 w-4 mr-2" />
+                        Create Master User
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => setShowPasswordReset(true)}
+                      >
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        Reset User Password
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -484,6 +496,22 @@ export function UserDashboard() {
               ×
             </Button>
             <CreateMasterUser />
+          </div>
+        </div>
+      )}
+
+      {showPasswordReset && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute -top-2 -right-2 z-10"
+              onClick={() => setShowPasswordReset(false)}
+            >
+              ×
+            </Button>
+            <PasswordReset />
           </div>
         </div>
       )}

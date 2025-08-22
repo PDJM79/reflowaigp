@@ -1,0 +1,96 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface ResetPasswordRequest {
+  email: string;
+  newPassword: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    const { email, newPassword }: ResetPasswordRequest = await req.json();
+
+    console.log(`Attempting to reset password for user: ${email}`);
+
+    // Find the user by email
+    const { data: users, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (searchError) {
+      console.error('Error searching for users:', searchError);
+      return new Response(JSON.stringify({ error: searchError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const targetUser = users.users.find(user => user.email === email);
+    
+    if (!targetUser) {
+      console.error(`User not found: ${email}`);
+      return new Response(JSON.stringify({ error: `User with email ${email} not found` }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Reset the user's password
+    const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      targetUser.id,
+      {
+        password: newPassword,
+        user_metadata: {
+          ...targetUser.user_metadata,
+          force_password_change: false
+        }
+      }
+    );
+
+    if (updateError) {
+      console.error('Error updating user password:', updateError);
+      return new Response(JSON.stringify({ error: updateError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`Successfully reset password for user: ${email}`);
+
+    return new Response(JSON.stringify({ 
+      message: `Password successfully reset for ${email}`,
+      user_id: updatedUser.user.id,
+      email: updatedUser.user.email
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error: any) {
+    console.error('Function error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+};
+
+serve(handler);
