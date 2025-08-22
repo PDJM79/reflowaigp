@@ -33,6 +33,14 @@ export function useTaskData() {
 
       if (!userData) return;
 
+      // Get practice manager for default assignment
+      const { data: practiceManager } = await supabase
+        .from('users')
+        .select('id, name, role')
+        .eq('practice_id', userData.practice_id)
+        .eq('is_practice_manager', true)
+        .single();
+
       // Get process instances for the practice with template info
       const { data: processInstances } = await supabase
         .from('process_instances')
@@ -51,6 +59,41 @@ export function useTaskData() {
         .eq('practice_id', userData.practice_id);
 
       if (!processInstances) return;
+
+      // Auto-assign unassigned processes to practice manager
+      const unassignedProcesses = processInstances.filter(p => !p.assignee_id);
+      
+      if (unassignedProcesses.length > 0 && practiceManager) {
+        const { error: assignError } = await supabase
+          .from('process_instances')
+          .update({ assignee_id: practiceManager.id })
+          .in('id', unassignedProcesses.map(p => p.id));
+
+        if (assignError) {
+          console.error('Error auto-assigning to practice manager:', assignError);
+        } else {
+          // Refresh data after assignment
+          const { data: updatedProcessInstances } = await supabase
+            .from('process_instances')
+            .select(`
+              *,
+              process_templates!inner (
+                name,
+                responsible_role,
+                steps
+              ),
+              users!assignee_id (
+                name,
+                role
+              )
+            `)
+            .eq('practice_id', userData.practice_id);
+          
+          if (updatedProcessInstances) {
+            processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
+          }
+        }
+      }
 
       // Convert to Task format
       const tasks: Task[] = processInstances.map(instance => {
