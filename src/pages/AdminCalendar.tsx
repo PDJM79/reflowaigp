@@ -50,7 +50,7 @@ export default function AdminCalendar() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_practice_manager, role')
+        .select('id, is_practice_manager, role')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -244,7 +244,7 @@ export default function AdminCalendar() {
                     const dayProcesses = getProcessesForDate(date);
                     return (
                       <div className="relative">
-                        <button {...props} className={props.className}>
+                        <button {...props}>
                           {format(date, 'd')}
                         </button>
                         {dayProcesses.length > 0 && (

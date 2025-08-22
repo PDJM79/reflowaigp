@@ -59,7 +59,7 @@ export default function AdminReports() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_practice_manager, role')
+        .select('id, is_practice_manager, role')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -121,9 +121,9 @@ export default function AdminReports() {
 
       // Calculate metrics
       const totalProcesses = processes.length;
-      const completedProcesses = processes.filter(p => p.status === 'completed').length;
+      const completedProcesses = processes.filter(p => p.status === 'complete').length;
       const overdueProcesses = processes.filter(p => 
-        p.status !== 'completed' && new Date(p.due_at) < new Date()
+        p.status !== 'complete' && new Date(p.due_at) < new Date()
       ).length;
       const completionRate = totalProcesses > 0 ? (completedProcesses / totalProcesses) * 100 : 0;
 
@@ -144,7 +144,7 @@ export default function AdminReports() {
           acc[templateName] = { total: 0, completed: 0 };
         }
         acc[templateName].total++;
-        if (process.status === 'completed') {
+        if (process.status === 'complete') {
           acc[templateName].completed++;
         }
         return acc;

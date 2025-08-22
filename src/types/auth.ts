@@ -1,3 +1,5 @@
+export type UserRole = 'practice_manager' | 'gp' | 'nurse' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'hca' | 'reception' | 'auditor';
+
 export interface RoleAssignment {
   role: string;
   name: string;

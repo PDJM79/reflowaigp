@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string, isAdmin?: boolean) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, isAdmin?: boolean) => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -85,6 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           description: error.message,
           variant: "destructive",
         });
+      } else if (isAdmin) {
+        // Redirect to admin calendar after successful admin login
+        window.location.href = '/admin/calendar';
       }
 
       return { error };
