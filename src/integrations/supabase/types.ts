@@ -591,9 +591,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_current_user_practice_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_practice_id: {
         Args: { user_id: string }
         Returns: string
+      }
+      is_current_user_master: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_current_user_practice_manager: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       is_master_user: {
         Args: { user_id: string }
