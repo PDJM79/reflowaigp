@@ -1,1 +1,4 @@
 project_id = "eeqfqklcdstbziedsnxc"
+
+[functions.create-missing-accounts]
+verify_jwt = false

@@ -19,9 +19,11 @@ export function UserDashboard() {
   const [isPracticeManager, setIsPracticeManager] = useState(false);
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [userPracticeId, setUserPracticeId] = useState('');
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
+  const [creatingAccounts, setCreatingAccounts] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -41,6 +43,7 @@ export function UserDashboard() {
           setUserName(data.name);
           setIsPracticeManager(data.is_practice_manager);
           setUserRole(data.role);
+          setUserPracticeId(data.practice_id);
 
           console.log('User role:', data.role, 'Practice ID:', data.practice_id);
 
@@ -84,6 +87,41 @@ export function UserDashboard() {
     if (status === 'green') return 'Continue';
     if (status === 'red') return 'Urgent';
     return 'Start';
+  };
+
+  const createMissingAccounts = async () => {
+    if (!userPracticeId) return;
+    
+    setCreatingAccounts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-missing-accounts', {
+        body: { practice_id: userPracticeId }
+      });
+
+      if (error) {
+        console.error('Error creating accounts:', error);
+        toast.error('Failed to create user accounts');
+        return;
+      }
+
+      const results = data.results || [];
+      const successful = results.filter((r: any) => r.success);
+      const failed = results.filter((r: any) => !r.success);
+
+      if (successful.length > 0) {
+        toast.success(`Successfully created ${successful.length} user accounts!`);
+      }
+      if (failed.length > 0) {
+        toast.error(`Failed to create ${failed.length} accounts. Check console for details.`);
+        console.error('Failed accounts:', failed);
+      }
+
+    } catch (error) {
+      console.error('Error creating accounts:', error);
+      toast.error('Failed to create user accounts');
+    } finally {
+      setCreatingAccounts(false);
+    }
   };
 
   const assignAllTasksToMe = async () => {
@@ -367,6 +405,19 @@ export function UserDashboard() {
                   >
                     <User className="h-4 w-4 mr-2" />
                     Team Dashboard
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={createMissingAccounts}
+                    disabled={creatingAccounts}
+                  >
+                    {creatingAccounts ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-4 w-4 mr-2" />
+                    )}
+                    Create Missing User Accounts
                   </Button>
                   <Button 
                     variant="outline" 
