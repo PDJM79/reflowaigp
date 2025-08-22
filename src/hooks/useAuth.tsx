@@ -3,6 +3,26 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
+// Auth cleanup utility to prevent limbo states
+const cleanupAuthState = () => {
+  // Remove standard auth tokens
+  localStorage.removeItem('supabase.auth.token');
+  
+  // Remove all Supabase auth keys from localStorage
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  // Remove from sessionStorage if in use
+  Object.keys(sessionStorage || {}).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -99,11 +119,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out (fallback if it fails)
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Ignore errors - continue with cleanup
+        console.warn('Sign out error (continuing):', err);
+      }
+      
       toast({
         title: "Signed out",
         description: "You have been signed out successfully",
       });
+      
+      // Force page reload for a clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+      
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast({
+        title: "Sign out error",
+        description: "There was an issue signing out, but you've been logged out locally",
+        variant: "destructive",
+      });
+      
+      // Force refresh anyway to clear state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
     } finally {
       setLoading(false);
     }
