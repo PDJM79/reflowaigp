@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useMasterUser } from './useMasterUser';
 
 export interface Task {
   id: string;
@@ -15,6 +16,7 @@ export interface Task {
 
 export function useTaskData() {
   const { user } = useAuth();
+  const { isMasterUser, selectedPracticeId } = useMasterUser();
   const [userTasks, setUserTasks] = useState<Task[]>([]);
   const [otherTasks, setOtherTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +26,12 @@ export function useTaskData() {
 
   const fetchTasks = async () => {
     try {
-      console.log('Fetching tasks for user:', user.id);
+      console.log('Fetching tasks for user:', user.id, 'Master user:', isMasterUser, 'Selected practice:', selectedPracticeId);
+      
       // Get user's practice info
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, practice_id, name, role')
+        .select('id, practice_id, name, role, is_master_user')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -38,15 +41,23 @@ export function useTaskData() {
         return;
       }
 
+      // Determine which practice to fetch data for
+      let targetPracticeId = userData.practice_id;
+      if (userData.is_master_user && selectedPracticeId) {
+        targetPracticeId = selectedPracticeId;
+      }
+
+      console.log('Fetching data for practice:', targetPracticeId);
+
       // Get practice manager for default assignment
       const { data: practiceManager } = await supabase
         .from('users')
         .select('id, name, role')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', targetPracticeId)
         .eq('is_practice_manager', true)
         .single();
 
-      // Get process instances for the practice with template info
+      // Get process instances for the target practice with template info
       const { data: processInstances, error: processError } = await supabase
         .from('process_instances')
         .select(`
@@ -61,11 +72,11 @@ export function useTaskData() {
             role
           )
         `)
-        .eq('practice_id', userData.practice_id);
+        .eq('practice_id', targetPracticeId);
 
       console.log('Process instances:', processInstances, 'Error:', processError);
       if (!processInstances) {
-        console.log('No process instances found for practice:', userData.practice_id);
+        console.log('No process instances found for practice:', targetPracticeId);
         return;
       }
 
@@ -82,21 +93,21 @@ export function useTaskData() {
           console.error('Error auto-assigning to practice manager:', assignError);
         } else {
           // Refresh data after assignment
-          const { data: updatedProcessInstances } = await supabase
-            .from('process_instances')
-            .select(`
-              *,
-              process_templates!inner (
-                name,
-                responsible_role,
-                steps
-              ),
-              users!assignee_id (
-                name,
-                role
-              )
-            `)
-            .eq('practice_id', userData.practice_id);
+              const { data: updatedProcessInstances } = await supabase
+                .from('process_instances')
+                .select(`
+                  *,
+                  process_templates!inner (
+                    name,
+                    responsible_role,
+                    steps
+                  ),
+                  users!assignee_id (
+                    name,
+                    role
+                  )
+                `)
+                .eq('practice_id', targetPracticeId);
           
           if (updatedProcessInstances) {
             processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
@@ -161,7 +172,7 @@ export function useTaskData() {
   };
 
     fetchTasks();
-  }, [user]);
+  }, [user, isMasterUser, selectedPracticeId]);
 
   return { userTasks, otherTasks, loading };
 }

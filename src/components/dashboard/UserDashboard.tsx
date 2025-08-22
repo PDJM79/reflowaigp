@@ -3,18 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
+import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isMasterUser, selectedPracticeId, selectedPracticeName, clearSelectedPractice } = useMasterUser();
   const { userTasks, otherTasks, loading } = useTaskData();
   const [isPracticeManager, setIsPracticeManager] = useState(false);
   const [userName, setUserName] = useState('');
@@ -22,6 +25,7 @@ export function UserDashboard() {
   const [userPracticeId, setUserPracticeId] = useState('');
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
+  const [showCreateMasterUser, setShowCreateMasterUser] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
 
@@ -33,7 +37,7 @@ export function UserDashboard() {
         console.log('Fetching user info for auth user:', user.id);
         const { data, error } = await supabase
           .from('users')
-          .select('name, is_practice_manager, role, practice_id')
+          .select('name, is_practice_manager, role, practice_id, is_master_user')
           .eq('auth_user_id', user.id)
           .single();
 
@@ -43,15 +47,18 @@ export function UserDashboard() {
           setUserName(data.name);
           setIsPracticeManager(data.is_practice_manager);
           setUserRole(data.role);
-          setUserPracticeId(data.practice_id);
+          
+          // For master users, use selected practice, otherwise use user's practice
+          const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
+          setUserPracticeId(practiceId);
 
-          console.log('User role:', data.role, 'Practice ID:', data.practice_id);
+          console.log('User role:', data.role, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
 
           // Fetch all process templates where the user's role is responsible
           const { data: templates, error: templatesError } = await supabase
             .from('process_templates')
             .select('name, responsible_role, frequency')
-            .eq('practice_id', data.practice_id)
+            .eq('practice_id', practiceId)
             .eq('responsible_role', data.role);
 
           console.log('Process templates for role:', templates, 'Error:', templatesError);
@@ -65,7 +72,7 @@ export function UserDashboard() {
     };
 
     fetchUserInfo();
-  }, [user]);
+  }, [user, isMasterUser, selectedPracticeId]);
 
   const handleTaskClick = (taskId: string) => {
     console.log('Navigate to task:', taskId);
@@ -182,11 +189,36 @@ export function UserDashboard() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
+            {isMasterUser && <Crown className="h-6 w-6 text-yellow-500" />}
             <User className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Welcome back, {userName}!</h1>
+            <div>
+              <h1 className="text-2xl font-bold">
+                Welcome back, {userName}!
+                {isMasterUser && <Badge variant="secondary" className="ml-2">Master Admin</Badge>}
+              </h1>
+              {isMasterUser && selectedPracticeName && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Building2 className="h-4 w-4" />
+                  Managing: {selectedPracticeName}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            {isPracticeManager && (
+            {isMasterUser && (
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => {
+                  clearSelectedPractice();
+                  window.location.reload();
+                }}
+              >
+                <Building2 className="h-4 w-4" />
+                Switch Practice
+              </Button>
+            )}
+            {(isPracticeManager || isMasterUser) && (
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2"
@@ -254,8 +286,8 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            {/* Other Tasks - visible to Practice Managers */}
-            {isPracticeManager && (
+            {/* Other Tasks - visible to Practice Managers and Master Users */}
+            {(isPracticeManager || isMasterUser) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -419,6 +451,16 @@ export function UserDashboard() {
                     )}
                     Assign All Tasks to Me
                   </Button>
+                  {isPracticeManager && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => setShowCreateMasterUser(true)}
+                    >
+                      <Crown className="h-4 w-4 mr-2" />
+                      Create Master User
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -428,6 +470,22 @@ export function UserDashboard() {
 
       {showRoleManagement && (
         <RoleManagement onClose={() => setShowRoleManagement(false)} />
+      )}
+      
+      {showCreateMasterUser && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute -top-2 -right-2 z-10"
+              onClick={() => setShowCreateMasterUser(false)}
+            >
+              ×
+            </Button>
+            <CreateMasterUser />
+          </div>
+        </div>
       )}
     </div>
   );

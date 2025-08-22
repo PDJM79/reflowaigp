@@ -543,6 +543,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean | null
+          is_master_user: boolean | null
           is_practice_manager: boolean | null
           name: string
           practice_id: string
@@ -555,6 +556,7 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean | null
+          is_master_user?: boolean | null
           is_practice_manager?: boolean | null
           name: string
           practice_id: string
@@ -567,6 +569,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean | null
+          is_master_user?: boolean | null
           is_practice_manager?: boolean | null
           name?: string
           practice_id?: string
@@ -591,6 +594,10 @@ export type Database = {
       get_user_practice_id: {
         Args: { user_id: string }
         Returns: string
+      }
+      is_master_user: {
+        Args: { user_id: string }
+        Returns: boolean
       }
       is_practice_manager: {
         Args: { user_id: string }

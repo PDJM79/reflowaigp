@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { MasterUserProvider } from "@/hooks/useMasterUser";
 import Index from "./pages/Index";
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
@@ -19,24 +20,26 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/task/:taskId" element={<TaskDetail />} />
-            <Route path="/task/:taskId/step/:stepIndex" element={<StepExecution />} />
-            <Route path="/processes" element={<AllProcesses />} />
-            <Route path="/risk-register" element={<RiskRegister />} />
-            <Route path="/team" element={<TeamDashboard />} />
-            <Route path="/admin/calendar" element={<AdminCalendar />} />
-            <Route path="/admin/reports" element={<AdminReports />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <MasterUserProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/task/:taskId" element={<TaskDetail />} />
+              <Route path="/task/:taskId/step/:stepIndex" element={<StepExecution />} />
+              <Route path="/processes" element={<AllProcesses />} />
+              <Route path="/risk-register" element={<RiskRegister />} />
+              <Route path="/team" element={<TeamDashboard />} />
+              <Route path="/admin/calendar" element={<AdminCalendar />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </MasterUserProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
