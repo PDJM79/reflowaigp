@@ -18,6 +18,11 @@ export function AuthForm() {
     await signIn(email, password);
   };
 
+  const handleAdminSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await signIn(email, password, true);
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     await signUp(email, password);
@@ -36,9 +41,10 @@ export function AuthForm() {
           </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="admin">Administrator</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
