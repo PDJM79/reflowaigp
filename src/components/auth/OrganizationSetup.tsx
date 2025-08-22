@@ -22,6 +22,155 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   );
   const [loading, setLoading] = useState(false);
 
+  const createStandardProcessTemplates = async (practiceId: string) => {
+    const standardTemplates = [
+      {
+        name: 'Monthly Clinical Audit',
+        responsible_role: 'administrator',
+        frequency: 'monthly',
+        steps: [
+          {"title": "Review patient records", "description": "Review a sample of patient records for compliance"},
+          {"title": "Document findings", "description": "Document any issues or compliance gaps found"},
+          {"title": "Create action plan", "description": "Develop corrective actions for any identified issues"},
+          {"title": "Submit audit report", "description": "Complete and submit the monthly audit report"}
+        ],
+        evidence_hint: 'Clinical audit documentation, compliance checklists',
+        storage_hints: {"folder": "/clinical-audits", "system": "Practice Management System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "5 days"}
+      },
+      {
+        name: 'Weekly Staff Training Review',
+        responsible_role: 'administrator',
+        frequency: 'weekly',
+        steps: [
+          {"title": "Review training records", "description": "Check all staff have completed required training"},
+          {"title": "Identify training gaps", "description": "Note any staff missing mandatory training"},
+          {"title": "Schedule additional training", "description": "Book training sessions for staff as needed"},
+          {"title": "Update training matrix", "description": "Update the staff training tracking matrix"}
+        ],
+        evidence_hint: 'Training certificates, attendance records',
+        storage_hints: {"folder": "/staff-training", "system": "HR System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "3 days"}
+      },
+      {
+        name: 'Daily Equipment Check',
+        responsible_role: 'gp',
+        frequency: 'daily',
+        steps: [
+          {"title": "Check medical equipment", "description": "Verify all medical equipment is functioning properly"},
+          {"title": "Test emergency equipment", "description": "Test defibrillator and emergency response equipment"},
+          {"title": "Record readings", "description": "Log equipment readings and any issues found"},
+          {"title": "Report issues", "description": "Report any equipment problems to maintenance"}
+        ],
+        evidence_hint: 'Equipment log sheets, maintenance records',
+        storage_hints: {"folder": "/equipment-logs", "system": "Maintenance System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "1 day"}
+      },
+      {
+        name: 'Patient Safety Review',
+        responsible_role: 'nurse',
+        frequency: 'weekly',
+        steps: [
+          {"title": "Review incident reports", "description": "Review any patient safety incidents from the week"},
+          {"title": "Assess risk levels", "description": "Evaluate the risk level of each incident"},
+          {"title": "Implement improvements", "description": "Put in place any necessary safety improvements"},
+          {"title": "Update safety protocols", "description": "Update safety protocols based on findings"}
+        ],
+        evidence_hint: 'Incident reports, safety checklists',
+        storage_hints: {"folder": "/patient-safety", "system": "Incident Management System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "2 days"}
+      },
+      {
+        name: 'Monthly Infection Control Audit',
+        responsible_role: 'nurse_lead',
+        frequency: 'monthly',
+        steps: [
+          {"title": "Inspect clinical areas", "description": "Check all clinical areas for infection control compliance"},
+          {"title": "Review cleaning logs", "description": "Verify cleaning and disinfection procedures are being followed"},
+          {"title": "Check hand hygiene compliance", "description": "Assess staff hand hygiene practices"},
+          {"title": "Update infection control policies", "description": "Update policies based on latest guidelines"}
+        ],
+        evidence_hint: 'Infection control checklists, cleaning logs',
+        storage_hints: {"folder": "/infection-control", "system": "Clinical Management System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "3 days"}
+      },
+      {
+        name: 'Quarterly Financial Review',
+        responsible_role: 'practice_manager',
+        frequency: 'quarterly',
+        steps: [
+          {"title": "Review practice accounts", "description": "Analyze income, expenses, and profitability"},
+          {"title": "Budget variance analysis", "description": "Compare actual vs budgeted figures"},
+          {"title": "Cash flow forecast", "description": "Project cash flow for next quarter"},
+          {"title": "Financial report preparation", "description": "Prepare summary for stakeholders"}
+        ],
+        evidence_hint: 'Financial statements, budget reports',
+        storage_hints: {"folder": "/financial-records", "system": "Accounting System"},
+        remedials: {"escalation": "Senior Partner", "deadline_extension": "7 days"}
+      },
+      {
+        name: 'Daily Reception Procedures',
+        responsible_role: 'reception_lead',
+        frequency: 'daily',
+        steps: [
+          {"title": "Check appointment system", "description": "Verify appointment bookings and availability"},
+          {"title": "Process patient calls", "description": "Handle patient inquiries and triage calls"},
+          {"title": "Update patient records", "description": "Ensure patient information is current"},
+          {"title": "End of day reconciliation", "description": "Balance cash, cards, and appointment records"}
+        ],
+        evidence_hint: 'Reception logs, appointment records',
+        storage_hints: {"folder": "/reception-logs", "system": "Practice Management System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "1 day"}
+      },
+      {
+        name: 'Weekly Clinical Governance Review',
+        responsible_role: 'cd_lead_gp',
+        frequency: 'weekly',
+        steps: [
+          {"title": "Review clinical incidents", "description": "Analyze any clinical incidents from the week"},
+          {"title": "Audit clinical decisions", "description": "Review sample of clinical decision making"},
+          {"title": "Check prescribing patterns", "description": "Monitor prescribing for safety and effectiveness"},
+          {"title": "Update clinical protocols", "description": "Revise protocols based on evidence and incidents"}
+        ],
+        evidence_hint: 'Clinical incident reports, prescribing data',
+        storage_hints: {"folder": "/clinical-governance", "system": "Clinical System"},
+        remedials: {"escalation": "Practice Manager", "deadline_extension": "2 days"}
+      }
+    ];
+
+    try {
+      const { error } = await supabase
+        .from('process_templates')
+        .insert(
+          standardTemplates.map(template => ({
+            practice_id: practiceId,
+            name: template.name,
+            responsible_role: template.responsible_role as any,
+            frequency: template.frequency as any,
+            steps: template.steps,
+            evidence_hint: template.evidence_hint,
+            storage_hints: template.storage_hints,
+            remedials: template.remedials
+          }))
+        );
+
+      if (error) {
+        console.error('Error creating standard templates:', error);
+        throw error;
+      }
+
+      console.log('Standard process templates created successfully');
+    } catch (error) {
+      console.error('Failed to create standard process templates:', error);
+      // Don't fail the entire setup if templates fail
+      toast({
+        title: "Template creation warning",
+        description: "Standard processes could not be created. You can add them manually later.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateRoleAssignment = (index: number, field: keyof RoleAssignment, value: string) => {
     const updated = [...roleAssignments];
     updated[index] = { ...updated[index], [field]: value };
@@ -180,9 +329,12 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
       if (setupError) throw setupError;
 
+      // Create standard process templates for the new practice
+      await createStandardProcessTemplates(practice.id);
+
       toast({
         title: "Organization setup complete",
-        description: "Your practice has been set up successfully",
+        description: "Your practice has been set up successfully with standard processes",
       });
 
       onComplete();
