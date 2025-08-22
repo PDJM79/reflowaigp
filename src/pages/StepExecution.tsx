@@ -140,10 +140,17 @@ export default function StepExecution() {
         description: "Your progress has been saved successfully.",
       });
 
-      // Check if this is the last step
-      const stepsArray = Array.isArray(processTemplate?.steps) ? processTemplate.steps : [];
-      const totalSteps = stepsArray.length;
-      if (currentStepIndex + 1 >= totalSteps) {
+      // Check if this is the last step - use same parsing logic
+      let stepCount = 0;
+      if (processTemplate?.steps) {
+        if (Array.isArray(processTemplate.steps)) {
+          stepCount = processTemplate.steps.length;
+        } else if (typeof processTemplate.steps === 'object') {
+          stepCount = Array.isArray(processTemplate.steps) ? processTemplate.steps.length : 0;
+        }
+      }
+      
+      if (currentStepIndex + 1 >= stepCount) {
         // Complete the entire process
         await supabase
           .from('process_instances')
@@ -390,9 +397,29 @@ export default function StepExecution() {
     );
   }
 
-  const stepsArray = Array.isArray(processTemplate.steps) ? processTemplate.steps : [];
-  const currentStep = stepsArray[currentStepIndex];
-  const totalSteps = stepsArray.length;
+  // Parse steps from template - handle both array and JSON string formats
+  let stepsArray = [];
+  if (processTemplate.steps) {
+    if (Array.isArray(processTemplate.steps)) {
+      stepsArray = processTemplate.steps;
+    } else if (typeof processTemplate.steps === 'string') {
+      try {
+        stepsArray = JSON.parse(processTemplate.steps);
+      } catch (e) {
+        console.error('Error parsing steps JSON:', e);
+        stepsArray = [];
+      }
+    } else if (typeof processTemplate.steps === 'object') {
+      // Handle object format from database
+      stepsArray = processTemplate.steps;
+    }
+  }
+  
+  console.log('StepExecution - Raw steps data:', processTemplate.steps);
+  console.log('StepExecution - Parsed steps array:', stepsArray);
+  
+  const currentStep = Array.isArray(stepsArray) && stepsArray.length > currentStepIndex ? stepsArray[currentStepIndex] : null;
+  const totalSteps = Array.isArray(stepsArray) ? stepsArray.length : 0;
   const isLastStep = currentStepIndex + 1 >= totalSteps;
 
   return (
