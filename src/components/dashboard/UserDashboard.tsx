@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTaskData } from '@/hooks/useTaskData';
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -18,6 +18,8 @@ export function UserDashboard() {
   const { userTasks, otherTasks, loading } = useTaskData();
   const [isPracticeManager, setIsPracticeManager] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
+  const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
 
@@ -28,13 +30,23 @@ export function UserDashboard() {
       try {
         const { data } = await supabase
           .from('users')
-          .select('name, is_practice_manager')
+          .select('name, is_practice_manager, role, practice_id')
           .eq('auth_user_id', user.id)
           .single();
 
         if (data) {
           setUserName(data.name);
           setIsPracticeManager(data.is_practice_manager);
+          setUserRole(data.role);
+
+          // Fetch all process templates where the user's role is responsible
+          const { data: templates } = await supabase
+            .from('process_templates')
+            .select('name, responsible_role, frequency')
+            .eq('practice_id', data.practice_id)
+            .eq('responsible_role', data.role);
+
+          setAllProcessesByRole(templates || []);
         }
       } catch (error) {
         console.error('Error fetching user info:', error);
@@ -277,6 +289,41 @@ export function UserDashboard() {
                       <span className="text-sm font-medium">
                         {[...userTasks, ...otherTasks].filter(t => t.status === 'red').length}
                       </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Process Responsibilities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Process Schedule Information
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        As tasks become ready to be completed, they will appear in your schedule 1 week before they're due.
+                      </p>
+                      {allProcessesByRole.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                            You are responsible for these processes:
+                          </p>
+                          <ul className="space-y-1">
+                            {allProcessesByRole.map((process, index) => (
+                              <li key={index} className="text-sm text-blue-700 dark:text-blue-300">
+                                • {process.name} ({process.frequency})
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

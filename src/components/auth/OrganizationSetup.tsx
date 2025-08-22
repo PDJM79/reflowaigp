@@ -126,6 +126,46 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         if (userError) throw userError;
       }
 
+      // Create user accounts for non-practice manager roles
+      const nonPracticeManagerAssignments = filledAssignments.filter(
+        assignment => assignment.role !== 'practice_manager'
+      );
+
+      const createdUsers: string[] = [];
+      
+      for (const assignment of nonPracticeManagerAssignments) {
+        try {
+          const response = await fetch('/functions/v1/create-user-accounts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            },
+            body: JSON.stringify({
+              email: assignment.email,
+              name: assignment.name,
+              role: assignment.role,
+              practice_id: practice.id
+            })
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(`Failed to create user ${assignment.email}: ${error.error}`);
+          }
+
+          const result = await response.json();
+          createdUsers.push(result.user_id);
+        } catch (error) {
+          console.error(`Error creating user ${assignment.email}:`, error);
+          toast({
+            title: "User creation warning",
+            description: `Could not create account for ${assignment.email}. They can be added later.`,
+            variant: "destructive",
+          });
+        }
+      }
+
       // Create role assignments (only for filled ones)
       const { error: rolesError } = await supabase
         .from('role_assignments')

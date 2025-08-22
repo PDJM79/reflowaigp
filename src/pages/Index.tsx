@@ -2,12 +2,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
+import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { useOrganizationSetup } from '@/hooks/useOrganizationSetup';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
+  
+  // Check if user needs to change password
+  const needsPasswordChange = user?.user_metadata?.force_password_change === true;
 
   if (authLoading || setupLoading) {
     return (
@@ -19,6 +23,10 @@ const Index = () => {
 
   if (!user) {
     return <AuthForm />;
+  }
+
+  if (needsPasswordChange) {
+    return <PasswordChangeForm onComplete={() => window.location.reload()} />;
   }
 
   if (needsSetup) {
