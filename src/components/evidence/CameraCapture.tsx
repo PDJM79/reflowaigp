@@ -24,8 +24,9 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Take Photo"
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment', // Use back camera if available
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 2560, min: 1280 },
+          height: { ideal: 1440, min: 720 },
+          aspectRatio: { ideal: 16/9 }
         },
         audio: false
       });
@@ -72,14 +73,14 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Take Photo"
     // Draw video frame to canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert to blob and capture
+    // Convert to blob and capture with maximum quality
     canvas.toBlob((blob) => {
       if (blob) {
         const imageUrl = URL.createObjectURL(blob);
         setCapturedImage(imageUrl);
         stopCamera();
       }
-    }, 'image/jpeg', 0.9);
+    }, 'image/png');
   }, [stopCamera]);
 
   const retakePhoto = useCallback(() => {
@@ -98,7 +99,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Take Photo"
         onCapture(blob);
         handleClose();
       }
-    }, 'image/jpeg', 0.9);
+    }, 'image/png');
   }, [capturedImage, onCapture, handleClose]);
 
   // Start camera when dialog opens
