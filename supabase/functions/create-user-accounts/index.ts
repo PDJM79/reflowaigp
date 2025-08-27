@@ -11,6 +11,7 @@ interface CreateUserRequest {
   name: string;
   role: string;
   practice_id: string;
+  password?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -30,17 +31,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    const { email, name, role, practice_id }: CreateUserRequest = await req.json();
+    const { email, name, role, practice_id, password }: CreateUserRequest = await req.json();
 
-    // Create user with default password
+    // Create user with provided password or default
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: 'Password',
+      password: password || 'Password',
       email_confirm: true,
       user_metadata: {
         name,
         role,
-        force_password_change: true
+        force_password_change: !password // Only force change if using default password
       }
     });
 

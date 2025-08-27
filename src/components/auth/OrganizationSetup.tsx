@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, LogOut } from 'lucide-react';
+import { Plus, Trash2, LogOut, Mail } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RoleAssignment, AVAILABLE_ROLES } from '@/types/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,9 +18,9 @@ interface OrganizationSetupProps {
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const { signOut } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
-  // Initialize with all available roles, empty name/email
+  // Initialize with all available roles, empty name/email/password
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>(
-    AVAILABLE_ROLES.map(role => ({ role: role.value, name: '', email: '' }))
+    AVAILABLE_ROLES.map(role => ({ role: role.value, name: '', email: '', password: '' }))
   );
   const [loading, setLoading] = useState(false);
 
@@ -204,21 +204,21 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
     // Only check for filled assignments (allow empty ones to be skipped)
     const filledAssignments = roleAssignments.filter(
-      assignment => assignment.name.trim() || assignment.email.trim()
+      assignment => assignment.name.trim() || assignment.email.trim() || assignment.password.trim()
     );
 
     const invalidAssignments = filledAssignments.filter(
-      assignment => !assignment.name.trim() || !assignment.email.trim()
+      assignment => !assignment.name.trim() || !assignment.email.trim() || !assignment.password.trim()
     );
 
-    if (invalidAssignments.length > 0) {
-      toast({
-        title: "Incomplete role assignments",
-        description: "Please complete all started role assignments (both name and email required)",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (invalidAssignments.length > 0) {
+        toast({
+          title: "Incomplete role assignments",
+          description: "Please complete all started role assignments (name, email, and password required)",
+          variant: "destructive",
+        });
+        return;
+      }
 
     // Ensure at least practice manager is assigned
     const practiceManagerAssignment = filledAssignments.find(a => a.role === 'practice_manager');
@@ -299,7 +299,8 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
               email: assignment.email,
               name: assignment.name,
               role: assignment.role,
-              practice_id: practice.id
+              practice_id: practice.id,
+              password: assignment.password
             }
           });
 
@@ -397,9 +398,31 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
                 {roleAssignments.map((assignment, index) => {
                   const roleInfo = AVAILABLE_ROLES.find(r => r.value === assignment.role);
+                  const hasContent = assignment.name.trim() || assignment.email.trim() || assignment.password.trim();
+                  const isComplete = assignment.name.trim() && assignment.email.trim() && assignment.password.trim();
+                  
+                  const generateMailtoLink = () => {
+                    const subject = encodeURIComponent(`Your ${organizationName || 'Practice'} Account Login Details`);
+                    const body = encodeURIComponent(`Hello ${assignment.name || '[Name]'},
+
+Your account has been set up for ${organizationName || '[Practice Name]'}. Here are your login details:
+
+Email: ${assignment.email || '[Email]'}
+Password: ${assignment.password || '[Password]'}
+
+Please log in at: ${window.location.origin}
+
+You can change your password after your first login.
+
+Best regards,
+Practice Management Team`);
+                    
+                    return `mailto:${assignment.email}?subject=${subject}&body=${body}`;
+                  };
+
                   return (
                     <Card key={assignment.role} className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                         <div className="space-y-2">
                           <Label className="font-medium">{roleInfo?.label}</Label>
                           <div className="text-sm text-muted-foreground">
@@ -423,9 +446,47 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                             type="email"
                             value={assignment.email}
                             onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
-                            placeholder="email@example.com"
+                            placeholder="user@example.com"
                             required={assignment.role === 'practice_manager'}
                           />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Password</Label>
+                          <Input
+                            type="password"
+                            value={assignment.password}
+                            onChange={(e) => updateRoleAssignment(index, 'password', e.target.value)}
+                            placeholder="Create password"
+                            required={assignment.role === 'practice_manager'}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-transparent">Send</Label>
+                          {isComplete ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => window.open(generateMailtoLink())}
+                            >
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Login
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              className="w-full"
+                            >
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Login
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>

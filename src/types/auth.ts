@@ -4,6 +4,7 @@ export interface RoleAssignment {
   role: string;
   name: string;
   email: string;
+  password: string;
 }
 
 export interface OrganizationSetup {
