@@ -141,7 +141,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
     ];
 
     try {
-      const { error } = await supabase
+      const { data: templates, error } = await supabase
         .from('process_templates')
         .insert(
           standardTemplates.map(template => ({
@@ -154,7 +154,8 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
             storage_hints: template.storage_hints,
             remedials: template.remedials
           }))
-        );
+        )
+        .select();
 
       if (error) {
         console.error('Error creating standard templates:', error);
@@ -162,12 +163,113 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       }
 
       console.log('Standard process templates created successfully');
+      return templates;
     } catch (error) {
       console.error('Failed to create standard process templates:', error);
       // Don't fail the entire setup if templates fail
       toast({
         title: "Template creation warning",
         description: "Standard processes could not be created. You can add them manually later.",
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+  const createInitialProcessInstances = async (practiceId: string, templates: any[]) => {
+    if (!templates || templates.length === 0) return;
+
+    try {
+      // Get all users in this practice to assign tasks to them
+      const { data: practiceUsers, error: usersError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('practice_id', practiceId);
+
+      if (usersError) throw usersError;
+
+      const now = new Date();
+      const processInstances = [];
+
+      for (const template of templates) {
+        // Find users with matching roles for this template
+        const assignedUsers = practiceUsers.filter(user => user.role === template.responsible_role);
+        
+        // If no specific user found, assign to practice manager
+        const targetUsers = assignedUsers.length > 0 ? assignedUsers : 
+          practiceUsers.filter(user => user.role === 'practice_manager');
+
+        for (const user of targetUsers) {
+          // Calculate due date based on frequency
+          let dueDate = new Date(now);
+          switch (template.frequency) {
+            case 'daily':
+              dueDate.setDate(now.getDate() + 1);
+              break;
+            case 'weekly':
+              dueDate.setDate(now.getDate() + 7);
+              break;
+            case 'monthly':
+              dueDate.setMonth(now.getMonth() + 1);
+              break;
+            case 'quarterly':
+              dueDate.setMonth(now.getMonth() + 3);
+              break;
+            default:
+              dueDate.setDate(now.getDate() + 7); // Default to weekly
+          }
+
+          processInstances.push({
+            template_id: template.id,
+            practice_id: practiceId,
+            assignee_id: user.id,
+            status: 'pending',
+            period_start: now.toISOString(),
+            period_end: dueDate.toISOString(),
+            due_at: dueDate.toISOString()
+          });
+        }
+      }
+
+      if (processInstances.length > 0) {
+        const { data: instances, error: instancesError } = await supabase
+          .from('process_instances')
+          .insert(processInstances)
+          .select();
+
+        if (instancesError) throw instancesError;
+
+        // Create step instances for each process instance
+        const stepInstances = [];
+        for (const instance of instances) {
+          const template = templates.find(t => t.id === instance.template_id);
+          if (template && template.steps) {
+            template.steps.forEach((step: any, index: number) => {
+              stepInstances.push({
+                process_instance_id: instance.id,
+                step_index: index,
+                title: step.title,
+                status: 'pending'
+              });
+            });
+          }
+        }
+
+        if (stepInstances.length > 0) {
+          const { error: stepError } = await supabase
+            .from('step_instances')
+            .insert(stepInstances);
+
+          if (stepError) throw stepError;
+        }
+
+        console.log(`Created ${processInstances.length} initial process instances with ${stepInstances.length} steps`);
+      }
+    } catch (error) {
+      console.error('Failed to create initial process instances:', error);
+      toast({
+        title: "Process creation warning",
+        description: "Initial tasks could not be created. Process templates are available for manual assignment.",
         variant: "destructive",
       });
     }
@@ -343,11 +445,14 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       if (setupError) throw setupError;
 
       // Create standard process templates for the new practice
-      await createStandardProcessTemplates(practice.id);
+      const templates = await createStandardProcessTemplates(practice.id);
+
+      // Create initial process instances for all users
+      await createInitialProcessInstances(practice.id, templates || []);
 
       toast({
         title: "Organization setup complete",
-        description: "Your practice has been set up successfully with standard processes",
+        description: "Your practice has been set up successfully with standard processes and initial tasks",
       });
 
       onComplete();
