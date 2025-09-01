@@ -134,6 +134,30 @@ export function UserDashboard() {
     }
   };
 
+  const createInitialProcesses = async () => {
+    if (!userPracticeId) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('create-initial-processes', {
+        body: { practice_id: userPracticeId }
+      });
+
+      if (error) {
+        console.error('Error creating initial processes:', error);
+        toast.error('Failed to create initial processes');
+        return;
+      }
+
+      toast.success(`Created ${data?.process_instances_created || 0} tasks for all users`);
+      
+      // Refresh the page to show the new tasks
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating initial processes:', error);
+      toast.error('Failed to create initial processes');
+    }
+  };
+
   const assignAllTasksToMe = async () => {
     if (!user) return;
     
@@ -525,6 +549,16 @@ export function UserDashboard() {
                     )}
                     Assign All Tasks to Me
                   </Button>
+                  {(isPracticeManager || isMasterUser) && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={createInitialProcesses}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Create Tasks for All Users
+                    </Button>
+                  )}
                   {(isPracticeManager || isMasterUser) && (
                     <>
                       <Button 
