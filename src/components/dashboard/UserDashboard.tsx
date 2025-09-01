@@ -138,25 +138,39 @@ export function UserDashboard() {
     if (!userPracticeId) return;
     
     try {
+      console.log('Creating initial processes for practice:', userPracticeId);
+      
       const { data, error } = await supabase.functions.invoke('create-initial-processes', {
         body: { practice_id: userPracticeId }
       });
 
+      console.log('Create initial processes response:', data, 'Error:', error);
+
       if (error) {
         console.error('Error creating initial processes:', error);
-        toast.error('Failed to create initial processes');
+        toast.error(`Failed to create initial processes: ${error.message}`);
         return;
       }
 
       toast.success(`Created ${data?.process_instances_created || 0} tasks for all users`);
       
       // Refresh the page to show the new tasks
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error('Error creating initial processes:', error);
       toast.error('Failed to create initial processes');
     }
   };
+
+  // Auto-create tasks if none exist and user is practice manager
+  useEffect(() => {
+    if (isPracticeManager && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
+      console.log('No tasks found, auto-creating initial processes...');
+      createInitialProcesses();
+    }
+  }, [isPracticeManager, userTasks.length, otherTasks.length, loading, userPracticeId]);
 
   const assignAllTasksToMe = async () => {
     if (!user) return;
