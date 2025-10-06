@@ -1710,6 +1710,7 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string | null
+          custom_frequency: string | null
           evidence_hint: string | null
           frequency: Database["public"]["Enums"]["process_frequency"]
           id: string
@@ -1717,6 +1718,8 @@ export type Database = {
           practice_id: string
           remedials: Json
           responsible_role: Database["public"]["Enums"]["user_role"]
+          sla_hours: number | null
+          start_date: string | null
           steps: Json
           storage_hints: Json | null
           updated_at: string | null
@@ -1724,6 +1727,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          custom_frequency?: string | null
           evidence_hint?: string | null
           frequency: Database["public"]["Enums"]["process_frequency"]
           id?: string
@@ -1731,6 +1735,8 @@ export type Database = {
           practice_id: string
           remedials?: Json
           responsible_role: Database["public"]["Enums"]["user_role"]
+          sla_hours?: number | null
+          start_date?: string | null
           steps?: Json
           storage_hints?: Json | null
           updated_at?: string | null
@@ -1738,6 +1744,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           created_at?: string | null
+          custom_frequency?: string | null
           evidence_hint?: string | null
           frequency?: Database["public"]["Enums"]["process_frequency"]
           id?: string
@@ -1745,6 +1752,8 @@ export type Database = {
           practice_id?: string
           remedials?: Json
           responsible_role?: Database["public"]["Enums"]["user_role"]
+          sla_hours?: number | null
+          start_date?: string | null
           steps?: Json
           storage_hints?: Json | null
           updated_at?: string | null
@@ -2383,6 +2392,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_next_due_date: {
+        Args: {
+          _frequency: Database["public"]["Enums"]["process_frequency"]
+          _occurrence_count?: number
+          _start_date: string
+        }
+        Returns: string
+      }
       can_access_sensitive_user_field: {
         Args: { _target_user_id: string }
         Returns: boolean
@@ -2444,6 +2461,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      is_task_compliant: {
+        Args: { _completed_at: string; _due_at: string; _sla_hours: number }
+        Returns: boolean
+      }
       user_has_mfa_enabled: {
         Args: { _user_id: string }
         Returns: boolean
@@ -2484,6 +2505,7 @@ export type Database = {
         | "quarterly"
         | "six_monthly"
         | "annual"
+        | "twice_daily"
       process_status: "pending" | "in_progress" | "complete" | "blocked"
       responsible_role:
         | "practice_manager"
@@ -2665,6 +2687,7 @@ export const Constants = {
         "quarterly",
         "six_monthly",
         "annual",
+        "twice_daily",
       ],
       process_status: ["pending", "in_progress", "complete", "blocked"],
       responsible_role: [
