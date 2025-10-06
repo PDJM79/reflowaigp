@@ -20,6 +20,46 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // SECURITY: Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create client to verify user
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { email, name, role, practice_id, password }: CreateUserRequest = await req.json();
+
+    // SECURITY: Verify user is practice manager for this practice
+    const { data: requesterUser } = await supabaseClient
+      .from('users')
+      .select('is_practice_manager, practice_id')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (!requesterUser?.is_practice_manager || requesterUser.practice_id !== practice_id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Practice manager privileges required for this practice' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -31,17 +71,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    const { email, name, role, practice_id, password }: CreateUserRequest = await req.json();
+    // SECURITY: Generate secure random password if not provided
+    const securePassword = password || crypto.randomUUID();
 
-    // Create user with provided password or default
+    // Create user with secure password
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: password || 'Password',
+      password: securePassword,
       email_confirm: true,
       user_metadata: {
         name,
-        role,
-        force_password_change: !password // Only force change if using default password
+        role
       }
     });
 
@@ -54,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create user record in users table
-    const { error: userError } = await supabaseAdmin
+    const { error: userTableError } = await supabaseAdmin
       .from('users')
       .insert({
         auth_user_id: authUser.user.id,
@@ -65,20 +105,27 @@ const handler = async (req: Request): Promise<Response> => {
         is_practice_manager: role === 'practice_manager'
       });
 
-    if (userError) {
-      console.error('User table error:', userError);
+    if (userTableError) {
+      console.error('User table error:', userTableError);
       // Clean up auth user if user table insert fails
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       
-      return new Response(JSON.stringify({ error: userError.message }), {
+      return new Response(JSON.stringify({ error: userTableError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    // SECURITY: Send password reset email for first login
+    await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: email
+    });
+
     return new Response(JSON.stringify({ 
       user_id: authUser.user.id,
-      email: authUser.user.email 
+      email: authUser.user.email,
+      message: 'User created. Password reset email sent.'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

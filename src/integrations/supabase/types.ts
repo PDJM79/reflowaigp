@@ -2192,6 +2192,48 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          practice_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          practice_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          practice_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           auth_user_id: string | null
@@ -2315,6 +2357,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_practice_from_roles: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_user_practice_id: {
         Args: { user_id: string }
         Returns: string
@@ -2336,6 +2382,13 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       is_current_user_master: {
         Args: Record<PropertyKey, never>
@@ -2359,6 +2412,20 @@ export type Database = {
       }
     }
     Enums: {
+      app_role:
+        | "practice_manager"
+        | "gp"
+        | "nurse"
+        | "administrator"
+        | "nurse_lead"
+        | "cd_lead_gp"
+        | "estates_lead"
+        | "ig_lead"
+        | "reception_lead"
+        | "hca"
+        | "reception"
+        | "auditor"
+        | "group_manager"
       evidence_type: "photo" | "note" | "signature"
       frequency:
         | "daily"
@@ -2524,6 +2591,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: [
+        "practice_manager",
+        "gp",
+        "nurse",
+        "administrator",
+        "nurse_lead",
+        "cd_lead_gp",
+        "estates_lead",
+        "ig_lead",
+        "reception_lead",
+        "hca",
+        "reception",
+        "auditor",
+        "group_manager",
+      ],
       evidence_type: ["photo", "note", "signature"],
       frequency: [
         "daily",

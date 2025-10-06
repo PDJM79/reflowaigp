@@ -17,6 +17,44 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // SECURITY: Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create client to verify user
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Only practice managers can reset passwords
+    const { data: requesterUser } = await supabaseClient
+      .from('users')
+      .select('is_practice_manager')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (!requesterUser?.is_practice_manager) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Practice manager privileges required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -43,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const targetUser = users.users.find(user => user.email === email);
+    const targetUser = users.users.find(u => u.email === email);
     
     if (!targetUser) {
       console.error(`User not found: ${email}`);
@@ -59,8 +97,7 @@ const handler = async (req: Request): Promise<Response> => {
       {
         password: newPassword,
         user_metadata: {
-          ...targetUser.user_metadata,
-          force_password_change: false
+          ...targetUser.user_metadata
         }
       }
     );

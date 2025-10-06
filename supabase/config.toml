@@ -4,10 +4,10 @@ project_id = "eeqfqklcdstbziedsnxc"
 verify_jwt = true
 
 [functions.create-user-accounts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-master-user]
-verify_jwt = false
+verify_jwt = true
 
 [functions.reset-user-password]
-verify_jwt = false
+verify_jwt = true
