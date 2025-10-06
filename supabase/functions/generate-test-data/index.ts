@@ -24,7 +24,7 @@ serve(async (req) => {
       .insert({
         name: 'Test Medical Centre',
         address: '123 Health Street, London, UK',
-        country: 'UK',
+        country: 'GB',
         timezone: 'Europe/London'
       })
       .select()
