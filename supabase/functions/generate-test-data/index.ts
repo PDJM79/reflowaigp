@@ -19,35 +19,44 @@ serve(async (req) => {
     );
 
     // Check if test practice already exists
-    const { data: existingPractice } = await supabaseAdmin
+    const { data: existingPractice, error: checkError } = await supabaseAdmin
       .from('practices')
-      .select('*, users(*)')
+      .select('id, name')
       .eq('name', 'Test Medical Centre')
-      .single();
+      .maybeSingle();
 
-    if (existingPractice && existingPractice.users && existingPractice.users.length > 0) {
-      // Return existing test data
-      const testUsers = [
-        { email: 'manager@test.com', password: 'Test123!!', role: 'practice_manager' },
-        { email: 'admin@test.com', password: 'Test123!!', role: 'administrator' },
-        { email: 'gp@test.com', password: 'Test123!!', role: 'gp' },
-        { email: 'nurse@test.com', password: 'Test123!!', role: 'nurse' },
-        { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead' },
-        { email: 'reception@test.com', password: 'Test123!!', role: 'reception' },
-      ];
+    if (existingPractice) {
+      // Check if users exist for this practice
+      const { data: existingUsers } = await supabaseAdmin
+        .from('users')
+        .select('email')
+        .eq('practice_id', existingPractice.id);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          practice: {
-            id: existingPractice.id,
-            name: existingPractice.name
-          },
-          users: testUsers,
-          message: 'Test data already exists - you can use these credentials'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (existingUsers && existingUsers.length > 0) {
+        // Return existing test data
+        const testUsers = [
+          { email: 'manager@test.com', password: 'Test123!!', role: 'practice_manager' },
+          { email: 'admin@test.com', password: 'Test123!!', role: 'administrator' },
+          { email: 'gp@test.com', password: 'Test123!!', role: 'gp' },
+          { email: 'nurse@test.com', password: 'Test123!!', role: 'nurse' },
+          { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead' },
+          { email: 'reception@test.com', password: 'Test123!!', role: 'reception' },
+        ];
+
+        console.log('Test practice and users already exist');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            practice: {
+              id: existingPractice.id,
+              name: existingPractice.name
+            },
+            users: testUsers,
+            message: 'Test data already exists - you can use these credentials to log in'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Create test practice
