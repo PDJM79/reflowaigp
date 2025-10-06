@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { 
   Home, Calendar, ListTodo, FileText, FolderOpen, BarChart3,
-  Pill, DollarSign, Shield, Droplet, AlertTriangle, Flame,
+  Pill, PoundSterling, Shield, Droplet, AlertTriangle, Flame,
   Users, MessageSquare, FileCheck, BookOpen, Thermometer,
   Settings, LogOut, Menu, X
 } from 'lucide-react';
@@ -50,7 +50,7 @@ export function AppLayout() {
     { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
     { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
     { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
-    { icon: DollarSign, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
+    { icon: PoundSterling, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
     { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },
     { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', roles: ['estates_lead', 'practice_manager'] },
     { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
