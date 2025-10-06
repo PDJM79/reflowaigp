@@ -49,6 +49,14 @@ export function useTaskData() {
 
       console.log('Fetching data for practice:', targetPracticeId);
 
+      // Get all roles for this user
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userData.id);
+
+      console.log('User roles:', userRoles);
+
       // Get practice manager for default assignment
       const { data: practiceManager } = await supabase
         .from('users')
@@ -57,7 +65,7 @@ export function useTaskData() {
         .eq('is_practice_manager', true)
         .single();
 
-      // Get process instances for the target practice with template info
+      // Get ALL process instances for the target practice with template info
       const { data: processInstances, error: processError } = await supabase
         .from('process_instances')
         .select(`
@@ -65,9 +73,11 @@ export function useTaskData() {
           process_templates!inner (
             name,
             responsible_role,
-            steps
+            steps,
+            sla_hours
           ),
           users!assignee_id (
+            id,
             name,
             role
           )
@@ -93,21 +103,23 @@ export function useTaskData() {
           console.error('Error auto-assigning to practice manager:', assignError);
         } else {
           // Refresh data after assignment
-              const { data: updatedProcessInstances } = await supabase
-                .from('process_instances')
-                .select(`
-                  *,
-                  process_templates!inner (
-                    name,
-                    responsible_role,
-                    steps
-                  ),
-                  users!assignee_id (
-                    name,
-                    role
-                  )
-                `)
-                .eq('practice_id', targetPracticeId);
+          const { data: updatedProcessInstances } = await supabase
+            .from('process_instances')
+            .select(`
+              *,
+              process_templates!inner (
+                name,
+                responsible_role,
+                steps,
+                sla_hours
+              ),
+              users!assignee_id (
+                id,
+                name,
+                role
+              )
+            `)
+            .eq('practice_id', targetPracticeId);
           
           if (updatedProcessInstances) {
             processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
@@ -120,7 +132,7 @@ export function useTaskData() {
         const template = instance.process_templates;
         const assignee = instance.users;
         
-        // Calculate progress based on step completion
+        // Calculate progress and status based on completion and SLA
         let progress = '0/0 complete';
         let status: 'green' | 'amber' | 'red' = 'red';
         
@@ -135,6 +147,10 @@ export function useTaskData() {
           progress = 'Overdue';
         }
 
+        // Check if this task is assigned to ANY of the current user's roles
+        // A task is "current user's" if assigned to someone who has a role the current user also has
+        const isCurrentUserTask = assignee?.id === userData.id;
+
         return {
           id: instance.id,
           name: template?.name || 'Unnamed Process',
@@ -143,15 +159,16 @@ export function useTaskData() {
           progress,
           assigneeName: assignee?.name || 'Unassigned',
           assigneeRole: assignee?.role || 'Unknown',
-          isCurrentUser: instance.assignee_id === userData.id
+          isCurrentUser: isCurrentUserTask
         };
       });
 
       console.log('All tasks:', tasks);
       console.log('Current user ID:', userData.id);
-      console.log('Task assignee IDs:', tasks.map(t => ({ name: t.name, assignee_id: processInstances.find(p => p.id === t.id)?.assignee_id })));
 
       // Split tasks based on current user
+      // User tasks = tasks assigned to the current user
+      // Other tasks = tasks assigned to other users
       const userTasksList = tasks.filter(task => task.isCurrentUser);
       const otherTasksList = tasks.filter(task => !task.isCurrentUser);
 

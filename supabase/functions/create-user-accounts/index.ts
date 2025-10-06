@@ -94,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create user record in users table
-    const { error: userTableError } = await supabaseAdmin
+    const { data: createdUser, error: userTableError } = await supabaseAdmin
       .from('users')
       .insert({
         auth_user_id: authUser.user.id,
@@ -103,7 +103,9 @@ const handler = async (req: Request): Promise<Response> => {
         role,
         practice_id,
         is_practice_manager: role === 'practice_manager'
-      });
+      })
+      .select('id')
+      .single();
 
     if (userTableError) {
       console.error('User table error:', userTableError);
@@ -123,7 +125,8 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     return new Response(JSON.stringify({ 
-      user_id: authUser.user.id,
+      user_id: createdUser.id, // Return the users table ID
+      auth_user_id: authUser.user.id,
       email: authUser.user.email,
       message: 'User created. Password reset email sent.'
     }), {

@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, LogOut, Mail } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash2, LogOut, Mail, Calendar } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { RoleAssignment, AVAILABLE_ROLES } from '@/types/auth';
+import { AVAILABLE_ROLES } from '@/types/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { RoleEmailAssignment, TaskScheduleConfig, FREQUENCY_OPTIONS, DEFAULT_TASK_TEMPLATES } from '@/types/organizationSetup';
 
 interface OrganizationSetupProps {
   onComplete: () => void;
@@ -18,267 +20,74 @@ interface OrganizationSetupProps {
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const { signOut } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
-  // Initialize with all available roles, empty name/email/password
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>(
-    AVAILABLE_ROLES.map(role => ({ role: role.value, name: '', email: '', password: '' }))
+  const [roleAssignments, setRoleAssignments] = useState<RoleEmailAssignment[]>([
+    { email: '', name: '', password: '', roles: ['practice_manager'] }
+  ]);
+  
+  // Initialize task schedules with tomorrow as default start date
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowISO = tomorrow.toISOString().split('T')[0];
+  
+  const [taskSchedules, setTaskSchedules] = useState<TaskScheduleConfig[]>(
+    DEFAULT_TASK_TEMPLATES.map(template => ({
+      templateName: template.name,
+      responsibleRole: template.responsible_role,
+      frequency: template.default_frequency,
+      startDate: tomorrowISO,
+      slaHours: template.default_sla_hours,
+    }))
   );
+  
   const [loading, setLoading] = useState(false);
 
-  const createStandardProcessTemplates = async (practiceId: string) => {
-    const standardTemplates = [
-      {
-        name: 'Monthly Clinical Audit',
-        responsible_role: 'administrator',
-        frequency: 'monthly',
-        steps: [
-          {"title": "Review patient records", "description": "Review a sample of patient records for compliance"},
-          {"title": "Document findings", "description": "Document any issues or compliance gaps found"},
-          {"title": "Create action plan", "description": "Develop corrective actions for any identified issues"},
-          {"title": "Submit audit report", "description": "Complete and submit the monthly audit report"}
-        ],
-        evidence_hint: 'Clinical audit documentation, compliance checklists',
-        storage_hints: {"folder": "/clinical-audits", "system": "Practice Management System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "5 days"}
-      },
-      {
-        name: 'Weekly Staff Training Review',
-        responsible_role: 'administrator',
-        frequency: 'weekly',
-        steps: [
-          {"title": "Review training records", "description": "Check all staff have completed required training"},
-          {"title": "Identify training gaps", "description": "Note any staff missing mandatory training"},
-          {"title": "Schedule additional training", "description": "Book training sessions for staff as needed"},
-          {"title": "Update training matrix", "description": "Update the staff training tracking matrix"}
-        ],
-        evidence_hint: 'Training certificates, attendance records',
-        storage_hints: {"folder": "/staff-training", "system": "HR System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "3 days"}
-      },
-      {
-        name: 'Daily Equipment Check',
-        responsible_role: 'gp',
-        frequency: 'daily',
-        steps: [
-          {"title": "Check medical equipment", "description": "Verify all medical equipment is functioning properly"},
-          {"title": "Test emergency equipment", "description": "Test defibrillator and emergency response equipment"},
-          {"title": "Record readings", "description": "Log equipment readings and any issues found"},
-          {"title": "Report issues", "description": "Report any equipment problems to maintenance"}
-        ],
-        evidence_hint: 'Equipment log sheets, maintenance records',
-        storage_hints: {"folder": "/equipment-logs", "system": "Maintenance System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "1 day"}
-      },
-      {
-        name: 'Patient Safety Review',
-        responsible_role: 'nurse',
-        frequency: 'weekly',
-        steps: [
-          {"title": "Review incident reports", "description": "Review any patient safety incidents from the week"},
-          {"title": "Assess risk levels", "description": "Evaluate the risk level of each incident"},
-          {"title": "Implement improvements", "description": "Put in place any necessary safety improvements"},
-          {"title": "Update safety protocols", "description": "Update safety protocols based on findings"}
-        ],
-        evidence_hint: 'Incident reports, safety checklists',
-        storage_hints: {"folder": "/patient-safety", "system": "Incident Management System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "2 days"}
-      },
-      {
-        name: 'Monthly Infection Control Audit',
-        responsible_role: 'nurse_lead',
-        frequency: 'monthly',
-        steps: [
-          {"title": "Inspect clinical areas", "description": "Check all clinical areas for infection control compliance"},
-          {"title": "Review cleaning logs", "description": "Verify cleaning and disinfection procedures are being followed"},
-          {"title": "Check hand hygiene compliance", "description": "Assess staff hand hygiene practices"},
-          {"title": "Update infection control policies", "description": "Update policies based on latest guidelines"}
-        ],
-        evidence_hint: 'Infection control checklists, cleaning logs',
-        storage_hints: {"folder": "/infection-control", "system": "Clinical Management System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "3 days"}
-      },
-      {
-        name: 'Quarterly Financial Review',
-        responsible_role: 'practice_manager',
-        frequency: 'quarterly',
-        steps: [
-          {"title": "Review practice accounts", "description": "Analyze income, expenses, and profitability"},
-          {"title": "Budget variance analysis", "description": "Compare actual vs budgeted figures"},
-          {"title": "Cash flow forecast", "description": "Project cash flow for next quarter"},
-          {"title": "Financial report preparation", "description": "Prepare summary for stakeholders"}
-        ],
-        evidence_hint: 'Financial statements, budget reports',
-        storage_hints: {"folder": "/financial-records", "system": "Accounting System"},
-        remedials: {"escalation": "Senior Partner", "deadline_extension": "7 days"}
-      },
-      {
-        name: 'Daily Reception Procedures',
-        responsible_role: 'reception_lead',
-        frequency: 'daily',
-        steps: [
-          {"title": "Check appointment system", "description": "Verify appointment bookings and availability"},
-          {"title": "Process patient calls", "description": "Handle patient inquiries and triage calls"},
-          {"title": "Update patient records", "description": "Ensure patient information is current"},
-          {"title": "End of day reconciliation", "description": "Balance cash, cards, and appointment records"}
-        ],
-        evidence_hint: 'Reception logs, appointment records',
-        storage_hints: {"folder": "/reception-logs", "system": "Practice Management System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "1 day"}
-      },
-      {
-        name: 'Weekly Clinical Governance Review',
-        responsible_role: 'cd_lead_gp',
-        frequency: 'weekly',
-        steps: [
-          {"title": "Review clinical incidents", "description": "Analyze any clinical incidents from the week"},
-          {"title": "Audit clinical decisions", "description": "Review sample of clinical decision making"},
-          {"title": "Check prescribing patterns", "description": "Monitor prescribing for safety and effectiveness"},
-          {"title": "Update clinical protocols", "description": "Revise protocols based on evidence and incidents"}
-        ],
-        evidence_hint: 'Clinical incident reports, prescribing data',
-        storage_hints: {"folder": "/clinical-governance", "system": "Clinical System"},
-        remedials: {"escalation": "Practice Manager", "deadline_extension": "2 days"}
-      }
-    ];
+  const addRoleAssignment = () => {
+    setRoleAssignments([...roleAssignments, { email: '', name: '', password: '', roles: [] }]);
+  };
 
-    try {
-      const { data: templates, error } = await supabase
-        .from('process_templates')
-        .insert(
-          standardTemplates.map(template => ({
-            practice_id: practiceId,
-            name: template.name,
-            responsible_role: template.responsible_role as any,
-            frequency: template.frequency as any,
-            steps: template.steps,
-            evidence_hint: template.evidence_hint,
-            storage_hints: template.storage_hints,
-            remedials: template.remedials
-          }))
-        )
-        .select();
-
-      if (error) {
-        console.error('Error creating standard templates:', error);
-        throw error;
-      }
-
-      console.log('Standard process templates created successfully');
-      return templates;
-    } catch (error) {
-      console.error('Failed to create standard process templates:', error);
-      // Don't fail the entire setup if templates fail
-      toast({
-        title: "Template creation warning",
-        description: "Standard processes could not be created. You can add them manually later.",
-        variant: "destructive",
-      });
-      return [];
+  const removeRoleAssignment = (index: number) => {
+    if (roleAssignments.length > 1) {
+      setRoleAssignments(roleAssignments.filter((_, i) => i !== index));
     }
   };
 
-  const createInitialProcessInstances = async (practiceId: string, templates: any[]) => {
-    if (!templates || templates.length === 0) return;
-
-    try {
-      // Get all users in this practice to assign tasks to them
-      const { data: practiceUsers, error: usersError } = await supabase
-        .from('users')
-        .select('id, role')
-        .eq('practice_id', practiceId);
-
-      if (usersError) throw usersError;
-
-      const now = new Date();
-      const processInstances = [];
-
-      for (const template of templates) {
-        // Find users with matching roles for this template
-        const assignedUsers = practiceUsers.filter(user => user.role === template.responsible_role);
-        
-        // If no specific user found, assign to practice manager
-        const targetUsers = assignedUsers.length > 0 ? assignedUsers : 
-          practiceUsers.filter(user => user.role === 'practice_manager');
-
-        for (const user of targetUsers) {
-          // Calculate due date based on frequency
-          let dueDate = new Date(now);
-          switch (template.frequency) {
-            case 'daily':
-              dueDate.setDate(now.getDate() + 1);
-              break;
-            case 'weekly':
-              dueDate.setDate(now.getDate() + 7);
-              break;
-            case 'monthly':
-              dueDate.setMonth(now.getMonth() + 1);
-              break;
-            case 'quarterly':
-              dueDate.setMonth(now.getMonth() + 3);
-              break;
-            default:
-              dueDate.setDate(now.getDate() + 7); // Default to weekly
-          }
-
-          processInstances.push({
-            template_id: template.id,
-            practice_id: practiceId,
-            assignee_id: user.id,
-            status: 'pending',
-            period_start: now.toISOString(),
-            period_end: dueDate.toISOString(),
-            due_at: dueDate.toISOString()
-          });
-        }
-      }
-
-      if (processInstances.length > 0) {
-        const { data: instances, error: instancesError } = await supabase
-          .from('process_instances')
-          .insert(processInstances)
-          .select();
-
-        if (instancesError) throw instancesError;
-
-        // Create step instances for each process instance
-        const stepInstances = [];
-        for (const instance of instances) {
-          const template = templates.find(t => t.id === instance.template_id);
-          if (template && template.steps) {
-            template.steps.forEach((step: any, index: number) => {
-              stepInstances.push({
-                process_instance_id: instance.id,
-                step_index: index,
-                title: step.title,
-                status: 'pending'
-              });
-            });
-          }
-        }
-
-        if (stepInstances.length > 0) {
-          const { error: stepError } = await supabase
-            .from('step_instances')
-            .insert(stepInstances);
-
-          if (stepError) throw stepError;
-        }
-
-        console.log(`Created ${processInstances.length} initial process instances with ${stepInstances.length} steps`);
-      }
-    } catch (error) {
-      console.error('Failed to create initial process instances:', error);
-      toast({
-        title: "Process creation warning",
-        description: "Initial tasks could not be created. Process templates are available for manual assignment.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const updateRoleAssignment = (index: number, field: keyof RoleAssignment, value: string) => {
+  const updateRoleAssignment = (index: number, field: keyof RoleEmailAssignment, value: any) => {
     const updated = [...roleAssignments];
     updated[index] = { ...updated[index], [field]: value };
     setRoleAssignments(updated);
+  };
+
+  const toggleRole = (assignmentIndex: number, roleValue: string) => {
+    const updated = [...roleAssignments];
+    const assignment = updated[assignmentIndex];
+    
+    if (assignment.roles.includes(roleValue)) {
+      // Remove role (but don't allow removing practice_manager if it's the only one)
+      if (roleValue === 'practice_manager') {
+        const hasPM = roleAssignments.some((a, i) => 
+          i !== assignmentIndex && a.roles.includes('practice_manager') && a.name && a.email
+        );
+        if (!hasPM) {
+          toast({
+            title: "Cannot remove Practice Manager",
+            description: "At least one person must be assigned as Practice Manager",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      assignment.roles = assignment.roles.filter(r => r !== roleValue);
+    } else {
+      assignment.roles = [...assignment.roles, roleValue];
+    }
+    
+    setRoleAssignments(updated);
+  };
+
+  const updateTaskSchedule = (index: number, field: keyof TaskScheduleConfig, value: any) => {
+    const updated = [...taskSchedules];
+    updated[index] = { ...updated[index], [field]: value };
+    setTaskSchedules(updated);
   };
 
   const handleExit = async () => {
@@ -286,7 +95,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
-      // Force redirect to login even if signOut fails
       window.location.href = '/';
     }
   };
@@ -304,135 +112,217 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       return;
     }
 
-    // Only check for filled assignments (allow empty ones to be skipped)
+    // Filter out empty assignments
     const filledAssignments = roleAssignments.filter(
-      assignment => assignment.name.trim() || assignment.email.trim() || assignment.password.trim()
+      a => a.name.trim() && a.email.trim() && a.password.trim() && a.roles.length > 0
     );
 
-    const invalidAssignments = filledAssignments.filter(
-      assignment => !assignment.name.trim() || !assignment.email.trim() || !assignment.password.trim()
-    );
-
-      if (invalidAssignments.length > 0) {
-        toast({
-          title: "Incomplete role assignments",
-          description: "Please complete all started role assignments (name, email, and password required)",
-          variant: "destructive",
-        });
-        return;
-      }
-
-    // Ensure at least practice manager is assigned
-    const practiceManagerAssignment = filledAssignments.find(a => a.role === 'practice_manager');
-    if (!practiceManagerAssignment) {
+    if (filledAssignments.length === 0) {
       toast({
-        title: "Practice Manager required",
-        description: "Please assign someone to the Practice Manager role",
+        title: "No role assignments",
+        description: "Please assign at least one person with roles",
         variant: "destructive",
       });
       return;
     }
 
-    // Allow duplicate roles since one person can have multiple roles
-    // No validation needed for duplicates anymore
+    // Ensure at least one practice manager
+    const hasPracticeManager = filledAssignments.some(a => a.roles.includes('practice_manager'));
+    if (!hasPracticeManager) {
+      toast({
+        title: "Practice Manager required",
+        description: "Please assign at least one person as Practice Manager",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
       // Create practice
       const { data: practice, error: practiceError } = await supabase
         .from('practices')
-        .insert({
-          name: organizationName.trim()
-        })
+        .insert({ name: organizationName.trim() })
         .select()
         .single();
 
       if (practiceError) throw practiceError;
 
-      // Check if user already exists
+      // Find the current user's assignment
+      const currentUserAssignment = filledAssignments.find(a => a.email === user.email);
+      const isPracticeManager = currentUserAssignment?.roles.includes('practice_manager') || false;
+
+      // Create or update current user
       const { data: existingUser } = await supabase
         .from('users')
-        .select('id, practice_id')
+        .select('id')
         .eq('auth_user_id', user.id)
         .single();
 
+      let currentUserId: string;
+
       if (existingUser) {
-        // Update existing user to be practice manager
-        const { error: updateError } = await supabase
+        const { data: updated, error: updateError } = await supabase
           .from('users')
           .update({
-            name: practiceManagerAssignment.name,
-            role: 'practice_manager',
+            name: currentUserAssignment?.name || 'Practice Manager',
+            role: currentUserAssignment?.roles[0] as any || 'practice_manager',
             practice_id: practice.id,
-            is_practice_manager: true
+            is_practice_manager: isPracticeManager
           })
-          .eq('auth_user_id', user.id);
+          .eq('auth_user_id', user.id)
+          .select('id')
+          .single();
 
         if (updateError) throw updateError;
+        currentUserId = updated.id;
       } else {
-        // Create new user record (practice manager)
-        const { error: userError } = await supabase
+        const { data: created, error: createError } = await supabase
           .from('users')
           .insert({
             auth_user_id: user.id,
             email: user.email!,
-            name: practiceManagerAssignment.name,
-            role: 'practice_manager',
+            name: currentUserAssignment?.name || 'Practice Manager',
+            role: currentUserAssignment?.roles[0] as any || 'practice_manager',
             practice_id: practice.id,
-            is_practice_manager: true
-          });
+            is_practice_manager: isPracticeManager
+          })
+          .select('id')
+          .single();
 
-        if (userError) throw userError;
+        if (createError) throw createError;
+        currentUserId = created.id;
       }
 
-      // Create user accounts for non-practice manager roles
-      const nonPracticeManagerAssignments = filledAssignments.filter(
-        assignment => assignment.role !== 'practice_manager'
-      );
+      // Create user accounts for other team members
+      const otherAssignments = filledAssignments.filter(a => a.email !== user.email);
+      const createdUserIds: Record<string, string> = { [user.email!]: currentUserId };
 
-      for (const assignment of nonPracticeManagerAssignments) {
+      for (const assignment of otherAssignments) {
         try {
           const { data, error } = await supabase.functions.invoke('create-user-accounts', {
             body: {
               email: assignment.email,
               name: assignment.name,
-              role: assignment.role,
+              role: assignment.roles[0], // Primary role
               practice_id: practice.id,
               password: assignment.password
             }
           });
 
-          if (error) {
-            console.error(`Error creating user ${assignment.email}:`, error);
-            toast({
-              title: "User creation warning",
-              description: `Could not create account for ${assignment.email}. They can be added later.`,
-              variant: "destructive",
-            });
+          if (error) throw error;
+          
+          // Store the created user ID
+          if (data?.user_id) {
+            createdUserIds[assignment.email] = data.user_id;
           }
         } catch (error) {
           console.error(`Error creating user ${assignment.email}:`, error);
+          toast({
+            title: "User creation warning",
+            description: `Could not create account for ${assignment.email}`,
+            variant: "destructive",
+          });
         }
       }
 
-      // Create role assignments (only for filled ones)
-      const { error: rolesError } = await supabase
-        .from('role_assignments')
-        .insert(
-          filledAssignments.map(assignment => ({
-            practice_id: practice.id,
-            role: assignment.role as any,
-            assigned_name: assignment.name,
-            assigned_email: assignment.email,
-            user_id: assignment.role === 'practice_manager' ? user.id : null
-          }))
-        );
+      // Create user_roles entries for all role assignments
+      const userRolesEntries = [];
+      for (const assignment of filledAssignments) {
+        const userId = createdUserIds[assignment.email];
+        if (userId) {
+          for (const role of assignment.roles) {
+            userRolesEntries.push({
+              user_id: userId,
+              role: role as any,
+              practice_id: practice.id,
+              created_by: currentUserId
+            });
+          }
+        }
+      }
 
-      if (rolesError) throw rolesError;
+      if (userRolesEntries.length > 0) {
+        const { error: rolesError } = await supabase
+          .from('user_roles')
+          .insert(userRolesEntries);
+
+        if (rolesError) {
+          console.error('Error creating user roles:', rolesError);
+        }
+      }
+
+      // Create process templates with scheduling configuration
+      const templateInserts = taskSchedules.map(schedule => ({
+        practice_id: practice.id,
+        name: schedule.templateName,
+        responsible_role: schedule.responsibleRole as any,
+        frequency: schedule.frequency as any,
+        start_date: schedule.startDate,
+        sla_hours: schedule.slaHours,
+        custom_frequency: FREQUENCY_OPTIONS.find(f => f.value === schedule.frequency)?.label,
+        active: true,
+        steps: [], // Add default steps if needed
+      }));
+
+      const { data: createdTemplates, error: templatesError } = await supabase
+        .from('process_templates')
+        .insert(templateInserts)
+        .select();
+
+      if (templatesError) {
+        console.error('Error creating templates:', templatesError);
+        toast({
+          title: "Template creation warning",
+          description: "Some task templates could not be created",
+          variant: "destructive",
+        });
+      }
+
+      // Create initial process instances for the first occurrence
+      if (createdTemplates && createdTemplates.length > 0) {
+        const processInstances = [];
+        
+        for (const template of createdTemplates) {
+          // Find all users with the responsible role
+          const usersWithRole = filledAssignments.filter(a => 
+            a.roles.includes(template.responsible_role) && createdUserIds[a.email]
+          );
+
+          // Create one instance per user with that role
+          for (const assignment of usersWithRole) {
+            const userId = createdUserIds[assignment.email];
+            if (!userId) continue;
+
+            // Calculate first due date
+            const startDate = new Date(template.start_date);
+            const dueDate = startDate;
+
+            processInstances.push({
+              template_id: template.id,
+              practice_id: practice.id,
+              assignee_id: userId,
+              status: 'pending',
+              period_start: startDate.toISOString(),
+              period_end: dueDate.toISOString(),
+              due_at: dueDate.toISOString()
+            });
+          }
+        }
+
+        if (processInstances.length > 0) {
+          const { error: instancesError } = await supabase
+            .from('process_instances')
+            .insert(processInstances);
+
+          if (instancesError) {
+            console.error('Error creating process instances:', instancesError);
+          }
+        }
+      }
 
       // Mark setup as complete
       const { error: setupError } = await supabase
@@ -444,15 +334,9 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
       if (setupError) throw setupError;
 
-      // Create standard process templates for the new practice
-      const templates = await createStandardProcessTemplates(practice.id);
-
-      // Create initial process instances for all users
-      await createInitialProcessInstances(practice.id, templates || []);
-
       toast({
         title: "Organization setup complete",
-        description: "Your practice has been set up successfully with standard processes and initial tasks",
+        description: `Your practice has been set up with ${filledAssignments.length} team members and ${taskSchedules.length} task templates`,
       });
 
       onComplete();
@@ -471,16 +355,15 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Organization Setup</CardTitle>
-            <CardDescription>
-              Set up your practice and assign roles to team members
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Organization Name */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization Details</CardTitle>
+              <CardDescription>Enter your organization or practice name</CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-2">
                 <Label htmlFor="orgName">Organization/Practice Name</Label>
                 <Input
@@ -492,130 +375,211 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                   required
                 />
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Role Assignments</Label>
-                  <div className="text-sm text-muted-foreground">
-                    Assign people to roles (leave empty if not needed)
-                  </div>
+          {/* Role Assignments */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Team Member Role Assignments</CardTitle>
+                  <CardDescription>
+                    Assign email addresses and roles. Each person can have multiple roles.
+                  </CardDescription>
                 </div>
+                <Button type="button" variant="outline" size="sm" onClick={addRoleAssignment}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Person
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {roleAssignments.map((assignment, index) => (
+                <Card key={index} className="p-4 border-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">Team Member {index + 1}</Label>
+                      {roleAssignments.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeRoleAssignment(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
 
-                {roleAssignments.map((assignment, index) => {
-                  const roleInfo = AVAILABLE_ROLES.find(r => r.value === assignment.role);
-                  const hasContent = assignment.name.trim() || assignment.email.trim() || assignment.password.trim();
-                  const isComplete = assignment.name.trim() && assignment.email.trim() && assignment.password.trim();
-                  
-                  const generateMailtoLink = () => {
-                    const subject = encodeURIComponent(`Your ${organizationName || 'Practice'} Account Login Details`);
-                    const body = encodeURIComponent(`Hello ${assignment.name || '[Name]'},
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Name</Label>
+                        <Input
+                          value={assignment.name}
+                          onChange={(e) => updateRoleAssignment(index, 'name', e.target.value)}
+                          placeholder="Full name"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          value={assignment.email}
+                          onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
+                          placeholder="user@example.com"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Password</Label>
+                        <Input
+                          type="password"
+                          value={assignment.password}
+                          onChange={(e) => updateRoleAssignment(index, 'password', e.target.value)}
+                          placeholder="Create password"
+                        />
+                      </div>
+                    </div>
 
-Your account has been set up for ${organizationName || '[Practice Name]'}. Here are your login details:
-
-Email: ${assignment.email || '[Email]'}
-Password: ${assignment.password || '[Password]'}
-
-Please log in at: ${window.location.origin}
-
-You can change your password after your first login.
-
-Best regards,
-Practice Management Team`);
-                    
-                    return `mailto:${assignment.email}?subject=${subject}&body=${body}`;
-                  };
-
-                  return (
-                    <Card key={assignment.role} className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                        <div className="space-y-2">
-                          <Label className="font-medium">{roleInfo?.label}</Label>
-                          <div className="text-sm text-muted-foreground">
-                            {assignment.role === 'practice_manager' && '(Required)'}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Roles (select all that apply)</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {AVAILABLE_ROLES.map(role => (
+                          <div key={role.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`${index}-${role.value}`}
+                              checked={assignment.roles.includes(role.value)}
+                              onCheckedChange={() => toggleRole(index, role.value)}
+                            />
+                            <label
+                              htmlFor={`${index}-${role.value}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {role.label}
+                            </label>
                           </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label>Name</Label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {assignment.name && assignment.email && assignment.password && assignment.roles.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const subject = encodeURIComponent(`Your ${organizationName || 'Practice'} Account`);
+                          const body = encodeURIComponent(`Hello ${assignment.name},
+
+Your account has been set up for ${organizationName || '[Practice]'}.
+
+Email: ${assignment.email}
+Password: ${assignment.password}
+Roles: ${assignment.roles.map(r => AVAILABLE_ROLES.find(ar => ar.value === r)?.label).join(', ')}
+
+Login at: ${window.location.origin}
+
+Best regards`);
+                          window.open(`mailto:${assignment.email}?subject=${subject}&body=${body}`);
+                        }}
+                      >
+                        <Mail className="w-4 h-4 mr-2" />
+                        Send Login Details
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Task Scheduling Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Task Scheduling Configuration</CardTitle>
+              <CardDescription>
+                Configure frequency, start date, and SLA for each task template
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {taskSchedules.map((schedule, index) => (
+                <Card key={index} className="p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">{schedule.templateName}</Label>
+                      <span className="text-sm text-muted-foreground">
+                        Assigned to: {AVAILABLE_ROLES.find(r => r.value === schedule.responsibleRole)?.label}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Frequency</Label>
+                        <Select
+                          value={schedule.frequency}
+                          onValueChange={(value) => updateTaskSchedule(index, 'frequency', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FREQUENCY_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Start Date</Label>
+                        <div className="relative">
                           <Input
-                            value={assignment.name}
-                            onChange={(e) => updateRoleAssignment(index, 'name', e.target.value)}
-                            placeholder="Full name"
-                            required={assignment.role === 'practice_manager'}
+                            type="date"
+                            value={schedule.startDate}
+                            onChange={(e) => updateTaskSchedule(index, 'startDate', e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
                           />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label>Email</Label>
-                          <Input
-                            type="email"
-                            value={assignment.email}
-                            onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
-                            placeholder="user@example.com"
-                            required={assignment.role === 'practice_manager'}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label>Password</Label>
-                          <Input
-                            type="password"
-                            value={assignment.password}
-                            onChange={(e) => updateRoleAssignment(index, 'password', e.target.value)}
-                            placeholder="Create password"
-                            required={assignment.role === 'practice_manager'}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label className="text-transparent">Send</Label>
-                          {isComplete ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => window.open(generateMailtoLink())}
-                            >
-                              <Mail className="w-4 h-4 mr-2" />
-                              Send Login
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled
-                              className="w-full"
-                            >
-                              <Mail className="w-4 h-4 mr-2" />
-                              Send Login
-                            </Button>
-                          )}
+                          <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         </div>
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
 
-              <div className="flex justify-between gap-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={handleExit}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Exit to Login
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Setting up...' : 'Complete Setup'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                      <div className="space-y-2">
+                        <Label>SLA (hours after scheduled time)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={schedule.slaHours}
+                          onChange={(e) => updateTaskSchedule(index, 'slaHours', parseInt(e.target.value) || 24)}
+                          placeholder="24"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Submit Buttons */}
+          <div className="flex justify-between gap-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleExit}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Exit to Login
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Setting up...' : 'Complete Setup'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
