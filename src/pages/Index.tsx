@@ -6,6 +6,7 @@ import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
 import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
 import { DirectPasswordReset } from '@/components/admin/DirectPasswordReset';
+import { GenerateTestData } from '@/components/admin/GenerateTestData';
 import { useOrganizationSetup } from '@/hooks/useOrganizationSetup';
 import { Loader2 } from 'lucide-react';
 
@@ -32,7 +33,12 @@ const Index = () => {
   }
 
   if (!user) {
-    return <AuthForm />;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-4">
+        <AuthForm />
+        <GenerateTestData />
+      </div>
+    );
   }
 
   if (needsPasswordChange) {
