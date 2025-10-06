@@ -136,9 +136,9 @@ export default function AllProcesses() {
             Back to Dashboard
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">All Processes</h1>
+            <h1 className="text-2xl font-bold">All Audits</h1>
             <p className="text-muted-foreground">
-              Complete overview of all practice processes
+              Complete overview of all audit processes
             </p>
           </div>
         </div>

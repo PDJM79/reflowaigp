@@ -224,8 +224,8 @@ export default function AdminReports() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Calendar
             </Button>
-            <h1 className="text-3xl font-bold">Process Reports</h1>
-            <p className="text-muted-foreground">Analyze practice process performance</p>
+            <h1 className="text-3xl font-bold">Audit Reports</h1>
+            <p className="text-muted-foreground">Analyze audit process performance</p>
           </div>
         </div>
 

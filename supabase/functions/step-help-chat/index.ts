@@ -41,9 +41,9 @@ async function useCustomAssistant(message: string, processName: string, stepTitl
   console.log('Created thread:', thread.id);
 
   // Add context message to thread
-  const contextMessage = `Current GP Practice Process Context:
+  const contextMessage = `Current GP Surgery Audit Context:
 
-🏥 **Process:** ${processName}
+🏥 **Audit:** ${processName}
 📋 **Current Step:** ${stepTitle}
 📝 **Step Description:** ${stepDescription}
 

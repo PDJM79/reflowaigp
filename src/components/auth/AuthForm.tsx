@@ -119,9 +119,11 @@ export function AuthForm() {
       <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Practice Processes</CardTitle>
+            <CardTitle className="text-2xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              GP Surgery Audit & Compliance
+            </CardTitle>
             <CardDescription>
-              Manage your GP surgery operational processes
+              Comprehensive compliance and audit management for GP surgeries
             </CardDescription>
           </CardHeader>
           <CardContent>

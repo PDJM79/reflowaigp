@@ -407,7 +407,7 @@ export function UserDashboard() {
                     Other Tasks and Status
                   </CardTitle>
                   <CardDescription>
-                    Overview of all practice processes and their current status
+                    Overview of all audit processes and their current status
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

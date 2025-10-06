@@ -187,7 +187,7 @@ export default function AdminCalendar() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">Administrator Calendar</h1>
-            <p className="text-muted-foreground">Manage and schedule practice processes</p>
+            <p className="text-muted-foreground">Manage and schedule audit processes</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => navigate('/admin/reports')} variant="outline">
