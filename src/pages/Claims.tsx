@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Plus, Calendar, FileText } from 'lucide-react';
+import { PoundSterling, Plus, Calendar, FileText } from 'lucide-react';
 
 export default function Claims() {
   const { user } = useAuth();
@@ -55,7 +55,7 @@ export default function Claims() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <DollarSign className="h-8 w-8" />
+            <PoundSterling className="h-8 w-8" />
             Enhanced Service Claims
           </h1>
           <p className="text-muted-foreground">Manage NHS enhanced service claims and submissions</p>
@@ -111,7 +111,7 @@ export default function Claims() {
       ) : claimRuns.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <PoundSterling className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground mb-4">No claim runs created yet</p>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
