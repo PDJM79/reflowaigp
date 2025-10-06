@@ -2444,6 +2444,14 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      user_has_mfa_enabled: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      verify_user_mfa_token: {
+        Args: { _token: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
