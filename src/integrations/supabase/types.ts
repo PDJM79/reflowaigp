@@ -14,6 +14,70 @@ export type Database = {
   }
   public: {
     Tables: {
+      appraisals: {
+        Row: {
+          completed_date: string | null
+          created_at: string | null
+          employee_acknowledged_at: string | null
+          employee_id: string
+          form_submission_id: string | null
+          id: string
+          period: string
+          reviewer_id: string
+          scheduled_date: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_date?: string | null
+          created_at?: string | null
+          employee_acknowledged_at?: string | null
+          employee_id: string
+          form_submission_id?: string | null
+          id?: string
+          period: string
+          reviewer_id: string
+          scheduled_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_date?: string | null
+          created_at?: string | null
+          employee_acknowledged_at?: string | null
+          employee_id?: string
+          form_submission_id?: string | null
+          id?: string
+          period?: string
+          reviewer_id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_form_submission_id_fkey"
+            columns: ["form_submission_id"]
+            isOneToOne: false
+            referencedRelation: "form_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -61,6 +125,428 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_trail: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_hash: string | null
+          at: string | null
+          before_hash: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          practice_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_hash?: string | null
+          at?: string | null
+          before_hash?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          practice_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_hash?: string | null
+          at?: string | null
+          before_hash?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          practice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_trail_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_trail_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          applied_for: string | null
+          created_at: string | null
+          cv_evidence_id: string | null
+          email: string | null
+          id: string
+          last_contact_at: string | null
+          name: string
+          practice_id: string
+          retention_delete_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          applied_for?: string | null
+          created_at?: string | null
+          cv_evidence_id?: string | null
+          email?: string | null
+          id?: string
+          last_contact_at?: string | null
+          name: string
+          practice_id: string
+          retention_delete_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          applied_for?: string | null
+          created_at?: string | null
+          cv_evidence_id?: string | null
+          email?: string | null
+          id?: string
+          last_contact_at?: string | null
+          name?: string
+          practice_id?: string
+          retention_delete_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidates_cv_evidence_id_fkey"
+            columns: ["cv_evidence_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_items: {
+        Row: {
+          claim_run_id: string
+          created_at: string | null
+          description: string | null
+          evidence_ids: string[] | null
+          id: string
+          quantity: number
+          service_code: string
+          total_value: number | null
+          unit_value: number | null
+        }
+        Insert: {
+          claim_run_id: string
+          created_at?: string | null
+          description?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          quantity: number
+          service_code: string
+          total_value?: number | null
+          unit_value?: number | null
+        }
+        Update: {
+          claim_run_id?: string
+          created_at?: string | null
+          description?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          quantity?: number
+          service_code?: string
+          total_value?: number | null
+          unit_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_items_claim_run_id_fkey"
+            columns: ["claim_run_id"]
+            isOneToOne: false
+            referencedRelation: "claim_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_runs: {
+        Row: {
+          created_at: string | null
+          generated_at: string | null
+          id: string
+          period_end: string
+          period_start: string
+          practice_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          practice_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          practice_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_runs_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cleaning_logs: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          id: string
+          issues: Json | null
+          log_date: string
+          practice_id: string
+          room_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          issues?: Json | null
+          log_date: string
+          practice_id: string
+          room_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          issues?: Json | null
+          log_date?: string
+          practice_id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_logs_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_logs_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_logs_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaints: {
+        Row: {
+          ack_due: string
+          ack_sent_at: string | null
+          assigned_to: string | null
+          channel: string | null
+          created_at: string | null
+          description: string
+          emis_hash: string | null
+          files: string[] | null
+          final_due: string
+          final_sent_at: string | null
+          id: string
+          practice_id: string
+          received_at: string
+          redactions: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ack_due: string
+          ack_sent_at?: string | null
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string | null
+          description: string
+          emis_hash?: string | null
+          files?: string[] | null
+          final_due: string
+          final_sent_at?: string | null
+          id?: string
+          practice_id: string
+          received_at: string
+          redactions?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ack_due?: string
+          ack_sent_at?: string | null
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string | null
+          description?: string
+          emis_hash?: string | null
+          files?: string[] | null
+          final_due?: string
+          final_sent_at?: string | null
+          id?: string
+          practice_id?: string
+          received_at?: string
+          redactions?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          end_date: string | null
+          id: string
+          manager_id: string | null
+          name: string
+          practice_id: string
+          role: Database["public"]["Enums"]["user_role"] | null
+          start_date: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          end_date?: string | null
+          id?: string
+          manager_id?: string | null
+          name: string
+          practice_id: string
+          role?: Database["public"]["Enums"]["user_role"] | null
+          start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          end_date?: string | null
+          id?: string
+          manager_id?: string | null
+          name?: string
+          practice_id?: string
+          role?: Database["public"]["Enums"]["user_role"] | null
+          start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      encrypted_payloads: {
+        Row: {
+          ciphertext: string
+          created_at: string | null
+          id: string
+          module: string
+          period_key: string
+          practice_id: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string | null
+          id?: string
+          module: string
+          period_key: string
+          practice_id: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string | null
+          id?: string
+          module?: string
+          period_key?: string
+          practice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encrypted_payloads_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
             referencedColumns: ["id"]
           },
         ]
@@ -115,6 +601,293 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_v2: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          device_timestamp: string | null
+          id: string
+          latitude: number | null
+          link_url: string | null
+          location_accuracy: number | null
+          longitude: number | null
+          mime_type: string | null
+          practice_id: string
+          server_timestamp: string | null
+          sha256: string | null
+          sharepoint_item_id: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          submission_id: string | null
+          tags: string[] | null
+          task_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          device_timestamp?: string | null
+          id?: string
+          latitude?: number | null
+          link_url?: string | null
+          location_accuracy?: number | null
+          longitude?: number | null
+          mime_type?: string | null
+          practice_id: string
+          server_timestamp?: string | null
+          sha256?: string | null
+          sharepoint_item_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          submission_id?: string | null
+          tags?: string[] | null
+          task_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          device_timestamp?: string | null
+          id?: string
+          latitude?: number | null
+          link_url?: string | null
+          location_accuracy?: number | null
+          longitude?: number | null
+          mime_type?: string | null
+          practice_id?: string
+          server_timestamp?: string | null
+          sha256?: string | null
+          sharepoint_item_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          submission_id?: string | null
+          tags?: string[] | null
+          task_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_v2_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_v2_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_v2_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "form_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_v2_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_submissions: {
+        Row: {
+          created_at: string | null
+          current_editors: string[] | null
+          data: Json | null
+          id: string
+          practice_id: string
+          signed_off_at: string | null
+          signed_off_by: string | null
+          status: string | null
+          submitted_at: string | null
+          task_id: string | null
+          template_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_editors?: string[] | null
+          data?: Json | null
+          id?: string
+          practice_id: string
+          signed_off_at?: string | null
+          signed_off_by?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          task_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_editors?: string[] | null
+          data?: Json | null
+          id?: string
+          practice_id?: string
+          signed_off_at?: string | null
+          signed_off_by?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          task_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_submissions_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_signed_off_by_fkey"
+            columns: ["signed_off_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          json_schema: Json
+          module: string
+          owner_role: Database["public"]["Enums"]["user_role"] | null
+          title: string
+          ui_schema: Json | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          json_schema: Json
+          module: string
+          owner_role?: Database["public"]["Enums"]["user_role"] | null
+          title: string
+          ui_schema?: Json | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          json_schema?: Json
+          module?: string
+          owner_role?: Database["public"]["Enums"]["user_role"] | null
+          title?: string
+          ui_schema?: Json | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      fridges: {
+        Row: {
+          created_at: string | null
+          id: string
+          location: string | null
+          max_temp: number
+          min_temp: number
+          name: string
+          practice_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          max_temp: number
+          min_temp: number
+          name: string
+          practice_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          max_temp?: number
+          min_temp?: number
+          name?: string
+          practice_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fridges_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_reports: {
+        Row: {
+          file_hash: string | null
+          generated_at: string | null
+          id: string
+          params: Json | null
+          practice_id: string
+          report_type: string
+          sharepoint_item_id: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          file_hash?: string | null
+          generated_at?: string | null
+          id?: string
+          params?: Json | null
+          practice_id: string
+          report_type: string
+          sharepoint_item_id?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          file_hash?: string | null
+          generated_at?: string | null
+          id?: string
+          params?: Json | null
+          practice_id?: string
+          report_type?: string
+          sharepoint_item_id?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_reports_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
             referencedColumns: ["id"]
           },
         ]
@@ -189,6 +962,162 @@ export type Database = {
         }
         Relationships: []
       }
+      groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ic_responses: {
+        Row: {
+          answer: string | null
+          comment: string | null
+          created_at: string | null
+          evidence_ids: string[] | null
+          id: string
+          question_id: string
+          section_id: string
+          submission_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          answer?: string | null
+          comment?: string | null
+          created_at?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          question_id: string
+          section_id: string
+          submission_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          answer?: string | null
+          comment?: string | null
+          created_at?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          question_id?: string
+          section_id?: string
+          submission_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_responses_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ic_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ic_responses_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "form_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ic_sections: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          order_index: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+        }
+        Relationships: []
+      }
+      incidents: {
+        Row: {
+          actions: Json | null
+          created_at: string | null
+          description: string
+          id: string
+          incident_date: string
+          location: string | null
+          photos: string[] | null
+          practice_id: string
+          rag: string
+          reported_by: string
+          status: string | null
+          themes: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          actions?: Json | null
+          created_at?: string | null
+          description: string
+          id?: string
+          incident_date: string
+          location?: string | null
+          photos?: string[] | null
+          practice_id: string
+          rag: string
+          reported_by: string
+          status?: string | null
+          themes?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          incident_date?: string
+          location?: string | null
+          photos?: string[] | null
+          practice_id?: string
+          rag?: string
+          reported_by?: string
+          status?: string | null
+          themes?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       issues: {
         Row: {
           assigned_to_id: string | null
@@ -260,6 +1189,218 @@ export type Database = {
           },
         ]
       }
+      leave_policies: {
+        Row: {
+          annual_days: number
+          created_at: string | null
+          id: string
+          name: string
+          practice_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          annual_days: number
+          created_at?: string | null
+          id?: string
+          name: string
+          practice_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          annual_days?: number
+          created_at?: string | null
+          id?: string
+          name?: string
+          practice_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_policies_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approver_id: string | null
+          created_at: string | null
+          days_count: number
+          employee_id: string
+          end_date: string
+          id: string
+          reason: string | null
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_id?: string | null
+          created_at?: string | null
+          days_count: number
+          employee_id: string
+          end_date: string
+          id?: string
+          reason?: string | null
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approver_id?: string | null
+          created_at?: string | null
+          days_count?: number
+          employee_id?: string
+          end_date?: string
+          id?: string
+          reason?: string | null
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medical_requests: {
+        Row: {
+          assigned_gp_id: string | null
+          created_at: string | null
+          emis_hash: string | null
+          evidence_ids: string[] | null
+          id: string
+          notes: string | null
+          practice_id: string
+          received_at: string
+          request_type: string
+          sent_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_gp_id?: string | null
+          created_at?: string | null
+          emis_hash?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          notes?: string | null
+          practice_id: string
+          received_at: string
+          request_type: string
+          sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_gp_id?: string | null
+          created_at?: string | null
+          emis_hash?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          notes?: string | null
+          practice_id?: string
+          received_at?: string
+          request_type?: string
+          sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_requests_assigned_gp_id_fkey"
+            columns: ["assigned_gp_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_requests_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      month_end_scripts: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          drug_code: string
+          drug_name: string
+          emis_hash: string
+          id: string
+          issue_date: string
+          month: string
+          notes: string | null
+          practice_id: string
+          prescriber: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          drug_code: string
+          drug_name: string
+          emis_hash: string
+          id?: string
+          issue_date: string
+          month: string
+          notes?: string | null
+          practice_id: string
+          prescriber: string
+          quantity: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          drug_code?: string
+          drug_name?: string
+          emis_hash?: string
+          id?: string
+          issue_date?: string
+          month?: string
+          notes?: string | null
+          practice_id?: string
+          prescriber?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "month_end_scripts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "month_end_scripts_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_setup: {
         Row: {
           created_at: string
@@ -292,32 +1433,120 @@ export type Database = {
           },
         ]
       }
-      practices: {
+      policy_documents: {
         Row: {
           created_at: string | null
+          effective_from: string | null
           id: string
-          logo_url: string | null
-          name: string
-          theme: Json | null
+          owner_role: Database["public"]["Enums"]["user_role"] | null
+          practice_id: string
+          review_due: string | null
+          sharepoint_item_id: string | null
+          source: string | null
+          status: string | null
+          storage_path: string | null
+          title: string
           updated_at: string | null
+          url: string | null
+          version: string | null
         }
         Insert: {
           created_at?: string | null
+          effective_from?: string | null
           id?: string
-          logo_url?: string | null
-          name: string
-          theme?: Json | null
+          owner_role?: Database["public"]["Enums"]["user_role"] | null
+          practice_id: string
+          review_due?: string | null
+          sharepoint_item_id?: string | null
+          source?: string | null
+          status?: string | null
+          storage_path?: string | null
+          title: string
           updated_at?: string | null
+          url?: string | null
+          version?: string | null
         }
         Update: {
           created_at?: string | null
+          effective_from?: string | null
+          id?: string
+          owner_role?: Database["public"]["Enums"]["user_role"] | null
+          practice_id?: string
+          review_due?: string | null
+          sharepoint_item_id?: string | null
+          source?: string | null
+          status?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string | null
+          url?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_documents_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practices: {
+        Row: {
+          address: string | null
+          country: string | null
+          created_at: string | null
+          group_id: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          sharepoint_drive_id: string | null
+          sharepoint_root_path: string | null
+          sharepoint_site_id: string | null
+          theme: Json | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          country?: string | null
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          sharepoint_drive_id?: string | null
+          sharepoint_root_path?: string | null
+          sharepoint_site_id?: string | null
+          theme?: Json | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          country?: string | null
+          created_at?: string | null
+          group_id?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          sharepoint_drive_id?: string | null
+          sharepoint_root_path?: string | null
+          sharepoint_site_id?: string | null
           theme?: Json | null
+          timezone?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "practices_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       process_instances: {
         Row: {
@@ -480,6 +1709,41 @@ export type Database = {
           },
         ]
       }
+      rooms: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          practice_id: string
+          schedule_rule: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          practice_id: string
+          schedule_rule?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          practice_id?: string
+          schedule_rule?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rooms_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       step_instances: {
         Row: {
           created_at: string | null
@@ -536,6 +1800,279 @@ export type Database = {
           },
         ]
       }
+      task_templates: {
+        Row: {
+          allowed_roles: Database["public"]["Enums"]["user_role"][] | null
+          created_at: string | null
+          default_assignee_role: Database["public"]["Enums"]["user_role"] | null
+          description: string | null
+          due_rule: string | null
+          evidence_tags: string[] | null
+          id: string
+          json_schema: Json | null
+          module: string
+          practice_id: string | null
+          requires_photo: boolean | null
+          sla_type: string | null
+          title: string
+          ui_schema: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          created_at?: string | null
+          default_assignee_role?:
+            | Database["public"]["Enums"]["user_role"]
+            | null
+          description?: string | null
+          due_rule?: string | null
+          evidence_tags?: string[] | null
+          id?: string
+          json_schema?: Json | null
+          module: string
+          practice_id?: string | null
+          requires_photo?: boolean | null
+          sla_type?: string | null
+          title: string
+          ui_schema?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          created_at?: string | null
+          default_assignee_role?:
+            | Database["public"]["Enums"]["user_role"]
+            | null
+          description?: string | null
+          due_rule?: string | null
+          evidence_tags?: string[] | null
+          id?: string
+          json_schema?: Json | null
+          module?: string
+          practice_id?: string | null
+          requires_photo?: boolean | null
+          sla_type?: string | null
+          title?: string
+          ui_schema?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to_role: Database["public"]["Enums"]["user_role"] | null
+          assigned_to_user_id: string | null
+          completed_at: string | null
+          completion_time_seconds: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_at: string
+          id: string
+          module: string
+          practice_id: string
+          priority: string | null
+          requires_photo: boolean | null
+          return_notes: string | null
+          returned_by: string | null
+          returned_reason: string | null
+          scheduled_at: string | null
+          status: string | null
+          template_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
+          assigned_to_user_id?: string | null
+          completed_at?: string | null
+          completion_time_seconds?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_at: string
+          id?: string
+          module: string
+          practice_id: string
+          priority?: string | null
+          requires_photo?: boolean | null
+          return_notes?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          scheduled_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
+          assigned_to_user_id?: string | null
+          completed_at?: string | null
+          completion_time_seconds?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_at?: string
+          id?: string
+          module?: string
+          practice_id?: string
+          priority?: string | null
+          requires_photo?: boolean | null
+          return_notes?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          scheduled_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "task_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temp_logs: {
+        Row: {
+          breach_flag: boolean | null
+          created_at: string | null
+          fridge_id: string
+          id: string
+          log_date: string
+          log_time: string
+          outcome: string | null
+          reading: number
+          recorded_by: string
+          remedial_action: string | null
+        }
+        Insert: {
+          breach_flag?: boolean | null
+          created_at?: string | null
+          fridge_id: string
+          id?: string
+          log_date: string
+          log_time: string
+          outcome?: string | null
+          reading: number
+          recorded_by: string
+          remedial_action?: string | null
+        }
+        Update: {
+          breach_flag?: boolean | null
+          created_at?: string | null
+          fridge_id?: string
+          id?: string
+          log_date?: string
+          log_time?: string
+          outcome?: string | null
+          reading?: number
+          recorded_by?: string
+          remedial_action?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_logs_fridge_id_fkey"
+            columns: ["fridge_id"]
+            isOneToOne: false
+            referencedRelation: "fridges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_records: {
+        Row: {
+          certificate_evidence_id: string | null
+          completion_date: string
+          course_name: string
+          created_at: string | null
+          employee_id: string
+          expiry_date: string | null
+          id: string
+        }
+        Insert: {
+          certificate_evidence_id?: string | null
+          completion_date: string
+          course_name: string
+          created_at?: string | null
+          employee_id: string
+          expiry_date?: string | null
+          id?: string
+        }
+        Update: {
+          certificate_evidence_id?: string | null
+          completion_date?: string
+          course_name?: string
+          created_at?: string | null
+          employee_id?: string
+          expiry_date?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_records_certificate_evidence_id_fkey"
+            columns: ["certificate_evidence_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           auth_user_id: string | null
@@ -545,7 +2082,10 @@ export type Database = {
           is_active: boolean | null
           is_master_user: boolean | null
           is_practice_manager: boolean | null
+          mfa_enabled: boolean | null
+          mfa_secret: string | null
           name: string
+          phone_number: string | null
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
@@ -558,7 +2098,10 @@ export type Database = {
           is_active?: boolean | null
           is_master_user?: boolean | null
           is_practice_manager?: boolean | null
+          mfa_enabled?: boolean | null
+          mfa_secret?: string | null
           name: string
+          phone_number?: string | null
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
@@ -571,7 +2114,10 @@ export type Database = {
           is_active?: boolean | null
           is_master_user?: boolean | null
           is_practice_manager?: boolean | null
+          mfa_enabled?: boolean | null
+          mfa_secret?: string | null
           name?: string
+          phone_number?: string | null
           practice_id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
@@ -654,6 +2200,7 @@ export type Database = {
         | "reception"
         | "auditor"
         | "administrator"
+        | "group_manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -821,6 +2368,7 @@ export const Constants = {
         "reception",
         "auditor",
         "administrator",
+        "group_manager",
       ],
     },
   },
