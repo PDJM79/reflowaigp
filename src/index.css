@@ -8,8 +8,8 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Modern medical-themed color palette */
-    --background: 210 20% 98%;
+    /* ReflowAI-inspired light theme - Professional and clean */
+    --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -18,21 +18,21 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Medical teal primary */
-    --primary: 183 80% 48%;
+    /* Teal primary accent */
+    --primary: 183 75% 45%;
     --primary-foreground: 0 0% 100%;
 
-    /* Professional blue secondary */
-    --secondary: 214 84% 56%;
+    /* Bright red secondary for CTAs - inspired by ReflowAI */
+    --secondary: 0 84% 60%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 215 20% 45%;
 
     --accent: 210 40% 96%;
     --accent-foreground: 222 47% 11%;
     
-    /* Enhanced RAG Status Colors with gradients */
+    /* Status colors */
     --success: 142 76% 42%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
@@ -45,77 +45,68 @@ All colors MUST be HSL.
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 183 80% 48%;
+    --ring: 183 75% 45%;
 
-    --radius: 0.75rem;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(183 80% 48%) 0%, hsl(214 84% 56%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 42%) 0%, hsl(158 64% 52%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(25 95% 53%) 100%);
-    --gradient-error: linear-gradient(135deg, hsl(0 72% 51%) 0%, hsl(348 83% 47%) 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-primary: 0 8px 16px -4px hsl(183 80% 48% / 0.3);
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 183 80% 48%;
+    --sidebar-primary: 183 75% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 40% 96%;
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 183 80% 48%;
+    --sidebar-ring: 183 75% 45%;
   }
 
   .dark {
+    /* ReflowAI-inspired dark theme - Deep navy/slate professional look */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
-    --card: 224 71% 4%;
+    --card: 217 33% 17%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 224 71% 4%;
+    --popover: 217 33% 17%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 183 80% 48%;
-    --primary-foreground: 0 0% 100%;
+    /* Bright teal for dark mode */
+    --primary: 183 75% 55%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 214 84% 56%;
+    /* Bright red for CTAs - ReflowAI style */
+    --secondary: 0 84% 60%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 20% 70%;
 
-    --accent: 216 34% 17%;
+    --accent: 215 28% 20%;
     --accent-foreground: 210 40% 98%;
     
-    /* Dark mode RAG Status Colors */
-    --success: 142 76% 42%;
+    /* Status colors optimized for dark mode */
+    --success: 142 76% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --error: 0 72% 51%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 11%;
+    --error: 0 84% 60%;
     --error-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 183 80% 48%;
+    --border: 215 28% 20%;
+    --input: 215 28% 20%;
+    --ring: 183 75% 55%;
     
-    --sidebar-background: 224 71% 4%;
+    --sidebar-background: 217 33% 17%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 183 80% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 216 34% 17%;
+    --sidebar-primary: 183 75% 55%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 215 28% 20%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 216 34% 17%;
-    --sidebar-ring: 183 80% 48%;
+    --sidebar-border: 215 28% 20%;
+    --sidebar-ring: 183 75% 55%;
   }
 }
 

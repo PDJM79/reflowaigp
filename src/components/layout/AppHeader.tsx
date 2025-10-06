@@ -1,3 +1,5 @@
+import { ThemeToggle } from '@/components/settings/ThemeToggle';
+
 interface AppHeaderProps {
   children?: React.ReactNode;
 }
@@ -13,13 +15,16 @@ export function AppHeader({ children }: AppHeaderProps) {
             className="h-12 w-auto drop-shadow-md"
           />
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-gradient">
+            <h1 className="text-2xl font-bold text-foreground">
               GP Surgery Audit & Compliance
             </h1>
             <p className="text-xs text-muted-foreground font-medium">Professional Healthcare Compliance Management</p>
           </div>
         </div>
-        {children}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          {children}
+        </div>
       </div>
     </header>
   );
