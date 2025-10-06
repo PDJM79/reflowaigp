@@ -2145,6 +2145,24 @@ export type Database = {
         Args: { user_id: string }
         Returns: string
       }
+      get_user_profile: {
+        Args: { user_id: string }
+        Returns: {
+          auth_user_id: string
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          is_master_user: boolean
+          is_practice_manager: boolean
+          mfa_enabled: boolean
+          name: string
+          phone_number: string
+          practice_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }[]
+      }
       is_current_user_master: {
         Args: Record<PropertyKey, never>
         Returns: boolean
