@@ -26,6 +26,13 @@ import Cleaning from "./pages/Cleaning";
 import MonthEndScripts from "./pages/MonthEndScripts";
 import FridgeTemps from "./pages/FridgeTemps";
 import Incidents from "./pages/Incidents";
+import Claims from "./pages/Claims";
+import FireSafety from "./pages/FireSafety";
+import HR from "./pages/HR";
+import Complaints from "./pages/Complaints";
+import MedicalRequests from "./pages/MedicalRequests";
+import Policies from "./pages/Policies";
+import Reports from "./pages/Reports";
 
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
@@ -62,17 +69,17 @@ const App = () => (
                 <Route path="/tasks" element={<TasksList />} />
                 <Route path="/schedule" element={<div className="p-6">Schedule coming soon...</div>} />
                 <Route path="/month-end" element={<MonthEndScripts />} />
-                <Route path="/claims" element={<div className="p-6">Enhanced Service Claims coming soon...</div>} />
+                <Route path="/claims" element={<Claims />} />
                 <Route path="/infection-control" element={<InfectionControl />} />
                 <Route path="/cleaning" element={<Cleaning />} />
                 <Route path="/incidents" element={<Incidents />} />
-                <Route path="/fire-safety" element={<div className="p-6">Fire & H&S coming soon...</div>} />
-                <Route path="/hr" element={<div className="p-6">HR coming soon...</div>} />
-                <Route path="/complaints" element={<div className="p-6">Complaints coming soon...</div>} />
-                <Route path="/medical-requests" element={<div className="p-6">Insurance/Medicals coming soon...</div>} />
-                <Route path="/policies" element={<div className="p-6">Policies Library coming soon...</div>} />
+                <Route path="/fire-safety" element={<FireSafety />} />
+                <Route path="/hr" element={<HR />} />
+                <Route path="/complaints" element={<Complaints />} />
+                <Route path="/medical-requests" element={<MedicalRequests />} />
+                <Route path="/policies" element={<Policies />} />
                 <Route path="/fridge-temps" element={<FridgeTemps />} />
-                <Route path="/reports" element={<div className="p-6">Reports coming soon...</div>} />
+                <Route path="/reports" element={<Reports />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />
