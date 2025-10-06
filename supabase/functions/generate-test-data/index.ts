@@ -18,46 +18,42 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Check if test practice already exists
-    const { data: existingPractice, error: checkError } = await supabaseAdmin
+    // Clean up any existing test data
+    console.log('Cleaning up existing test data...');
+    
+    // Find and delete existing test practice(s)
+    const { data: existingPractices } = await supabaseAdmin
       .from('practices')
-      .select('id, name')
-      .eq('name', 'Test Medical Centre')
-      .maybeSingle();
+      .select('id')
+      .eq('name', 'Test Medical Centre');
 
-    if (existingPractice) {
-      // Check if users exist for this practice
-      const { data: existingUsers } = await supabaseAdmin
-        .from('users')
-        .select('email')
-        .eq('practice_id', existingPractice.id);
-
-      if (existingUsers && existingUsers.length > 0) {
-        // Return existing test data
-        const testUsers = [
-          { email: 'manager@test.com', password: 'Test123!!', role: 'practice_manager' },
-          { email: 'admin@test.com', password: 'Test123!!', role: 'administrator' },
-          { email: 'gp@test.com', password: 'Test123!!', role: 'gp' },
-          { email: 'nurse@test.com', password: 'Test123!!', role: 'nurse' },
-          { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead' },
-          { email: 'reception@test.com', password: 'Test123!!', role: 'reception' },
-        ];
-
-        console.log('Test practice and users already exist');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            practice: {
-              id: existingPractice.id,
-              name: existingPractice.name
-            },
-            users: testUsers,
-            message: 'Test data already exists - you can use these credentials to log in'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    if (existingPractices && existingPractices.length > 0) {
+      for (const practice of existingPractices) {
+        console.log('Deleting practice:', practice.id);
+        await supabaseAdmin.from('practices').delete().eq('id', practice.id);
       }
     }
+
+    // Delete test auth users
+    const testEmails = [
+      'manager@test.com', 'admin@test.com', 'gp@test.com',
+      'nurse@test.com', 'nurselead@test.com', 'reception@test.com'
+    ];
+
+    for (const email of testEmails) {
+      try {
+        const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = authUsers.users.find(u => u.email === email);
+        if (existingUser) {
+          console.log('Deleting auth user:', email);
+          await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
+        }
+      } catch (error) {
+        console.log('Error deleting user', email, error);
+      }
+    }
+
+    console.log('Cleanup complete, creating fresh test data...');
 
     // Create test practice
     const { data: practice, error: practiceError } = await supabaseAdmin
