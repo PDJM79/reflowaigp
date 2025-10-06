@@ -2416,9 +2416,7 @@ export type Database = {
           is_master_user: boolean | null
           is_practice_manager: boolean | null
           mfa_enabled: boolean | null
-          mfa_secret: string | null
           name: string
-          phone_number: string | null
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
@@ -2432,9 +2430,7 @@ export type Database = {
           is_master_user?: boolean | null
           is_practice_manager?: boolean | null
           mfa_enabled?: boolean | null
-          mfa_secret?: string | null
           name: string
-          phone_number?: string | null
           practice_id: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
@@ -2448,9 +2444,7 @@ export type Database = {
           is_master_user?: boolean | null
           is_practice_manager?: boolean | null
           mfa_enabled?: boolean | null
-          mfa_secret?: string | null
           name?: string
-          phone_number?: string | null
           practice_id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
