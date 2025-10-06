@@ -4,7 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Thermometer, AlertTriangle, CheckCircle, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function FridgeTemps() {
@@ -13,6 +16,13 @@ export default function FridgeTemps() {
   const [logs, setLogs] = useState<any[]>([]);
   const [fridges, setFridges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newFridge, setNewFridge] = useState({
+    name: '',
+    location: '',
+    min_temp: '2',
+    max_temp: '8'
+  });
 
   useEffect(() => {
     if (!user) {
@@ -51,6 +61,64 @@ export default function FridgeTemps() {
       toast.error('Failed to load temperature data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddFridge = async () => {
+    if (!newFridge.name.trim()) {
+      toast.error('Please enter a fridge name');
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (!userData) return;
+
+      const { error } = await supabase
+        .from('fridges')
+        .insert({
+          practice_id: userData.practice_id,
+          name: newFridge.name,
+          location: newFridge.location,
+          min_temp: parseFloat(newFridge.min_temp),
+          max_temp: parseFloat(newFridge.max_temp)
+        });
+
+      if (error) throw error;
+
+      toast.success('Fridge added successfully');
+      setIsAddDialogOpen(false);
+      setNewFridge({ name: '', location: '', min_temp: '2', max_temp: '8' });
+      fetchData();
+    } catch (error) {
+      console.error('Error adding fridge:', error);
+      toast.error('Failed to add fridge');
+    }
+  };
+
+  const handleDeleteFridge = async (fridgeId: string, fridgeName: string) => {
+    if (!confirm(`Are you sure you want to delete "${fridgeName}"? This will also delete all associated temperature logs.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('fridges')
+        .delete()
+        .eq('id', fridgeId);
+
+      if (error) throw error;
+
+      toast.success('Fridge deleted successfully');
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting fridge:', error);
+      toast.error('Failed to delete fridge');
     }
   };
 
@@ -119,24 +187,98 @@ export default function FridgeTemps() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle>Registered Fridges</CardTitle>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Fridge
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Fridge</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Fridge Name *</Label>
+                    <Input
+                      id="name"
+                      placeholder="e.g., Vaccine Fridge A"
+                      value={newFridge.name}
+                      onChange={(e) => setNewFridge({ ...newFridge, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      placeholder="e.g., Treatment Room 1"
+                      value={newFridge.location}
+                      onChange={(e) => setNewFridge({ ...newFridge, location: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="min_temp">Min Temp (°C)</Label>
+                      <Input
+                        id="min_temp"
+                        type="number"
+                        step="0.1"
+                        value={newFridge.min_temp}
+                        onChange={(e) => setNewFridge({ ...newFridge, min_temp: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="max_temp">Max Temp (°C)</Label>
+                      <Input
+                        id="max_temp"
+                        type="number"
+                        step="0.1"
+                        value={newFridge.max_temp}
+                        onChange={(e) => setNewFridge({ ...newFridge, max_temp: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddFridge}>
+                      Add Fridge
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent>
             {fridges.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
+                <Thermometer className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No fridges registered</p>
+                <p className="text-sm mt-2">Click "Add Fridge" to get started</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {fridges.map((fridge) => (
                   <div key={fridge.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">{fridge.name}</p>
                       <p className="text-sm text-muted-foreground">
+                        {fridge.location && `${fridge.location} • `}
                         Range: {fridge.min_temp}°C - {fridge.max_temp}°C
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteFridge(fridge.id, fridge.name)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
