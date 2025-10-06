@@ -20,6 +20,13 @@ import Settings from "./pages/Settings";
 import TaskTemplates from "./pages/TaskTemplates";
 import TasksList from "./pages/TasksList";
 
+// Modules
+import InfectionControl from "./pages/InfectionControl";
+import Cleaning from "./pages/Cleaning";
+import MonthEndScripts from "./pages/MonthEndScripts";
+import FridgeTemps from "./pages/FridgeTemps";
+import Incidents from "./pages/Incidents";
+
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
@@ -54,17 +61,17 @@ const App = () => (
                 <Route path="/task-templates" element={<TaskTemplates />} />
                 <Route path="/tasks" element={<TasksList />} />
                 <Route path="/schedule" element={<div className="p-6">Schedule coming soon...</div>} />
-                <Route path="/month-end" element={<div className="p-6">Month-End Scripts coming soon...</div>} />
+                <Route path="/month-end" element={<MonthEndScripts />} />
                 <Route path="/claims" element={<div className="p-6">Enhanced Service Claims coming soon...</div>} />
-                <Route path="/infection-control" element={<div className="p-6">Infection Control Audit coming soon...</div>} />
-                <Route path="/cleaning" element={<div className="p-6">Daily Cleaning coming soon...</div>} />
-                <Route path="/incidents" element={<div className="p-6">Incidents coming soon...</div>} />
+                <Route path="/infection-control" element={<InfectionControl />} />
+                <Route path="/cleaning" element={<Cleaning />} />
+                <Route path="/incidents" element={<Incidents />} />
                 <Route path="/fire-safety" element={<div className="p-6">Fire & H&S coming soon...</div>} />
                 <Route path="/hr" element={<div className="p-6">HR coming soon...</div>} />
                 <Route path="/complaints" element={<div className="p-6">Complaints coming soon...</div>} />
                 <Route path="/medical-requests" element={<div className="p-6">Insurance/Medicals coming soon...</div>} />
                 <Route path="/policies" element={<div className="p-6">Policies Library coming soon...</div>} />
-                <Route path="/fridge-temps" element={<div className="p-6">Fridge Temperatures coming soon...</div>} />
+                <Route path="/fridge-temps" element={<FridgeTemps />} />
                 <Route path="/reports" element={<div className="p-6">Reports coming soon...</div>} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
