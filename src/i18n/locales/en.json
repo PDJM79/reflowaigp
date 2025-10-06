@@ -6,7 +6,8 @@
   "nav": {
     "home": "Home",
     "schedule": "Schedule",
-    "tasks": "Tasks",
+    "tasks": "My Tasks",
+    "taskTemplates": "Task Templates",
     "forms": "Forms",
     "evidence": "Evidence",
     "reports": "Reports",

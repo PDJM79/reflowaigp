@@ -47,7 +47,8 @@ export function AppLayout() {
   const navItems = [
     { icon: Home, label: t('nav.home'), path: '/dashboard', roles: 'all' },
     { icon: Calendar, label: t('nav.schedule'), path: '/schedule', roles: ['practice_manager', 'administrator'] },
-    { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: ['practice_manager', 'administrator'] },
+    { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
+    { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
     { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
     { icon: DollarSign, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
     { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },

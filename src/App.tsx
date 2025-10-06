@@ -16,6 +16,10 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 
+// Task Management
+import TaskTemplates from "./pages/TaskTemplates";
+import TasksList from "./pages/TasksList";
+
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
@@ -46,9 +50,10 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/settings" element={<Settings />} />
                 
-                {/* Module Routes (placeholders - to be implemented) */}
+                {/* Task Management */}
+                <Route path="/task-templates" element={<TaskTemplates />} />
+                <Route path="/tasks" element={<TasksList />} />
                 <Route path="/schedule" element={<div className="p-6">Schedule coming soon...</div>} />
-                <Route path="/tasks" element={<div className="p-6">Tasks coming soon...</div>} />
                 <Route path="/month-end" element={<div className="p-6">Month-End Scripts coming soon...</div>} />
                 <Route path="/claims" element={<div className="p-6">Enhanced Service Claims coming soon...</div>} />
                 <Route path="/infection-control" element={<div className="p-6">Infection Control Audit coming soon...</div>} />
