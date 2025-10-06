@@ -138,7 +138,7 @@ export type Database = {
             foreignKeyName: "audit_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -199,7 +199,7 @@ export type Database = {
             foreignKeyName: "audit_trail_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -403,7 +403,7 @@ export type Database = {
             foreignKeyName: "cleaning_logs_completed_by_fkey"
             columns: ["completed_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -496,7 +496,7 @@ export type Database = {
             foreignKeyName: "complaints_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -581,7 +581,7 @@ export type Database = {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -684,7 +684,7 @@ export type Database = {
             foreignKeyName: "evidence_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -772,7 +772,7 @@ export type Database = {
             foreignKeyName: "evidence_v2_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -867,7 +867,7 @@ export type Database = {
             foreignKeyName: "form_submissions_signed_off_by_fkey"
             columns: ["signed_off_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -1239,7 +1239,7 @@ export type Database = {
             foreignKeyName: "incidents_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -1303,7 +1303,7 @@ export type Database = {
             foreignKeyName: "issues_assigned_to_id_fkey"
             columns: ["assigned_to_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -1331,7 +1331,7 @@ export type Database = {
             foreignKeyName: "issues_raised_by_id_fkey"
             columns: ["raised_by_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -1557,7 +1557,7 @@ export type Database = {
             foreignKeyName: "month_end_scripts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -1778,7 +1778,7 @@ export type Database = {
             foreignKeyName: "process_instances_assignee_id_fkey"
             columns: ["assignee_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -2137,7 +2137,7 @@ export type Database = {
             foreignKeyName: "tasks_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -2158,7 +2158,7 @@ export type Database = {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -2186,7 +2186,7 @@ export type Database = {
             foreignKeyName: "tasks_returned_by_fkey"
             columns: ["returned_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
           {
@@ -2261,7 +2261,7 @@ export type Database = {
             foreignKeyName: "temp_logs_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -2355,7 +2355,7 @@ export type Database = {
             foreignKeyName: "user_roles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe"
+            referencedRelation: "users_for_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -2474,7 +2474,7 @@ export type Database = {
           },
         ]
       }
-      users_safe: {
+      users_for_managers: {
         Row: {
           auth_user_id: string | null
           created_at: string | null
@@ -2485,7 +2485,6 @@ export type Database = {
           is_practice_manager: boolean | null
           mfa_enabled: boolean | null
           name: string | null
-          phone_number: string | null
           practice_id: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           updated_at: string | null
@@ -2500,7 +2499,6 @@ export type Database = {
           is_practice_manager?: boolean | null
           mfa_enabled?: boolean | null
           name?: string | null
-          phone_number?: never
           practice_id?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
@@ -2515,7 +2513,6 @@ export type Database = {
           is_practice_manager?: boolean | null
           mfa_enabled?: boolean | null
           name?: string | null
-          phone_number?: never
           practice_id?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
@@ -2532,6 +2529,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_sensitive_user_field: {
+        Args: { _target_user_id: string }
+        Returns: boolean
+      }
       get_current_user_practice_id: {
         Args: Record<PropertyKey, never>
         Returns: string
