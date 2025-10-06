@@ -18,6 +18,38 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Check if test practice already exists
+    const { data: existingPractice } = await supabaseAdmin
+      .from('practices')
+      .select('*, users(*)')
+      .eq('name', 'Test Medical Centre')
+      .single();
+
+    if (existingPractice && existingPractice.users && existingPractice.users.length > 0) {
+      // Return existing test data
+      const testUsers = [
+        { email: 'manager@test.com', password: 'Test123!!', role: 'practice_manager' },
+        { email: 'admin@test.com', password: 'Test123!!', role: 'administrator' },
+        { email: 'gp@test.com', password: 'Test123!!', role: 'gp' },
+        { email: 'nurse@test.com', password: 'Test123!!', role: 'nurse' },
+        { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead' },
+        { email: 'reception@test.com', password: 'Test123!!', role: 'reception' },
+      ];
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          practice: {
+            id: existingPractice.id,
+            name: existingPractice.name
+          },
+          users: testUsers,
+          message: 'Test data already exists - you can use these credentials'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Create test practice
     const { data: practice, error: practiceError } = await supabaseAdmin
       .from('practices')
@@ -84,6 +116,10 @@ serve(async (req) => {
       console.log('Created user:', user.email);
     }
 
+    if (createdUsers.length === 0) {
+      throw new Error('No users were created successfully');
+    }
+
     const practiceManager = createdUsers.find(u => u.role === 'practice_manager');
     const nurse = createdUsers.find(u => u.role === 'nurse');
     const admin = createdUsers.find(u => u.role === 'administrator');
@@ -106,7 +142,7 @@ serve(async (req) => {
       .select();
 
     // Create temp logs
-    if (fridges && fridges.length > 0) {
+    if (fridges && fridges.length > 0 && nurse) {
       const tempLogs = [];
       for (let i = 0; i < 7; i++) {
         const date = new Date();
@@ -124,30 +160,32 @@ serve(async (req) => {
     }
 
     // Create incidents
-    await supabaseAdmin
-      .from('incidents')
-      .insert([
-        {
-          practice_id: practice.id,
-          incident_date: new Date().toISOString(),
-          description: 'Patient slip in waiting room',
-          location: 'Waiting Room',
-          rag: 'amber',
-          reported_by: nurse.id,
-          themes: ['slips_trips_falls'],
-          status: 'open'
-        },
-        {
-          practice_id: practice.id,
-          incident_date: new Date(Date.now() - 86400000 * 2).toISOString(),
-          description: 'Sharps disposal bin full',
-          location: 'Treatment Room 1',
-          rag: 'green',
-          reported_by: nurse.id,
-          themes: ['waste_management'],
-          status: 'closed'
-        }
-      ]);
+    if (nurse) {
+      await supabaseAdmin
+        .from('incidents')
+        .insert([
+          {
+            practice_id: practice.id,
+            incident_date: new Date().toISOString(),
+            description: 'Patient slip in waiting room',
+            location: 'Waiting Room',
+            rag: 'amber',
+            reported_by: nurse.id,
+            themes: ['slips_trips_falls'],
+            status: 'open'
+          },
+          {
+            practice_id: practice.id,
+            incident_date: new Date(Date.now() - 86400000 * 2).toISOString(),
+            description: 'Sharps disposal bin full',
+            location: 'Treatment Room 1',
+            rag: 'green',
+            reported_by: nurse.id,
+            themes: ['waste_management'],
+            status: 'closed'
+          }
+        ]);
+    }
 
     // Create complaints
     await supabaseAdmin
@@ -213,7 +251,9 @@ serve(async (req) => {
       .select();
 
     // Create tasks
-    if (templates && templates.length > 0) {
+    if (templates && templates.length > 0 && nurse) {
+      const nurseLead = createdUsers.find(u => u.role === 'nurse_lead');
+      
       await supabaseAdmin
         .from('tasks')
         .insert([
@@ -229,18 +269,18 @@ serve(async (req) => {
             priority: 'high',
             requires_photo: true
           },
-          {
+          ...(nurseLead ? [{
             practice_id: practice.id,
             template_id: templates[1].id,
             title: templates[1].title,
             description: templates[1].description,
             module: templates[1].module,
-            assigned_to_user_id: createdUsers.find(u => u.role === 'nurse_lead')?.id,
+            assigned_to_user_id: nurseLead.id,
             due_at: new Date(Date.now() + 86400000 * 7).toISOString(),
             status: 'open',
             priority: 'medium',
             requires_photo: true
-          }
+          }] : [])
         ]);
     }
 
