@@ -1,0 +1,88 @@
+{
+  "app": {
+    "title": "GP Practice Audit & Evidence Hub",
+    "loading": "Loading..."
+  },
+  "nav": {
+    "home": "Home",
+    "schedule": "Schedule",
+    "tasks": "Tasks",
+    "forms": "Forms",
+    "evidence": "Evidence",
+    "reports": "Reports",
+    "month_end": "Month-End Scripts",
+    "claims": "Enhanced Service Claims",
+    "infection_control": "Infection Control",
+    "cleaning": "Daily Cleaning",
+    "incidents": "Incidents",
+    "fire_safety": "Fire & H&S",
+    "hr": "HR",
+    "complaints": "Complaints",
+    "medical_requests": "Insurance/Medicals",
+    "policies": "Policies",
+    "fridge_temps": "Fridge Temps",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "home": {
+    "my_todos": "My To-dos (This Month)",
+    "completed": "Completed",
+    "timed_out": "Timed-out / Not completed",
+    "due_tasks": "Due Tasks",
+    "not_completed": "Not Completed",
+    "welcome": "Welcome",
+    "no_tasks": "No tasks assigned for this month",
+    "all_caught_up": "You're all caught up!"
+  },
+  "tasks": {
+    "status": {
+      "open": "Open",
+      "in_progress": "In Progress",
+      "submitted": "Submitted",
+      "returned": "Returned",
+      "closed": "Closed",
+      "overdue": "Overdue"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "due_soon": "Due Soon",
+    "on_track": "On Track",
+    "send_back": "Send Back",
+    "reason_required": "Reason Required"
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "english": "English",
+    "welsh": "Welsh (Cymraeg)",
+    "notifications": "Notifications",
+    "email_notifications": "Email Notifications",
+    "save": "Save Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "print": "Print",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "close": "Close",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

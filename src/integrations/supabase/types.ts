@@ -2153,6 +2153,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_group_manager: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
       is_master_user: {
         Args: { user_id: string }
         Returns: boolean

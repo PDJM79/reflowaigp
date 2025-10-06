@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-type UserRole = 'practice_manager' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'nurse' | 'hca' | 'gp' | 'reception' | 'auditor';
+type UserRole = 'practice_manager' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'nurse' | 'hca' | 'gp' | 'reception' | 'auditor' | 'group_manager';
 
 interface RoleAssignment {
   id: string;
@@ -26,6 +26,7 @@ interface RoleManagementProps {
 
 const roleOptions = [
   { value: 'practice_manager' as const, label: 'Practice Manager' },
+  { value: 'group_manager' as const, label: 'Group Manager' },
   { value: 'administrator' as const, label: 'Administrator' },
   { value: 'gp' as const, label: 'GP' },
   { value: 'nurse' as const, label: 'Nurse' },

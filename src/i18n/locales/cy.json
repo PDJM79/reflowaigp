@@ -1,0 +1,88 @@
+{
+  "app": {
+    "title": "Hyb Archwilio a Thystiolaeth Meddygfa Feddyg Teulu",
+    "loading": "Yn llwytho..."
+  },
+  "nav": {
+    "home": "Hafan",
+    "schedule": "Amserlen",
+    "tasks": "Tasgau",
+    "forms": "Ffurflenni",
+    "evidence": "Tystiolaeth",
+    "reports": "Adroddiadau",
+    "month_end": "Sgriptiau Diwedd Mis",
+    "claims": "Hawliadau Gwasanaeth Uwch",
+    "infection_control": "Rheoli Heintiau",
+    "cleaning": "Glanhau Dyddiol",
+    "incidents": "Digwyddiadau",
+    "fire_safety": "Tân ac Iechyd a Diogelwch",
+    "hr": "Adnoddau Dynol",
+    "complaints": "Cwynion",
+    "medical_requests": "Yswiriant/Morgais Meddygol",
+    "policies": "Polisïau",
+    "fridge_temps": "Tymereddau Oergell",
+    "settings": "Gosodiadau",
+    "logout": "Allgofnodi"
+  },
+  "home": {
+    "my_todos": "Fy Nhasgau (Y Mis Hwn)",
+    "completed": "Wedi'i Gwblhau",
+    "timed_out": "Amser Allan / Heb ei Gwblhau",
+    "due_tasks": "Tasgau sy'n Ddyledus",
+    "not_completed": "Heb ei Gwblhau",
+    "welcome": "Croeso",
+    "no_tasks": "Dim tasgau wedi'u neilltuo ar gyfer y mis hwn",
+    "all_caught_up": "Rydych chi wedi dal i fyny!"
+  },
+  "tasks": {
+    "status": {
+      "open": "Ar Agor",
+      "in_progress": "Ar y Gweill",
+      "submitted": "Wedi'i Gyflwyno",
+      "returned": "Wedi'i Ddychwelyd",
+      "closed": "Ar Gau",
+      "overdue": "Yn Hwyr"
+    },
+    "priority": {
+      "low": "Isel",
+      "medium": "Canolig",
+      "high": "Uchel"
+    },
+    "due_soon": "Yn Ddyledus yn Fuan",
+    "on_track": "Ar y Trywydd Cywir",
+    "send_back": "Anfon yn Ôl",
+    "reason_required": "Rheswm yn Ofynnol"
+  },
+  "settings": {
+    "title": "Gosodiadau",
+    "theme": "Thema",
+    "light": "Golau",
+    "dark": "Tywyll",
+    "system": "System",
+    "language": "Iaith",
+    "english": "Saesneg",
+    "welsh": "Cymraeg",
+    "notifications": "Hysbysiadau",
+    "email_notifications": "Hysbysiadau E-bost",
+    "save": "Cadw Gosodiadau"
+  },
+  "common": {
+    "save": "Cadw",
+    "cancel": "Canslo",
+    "delete": "Dileu",
+    "edit": "Golygu",
+    "view": "Gweld",
+    "add": "Ychwanegu",
+    "search": "Chwilio",
+    "filter": "Hidlo",
+    "export": "Allforio",
+    "print": "Argraffu",
+    "back": "Yn Ôl",
+    "next": "Nesaf",
+    "finish": "Gorffen",
+    "close": "Cau",
+    "confirm": "Cadarnhau",
+    "yes": "Ie",
+    "no": "Na"
+  }
+}
