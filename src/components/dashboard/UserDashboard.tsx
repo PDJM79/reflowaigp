@@ -80,7 +80,7 @@ export function UserDashboard() {
 
   const handleTaskClick = (taskId: string) => {
     console.log('Navigate to task:', taskId);
-    window.location.href = `/task/${taskId}`;
+    navigate(`/task/${taskId}`);
   };
 
   const getStatusIcon = (status: RAGStatus) => {
