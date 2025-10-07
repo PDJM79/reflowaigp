@@ -21,20 +21,67 @@ serve(async (req) => {
     // Clean up any existing test data
     console.log('Cleaning up existing test data...');
     
-    // Find and delete existing test practice(s)
+    // Find and delete ALL existing test practices (there might be duplicates)
     const { data: existingPractices } = await supabaseAdmin
       .from('practices')
       .select('id')
       .eq('name', 'Test Medical Centre');
 
     if (existingPractices && existingPractices.length > 0) {
+      console.log(`Found ${existingPractices.length} existing test practice(s), deleting...`);
+      
+      // Use the migration approach to delete all related data
       for (const practice of existingPractices) {
-        console.log('Deleting practice:', practice.id);
+        console.log('Deleting practice and all related data:', practice.id);
+        
+        // Delete in order to respect foreign key constraints
+        await supabaseAdmin.from('temp_logs').delete().in('fridge_id', 
+          (await supabaseAdmin.from('fridges').select('id').eq('practice_id', practice.id)).data?.map(f => f.id) || []
+        );
+        await supabaseAdmin.from('training_records').delete().in('employee_id',
+          (await supabaseAdmin.from('employees').select('id').eq('practice_id', practice.id)).data?.map(e => e.id) || []
+        );
+        await supabaseAdmin.from('appraisals').delete().in('employee_id',
+          (await supabaseAdmin.from('employees').select('id').eq('practice_id', practice.id)).data?.map(e => e.id) || []
+        );
+        await supabaseAdmin.from('leave_requests').delete().in('employee_id',
+          (await supabaseAdmin.from('employees').select('id').eq('practice_id', practice.id)).data?.map(e => e.id) || []
+        );
+        await supabaseAdmin.from('employees').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('evidence_v2').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('form_submissions').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('tasks').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('task_templates').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('incidents').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('complaints').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('medical_requests').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('fridges').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('process_instances').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('score_current').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('score_snapshot').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('practice_targets').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('policy_documents').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('month_end_scripts').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('generated_reports').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('claim_runs').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('audit_logs').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('leave_policies').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('user_roles').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('role_assignments').delete().eq('practice_id', practice.id);
+        
+        // Delete user_auth_sensitive for users in this practice
+        const practiceUserIds = (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || [];
+        if (practiceUserIds.length > 0) {
+          await supabaseAdmin.from('user_auth_sensitive').delete().in('user_id', practiceUserIds);
+        }
+        
+        await supabaseAdmin.from('users').delete().eq('practice_id', practice.id);
+        await supabaseAdmin.from('organization_setup').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('practices').delete().eq('id', practice.id);
       }
     }
 
-    // Delete test auth users
+    // Delete ALL test auth users (including orphaned ones)
     const testEmails = [
       'manager@test.com', 'admin@test.com', 'nurselead@test.com',
       'cdleadgp@test.com', 'gp@test.com', 'nurse@test.com',
@@ -44,9 +91,9 @@ serve(async (req) => {
     for (const email of testEmails) {
       try {
         const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
-        const existingUser = authUsers.users.find(u => u.email === email);
-        if (existingUser) {
-          console.log('Deleting auth user:', email);
+        const matchingUsers = authUsers.users.filter(u => u.email === email);
+        for (const existingUser of matchingUsers) {
+          console.log('Deleting auth user:', email, existingUser.id);
           await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
         }
       } catch (error) {
