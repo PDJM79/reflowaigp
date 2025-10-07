@@ -155,7 +155,8 @@ serve(async (req) => {
         responsible_role: 'nurse',
         sla_hours: 4,
         start_date: tomorrow.toISOString().split('T')[0],
-        category: 'infection_control'
+        steps: [],
+        evidence_hint: 'Take a photo of the fridge thermometer'
       },
       {
         practice_id: practice.id,
@@ -164,7 +165,8 @@ serve(async (req) => {
         responsible_role: 'administrator',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        category: 'fire_safety'
+        steps: [],
+        evidence_hint: 'Check all fire extinguishers and alarms'
       },
       {
         practice_id: practice.id,
@@ -173,7 +175,8 @@ serve(async (req) => {
         responsible_role: 'nurse_lead',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        category: 'infection_control'
+        steps: [],
+        evidence_hint: 'Complete infection control checklist'
       },
       {
         practice_id: practice.id,
@@ -182,14 +185,22 @@ serve(async (req) => {
         responsible_role: 'administrator',
         sla_hours: 24,
         start_date: tomorrow.toISOString().split('T')[0],
-        category: 'cleaning'
+        steps: [],
+        evidence_hint: 'Verify all rooms are clean and sanitized'
       }
     ];
 
-    const { data: createdTemplates } = await supabaseAdmin
+    const { data: createdTemplates, error: templatesError } = await supabaseAdmin
       .from('process_templates')
       .insert(processTemplates)
       .select();
+
+    if (templatesError) {
+      console.error('Error creating process templates:', templatesError);
+      throw templatesError;
+    }
+
+    console.log('Created process templates:', createdTemplates?.length || 0);
 
     // Create initial process instances
     if (createdTemplates && createdTemplates.length > 0) {
