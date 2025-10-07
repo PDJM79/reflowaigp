@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.reset-user-password]
 verify_jwt = true
+
+[functions.suggest-improvements]
+verify_jwt = true

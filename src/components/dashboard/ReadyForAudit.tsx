@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, TrendingUp, TrendingDown, Target, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { AlertCircle, TrendingUp, TrendingDown, Target, CheckCircle2, Clock, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -59,6 +59,65 @@ const SECTION_LABELS: Record<string, string> = {
   Policies: "Policies/Protocols",
   Incidents: "Risk & Incidents",
 };
+
+interface AIImprovementTipsProps {
+  section: string;
+  score: number;
+  target: number;
+  gap: number;
+  contributors: any;
+  country: string;
+}
+
+function AIImprovementTips({ section, score, target, gap, contributors, country }: AIImprovementTipsProps) {
+  const [showTips, setShowTips] = useState(false);
+
+  const { data: tips, isLoading } = useQuery({
+    queryKey: ['improvement-tips', section],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('suggest-improvements', {
+        body: { section: SECTION_LABELS[section] || section, score, target, gap, contributors, country }
+      });
+
+      if (error) throw error;
+      return data.tips;
+    },
+    enabled: showTips,
+  });
+
+  if (!showTips) {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="w-full"
+        onClick={() => setShowTips(true)}
+      >
+        <Sparkles className="h-3 w-3 mr-2" />
+        Get AI Improvement Tips
+      </Button>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/20 p-3 rounded">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Generating AI suggestions...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 text-sm bg-blue-50 dark:bg-blue-950/20 p-3 rounded">
+      <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+      <div className="flex-1">
+        <p className="font-medium text-blue-700 dark:text-blue-400 mb-1">AI Suggestions:</p>
+        <p className="text-muted-foreground whitespace-pre-line">{tips}</p>
+      </div>
+    </div>
+  );
+}
 
 export function ReadyForAudit() {
   const [activeTab, setActiveTab] = useState<"overview" | "bySection">("overview");
@@ -276,6 +335,16 @@ export function ReadyForAudit() {
                       {area.score}/100
                     </Badge>
                   </div>
+
+                  {/* AI-Generated Tips */}
+                  <AIImprovementTips 
+                    section={area.section}
+                    score={area.score}
+                    target={area.target}
+                    gap={area.gap}
+                    contributors={area.contributors}
+                    country={practiceData?.audit_country || 'England'}
+                  />
                   
                   {area.gates?.active && area.gates.active.length > 0 && (
                     <div className="flex items-start gap-2 text-sm bg-amber-50 dark:bg-amber-950/20 p-2 rounded">
