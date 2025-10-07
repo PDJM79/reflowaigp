@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { AuthForm } from '@/components/auth/AuthForm';
@@ -15,7 +16,8 @@ const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { isMasterUser, selectedPracticeId, setSelectedPractice, clearSelectedPractice, loading: masterLoading } = useMasterUser();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
-  const { selectedPracticeId: preAuthPracticeId, loading: practiceLoading } = usePracticeSelection();
+  const { selectedPracticeId: preAuthPracticeId, loading: practiceLoading, selectPractice } = usePracticeSelection();
+  const [showAuthForm, setShowAuthForm] = useState(false);
   
   // Check if user needs to change password
   const needsPasswordChange = user?.user_metadata?.force_password_change === true;
@@ -30,8 +32,8 @@ const Index = () => {
 
   if (!user) {
     // Show practice selection first, then auth form
-    if (!preAuthPracticeId) {
-      return <PracticeSelection onPracticeSelected={() => {}} />;
+    if (!preAuthPracticeId || !showAuthForm) {
+      return <PracticeSelection onPracticeSelected={() => setShowAuthForm(true)} />;
     }
     
     return (
