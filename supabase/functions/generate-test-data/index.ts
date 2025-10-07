@@ -334,6 +334,9 @@ serve(async (req) => {
       }
     ];
 
+    console.log('About to insert templates. First template steps:', JSON.stringify(processTemplates[0].steps));
+    console.log('First template full:', JSON.stringify(processTemplates[0]));
+
     const { data: createdTemplates, error: templatesError } = await supabaseAdmin
       .from('process_templates')
       .insert(processTemplates)
@@ -345,6 +348,10 @@ serve(async (req) => {
     }
 
     console.log('Created process templates:', createdTemplates?.length || 0);
+    if (createdTemplates && createdTemplates.length > 0) {
+      console.log('First created template steps:', JSON.stringify(createdTemplates[0].steps));
+      console.log('First created template full:', JSON.stringify(createdTemplates[0]));
+    }
 
     // Create initial process instances with proper assignments
     if (createdTemplates && createdTemplates.length > 0) {
