@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 // Task Management
 import TaskTemplates from "./pages/TaskTemplates";
 import TasksList from "./pages/TasksList";
+import Schedule from "./pages/Schedule";
 
 // Modules
 import InfectionControl from "./pages/InfectionControl";
@@ -67,7 +68,7 @@ const App = () => (
                 {/* Task Management */}
                 <Route path="/task-templates" element={<TaskTemplates />} />
                 <Route path="/tasks" element={<TasksList />} />
-                <Route path="/schedule" element={<div className="p-6">Schedule coming soon...</div>} />
+                <Route path="/schedule" element={<Schedule />} />
                 <Route path="/month-end" element={<MonthEndScripts />} />
                 <Route path="/claims" element={<Claims />} />
                 <Route path="/infection-control" element={<InfectionControl />} />
