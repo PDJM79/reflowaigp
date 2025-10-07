@@ -36,8 +36,9 @@ serve(async (req) => {
 
     // Delete test auth users
     const testEmails = [
-      'manager@test.com', 'admin@test.com', 'gp@test.com',
-      'nurse@test.com', 'nurselead@test.com', 'reception@test.com'
+      'manager@test.com', 'admin@test.com', 'nurselead@test.com',
+      'cdleadgp@test.com', 'gp@test.com', 'nurse@test.com',
+      'hca@test.com', 'receptionlead@test.com', 'reception@test.com'
     ];
 
     for (const email of testEmails) {
@@ -71,13 +72,16 @@ serve(async (req) => {
 
     console.log('Created practice:', practice.id);
 
-    // Create test users with different roles
+    // Create test users with all available roles
     const testUsers = [
       { email: 'manager@test.com', password: 'Test123!!', role: 'practice_manager', name: 'Sarah Manager' },
       { email: 'admin@test.com', password: 'Test123!!', role: 'administrator', name: 'John Admin' },
+      { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead', name: 'Maria Lead' },
+      { email: 'cdleadgp@test.com', password: 'Test123!!', role: 'cd_lead_gp', name: 'Dr. James Control' },
       { email: 'gp@test.com', password: 'Test123!!', role: 'gp', name: 'Dr. Emily Smith' },
       { email: 'nurse@test.com', password: 'Test123!!', role: 'nurse', name: 'Lisa Nurse' },
-      { email: 'nurselead@test.com', password: 'Test123!!', role: 'nurse_lead', name: 'Maria Lead' },
+      { email: 'hca@test.com', password: 'Test123!!', role: 'hca', name: 'David Care' },
+      { email: 'receptionlead@test.com', password: 'Test123!!', role: 'reception_lead', name: 'Anne Front' },
       { email: 'reception@test.com', password: 'Test123!!', role: 'reception', name: 'Tom Reception' },
     ];
 
@@ -137,6 +141,77 @@ serve(async (req) => {
     const practiceManager = createdUsers.find(u => u.role === 'practice_manager');
     const nurse = createdUsers.find(u => u.role === 'nurse');
     const admin = createdUsers.find(u => u.role === 'administrator');
+
+    // Create default process templates with schedules
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+
+    const processTemplates = [
+      {
+        practice_id: practice.id,
+        name: 'Fridge Temperature Check',
+        frequency: 'twice_daily',
+        responsible_role: 'nurse',
+        sla_hours: 4,
+        start_date: tomorrow.toISOString().split('T')[0],
+        category: 'infection_control'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Fire Safety Weekly Check',
+        frequency: 'weekly',
+        responsible_role: 'administrator',
+        sla_hours: 168,
+        start_date: tomorrow.toISOString().split('T')[0],
+        category: 'fire_safety'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Infection Control Monthly Audit',
+        frequency: 'monthly',
+        responsible_role: 'nurse_lead',
+        sla_hours: 168,
+        start_date: tomorrow.toISOString().split('T')[0],
+        category: 'infection_control'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Cleaning Standards Inspection',
+        frequency: 'daily',
+        responsible_role: 'administrator',
+        sla_hours: 24,
+        start_date: tomorrow.toISOString().split('T')[0],
+        category: 'cleaning'
+      }
+    ];
+
+    const { data: createdTemplates } = await supabaseAdmin
+      .from('process_templates')
+      .insert(processTemplates)
+      .select();
+
+    // Create initial process instances
+    if (createdTemplates && createdTemplates.length > 0) {
+      const instances = createdTemplates.map(template => {
+        const dueDate = new Date(template.start_date);
+        const periodEnd = new Date(dueDate);
+        periodEnd.setHours(23, 59, 59, 999);
+
+        return {
+          template_id: template.id,
+          practice_id: practice.id,
+          status: 'pending',
+          period_start: template.start_date,
+          period_end: periodEnd.toISOString(),
+          due_at: dueDate.toISOString()
+        };
+      });
+
+      await supabaseAdmin
+        .from('process_instances')
+        .insert(instances);
+    }
 
     // Mark setup as complete
     await supabaseAdmin
