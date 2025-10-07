@@ -232,6 +232,79 @@ serve(async (req) => {
         setup_completed: true
       });
 
+    // Seed practice targets
+    const targetSections = [
+      { section_key: null, target_score: 85 }, // Overall
+      { section_key: 'FridgeTemps', target_score: 90 },
+      { section_key: 'InfectionControlAudit', target_score: 85 },
+      { section_key: 'Complaints', target_score: 85 },
+      { section_key: 'HR_Training', target_score: 85 },
+      { section_key: 'Policies', target_score: 85 },
+      { section_key: 'FireRisk', target_score: 85 },
+      { section_key: 'HSToolkit', target_score: 85 },
+      { section_key: 'DailyCleaning', target_score: 85 },
+      { section_key: 'Incidents', target_score: 80 },
+      { section_key: 'MonthEndScripts', target_score: 80 },
+      { section_key: 'EnhancedClaims', target_score: 80 },
+      { section_key: 'InsuranceMedicals', target_score: 80 },
+      { section_key: 'HR_Appraisals', target_score: 80 },
+      { section_key: 'HR_Hiring', target_score: 80 },
+    ];
+
+    await supabaseAdmin
+      .from('practice_targets')
+      .insert(targetSections.map(t => ({
+        practice_id: practice.id,
+        ...t
+      })));
+
+    // Seed sample current scores
+    const sampleScores = [
+      { 
+        section_key: 'Overall', 
+        score: 78,
+        contributors_json: {},
+        gates_json: {}
+      },
+      { 
+        section_key: 'FridgeTemps', 
+        score: 72,
+        contributors_json: { E: 95, C: 82, S: 88, R: 91, Q: 100, X: 50, N: 100 },
+        gates_json: { active: ['CapUnresolvedExceptions'], reasons: ['2 out-of-range readings unresolved'] }
+      },
+      { 
+        section_key: 'InfectionControlAudit', 
+        score: 85,
+        contributors_json: { E: 90, C: 100, S: 100, R: 85, Q: 95, X: 100, N: 80 },
+        gates_json: {}
+      },
+      { 
+        section_key: 'Complaints', 
+        score: 69,
+        contributors_json: { E: 92, C: 0, S: 60, R: 75, Q: 88, X: 80, N: 0 },
+        gates_json: { active: ['CapLateCritical'], reasons: ['Acknowledgment on-time: 60%'] }
+      },
+      { 
+        section_key: 'DailyCleaning', 
+        score: 88,
+        contributors_json: { E: 90, C: 95, S: 92, R: 85, Q: 90, X: 100, N: 0 },
+        gates_json: {}
+      },
+      { 
+        section_key: 'HR_Training', 
+        score: 75,
+        contributors_json: { E: 85, C: 80, S: 88, R: 70, Q: 90, X: 0, N: 65 },
+        gates_json: {}
+      },
+    ];
+
+    await supabaseAdmin
+      .from('score_current')
+      .insert(sampleScores.map(s => ({
+        practice_id: practice.id,
+        ...s
+      })));
+
     // Create fridges
     const { data: fridges } = await supabaseAdmin
       .from('fridges')

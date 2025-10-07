@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SectionScoreBadge } from '@/components/dashboard/SectionScoreBadge';
 
 export default function FridgeTemps() {
   const { user } = useAuth();

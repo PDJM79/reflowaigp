@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import { format, isThisMonth, isPast, isFuture } from 'date-fns';
+import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 
 type Task = {
   id: string;
@@ -176,6 +177,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Ready for Audit Section */}
+        <ReadyForAudit />
 
         <Card>
           <CardHeader>
