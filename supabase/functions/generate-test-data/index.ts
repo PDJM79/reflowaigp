@@ -193,7 +193,12 @@ serve(async (req) => {
         responsible_role: 'nurse',
         sla_hours: 4,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Check vaccine fridge temperature is between 2-8°C', required: true },
+          { order: 2, description: 'Record temperature on log sheet', required: true },
+          { order: 3, description: 'Take photo of thermometer reading', required: true },
+          { order: 4, description: 'Report any out-of-range readings immediately', required: true }
+        ],
         evidence_hint: 'Take a photo of the fridge thermometer'
       },
       {
@@ -203,7 +208,13 @@ serve(async (req) => {
         responsible_role: 'hca',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Check all fire extinguishers are in place and sealed', required: true },
+          { order: 2, description: 'Test fire alarm panel', required: true },
+          { order: 3, description: 'Ensure fire exits are clear and accessible', required: true },
+          { order: 4, description: 'Check emergency lighting is functional', required: true },
+          { order: 5, description: 'Document any issues found', required: true }
+        ],
         evidence_hint: 'Check all fire extinguishers and alarms'
       },
       {
@@ -213,7 +224,14 @@ serve(async (req) => {
         responsible_role: 'nurse_lead',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Review hand hygiene compliance records', required: true },
+          { order: 2, description: 'Inspect clinical waste disposal procedures', required: true },
+          { order: 3, description: 'Check PPE stock levels and expiry dates', required: true },
+          { order: 4, description: 'Verify decontamination logs are up to date', required: true },
+          { order: 5, description: 'Complete infection control checklist', required: true },
+          { order: 6, description: 'Submit audit findings to practice manager', required: true }
+        ],
         evidence_hint: 'Complete infection control checklist'
       },
       {
@@ -223,7 +241,13 @@ serve(async (req) => {
         responsible_role: 'reception',
         sla_hours: 24,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Inspect all consultation rooms for cleanliness', required: true },
+          { order: 2, description: 'Check waiting area is clean and tidy', required: true },
+          { order: 3, description: 'Verify bathroom facilities are sanitized', required: true },
+          { order: 4, description: 'Ensure all surfaces have been wiped down', required: true },
+          { order: 5, description: 'Report any cleaning issues to facilities team', required: false }
+        ],
         evidence_hint: 'Verify all rooms are clean and sanitized'
       },
       {
@@ -233,7 +257,13 @@ serve(async (req) => {
         responsible_role: 'practice_manager',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Review mandatory training completion rates', required: true },
+          { order: 2, description: 'Identify staff with expiring certificates', required: true },
+          { order: 3, description: 'Schedule refresher training sessions', required: true },
+          { order: 4, description: 'Update training records database', required: true },
+          { order: 5, description: 'Send reminders to staff requiring training', required: true }
+        ],
         evidence_hint: 'Review staff training records and certificates'
       },
       {
@@ -243,7 +273,14 @@ serve(async (req) => {
         responsible_role: 'administrator',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Select random sample of 20 patient records', required: true },
+          { order: 2, description: 'Check records are complete and accurate', required: true },
+          { order: 3, description: 'Verify all entries are dated and signed', required: true },
+          { order: 4, description: 'Ensure consent forms are properly filed', required: true },
+          { order: 5, description: 'Document audit findings', required: true },
+          { order: 6, description: 'Report any discrepancies to practice manager', required: true }
+        ],
         evidence_hint: 'Audit patient record completeness'
       },
       {
@@ -253,7 +290,13 @@ serve(async (req) => {
         responsible_role: 'gp',
         sla_hours: 24,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Review all pending prescription requests', required: true },
+          { order: 2, description: 'Check for drug interactions and contraindications', required: true },
+          { order: 3, description: 'Verify dosage and duration are appropriate', required: true },
+          { order: 4, description: 'Authorize or decline prescriptions with notes', required: true },
+          { order: 5, description: 'Ensure urgent prescriptions are prioritized', required: true }
+        ],
         evidence_hint: 'Review and sign off pending prescriptions'
       },
       {
@@ -263,7 +306,14 @@ serve(async (req) => {
         responsible_role: 'cd_lead_gp',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Review significant event analysis reports', required: true },
+          { order: 2, description: 'Check clinical audit completion status', required: true },
+          { order: 3, description: 'Verify prescribing data is within acceptable ranges', required: true },
+          { order: 4, description: 'Review patient safety incident reports', required: true },
+          { order: 5, description: 'Assess compliance with NICE guidelines', required: true },
+          { order: 6, description: 'Prepare governance report for partners meeting', required: true }
+        ],
         evidence_hint: 'Review clinical governance compliance'
       },
       {
@@ -273,7 +323,13 @@ serve(async (req) => {
         responsible_role: 'reception_lead',
         sla_hours: 24,
         start_date: tomorrow.toISOString().split('T')[0],
-        steps: [],
+        steps: [
+          { order: 1, description: 'Ensure reception desk is clean and organized', required: true },
+          { order: 2, description: 'Check patient information leaflets are stocked', required: true },
+          { order: 3, description: 'Verify signage is clear and visible', required: true },
+          { order: 4, description: 'Test reception phone system', required: true },
+          { order: 5, description: 'Ensure hand sanitizer is available', required: true }
+        ],
         evidence_hint: 'Check reception area cleanliness and supplies'
       }
     ];
