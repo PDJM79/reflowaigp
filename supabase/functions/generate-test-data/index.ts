@@ -119,6 +119,15 @@ serve(async (req) => {
 
       createdUsers.push(dbUser);
       console.log('Created user:', user.email);
+      
+      // Create user_roles entry
+      await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: dbUser.id,
+          role: user.role,
+          practice_id: practice.id
+        });
     }
 
     if (createdUsers.length === 0) {
