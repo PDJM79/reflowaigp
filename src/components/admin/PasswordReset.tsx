@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -11,6 +11,8 @@ export function PasswordReset() {
   const [email, setEmail] = useState('philmeyers69@gmail.com');
   const [newPassword, setNewPassword] = useState('Password');
   const [resetting, setResetting] = useState(false);
+  const [lastResetEmail, setLastResetEmail] = useState<string>('');
+  const [lastResetPassword, setLastResetPassword] = useState<string>('');
 
   const resetPassword = async () => {
     if (!email.trim()) {
@@ -39,6 +41,8 @@ export function PasswordReset() {
       }
 
       toast.success(`Password successfully reset for ${email}`);
+      setLastResetEmail(email.trim());
+      setLastResetPassword(newPassword.trim());
       console.log('Password reset result:', data);
     } catch (error) {
       console.error('Error resetting password:', error);
@@ -100,6 +104,32 @@ export function PasswordReset() {
               </>
             )}
           </Button>
+          
+          {lastResetEmail && lastResetPassword && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const subject = encodeURIComponent('Your Password Has Been Reset');
+                const body = encodeURIComponent(`Hello,
+
+Your password has been reset.
+
+Email: ${lastResetEmail}
+New Password: ${lastResetPassword}
+
+Login at: ${window.location.origin}
+
+Please change your password after logging in.
+
+Best regards`);
+                window.open(`mailto:${lastResetEmail}?subject=${subject}&body=${body}`);
+              }}
+              className="w-full"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send New Credentials via Email
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

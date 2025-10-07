@@ -118,17 +118,13 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // SECURITY: Send password reset email for first login
-    await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: email
-    });
-
+    // Return credentials so practice manager can send via their email client
     return new Response(JSON.stringify({ 
-      user_id: createdUser.id, // Return the users table ID
+      user_id: createdUser.id,
       auth_user_id: authUser.user.id,
       email: authUser.user.email,
-      message: 'User created. Password reset email sent.'
+      temporary_password: securePassword,
+      message: 'User created successfully. Use the email button to send login details.'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
