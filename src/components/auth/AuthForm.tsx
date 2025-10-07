@@ -7,11 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { Loader2, Mail, ArrowLeft, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 
 export function AuthForm() {
   const { signIn, signUp, loading } = useAuth();
+  const { selectedPracticeId, selectedPracticeName, clearPracticeSelection } = usePracticeSelection();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -19,7 +21,34 @@ export function AuthForm() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signIn(email, password);
+    
+    const result = await signIn(email, password);
+    if (result.error) return;
+
+    // If practice is selected, verify user belongs to it
+    if (selectedPracticeId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('practice_id')
+            .eq('auth_user_id', session.user.id)
+            .single();
+
+          if (userError || userData?.practice_id !== selectedPracticeId) {
+            await supabase.auth.signOut();
+            toast.error('You do not have access to this practice.');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Practice verification error:', error);
+        await supabase.auth.signOut();
+        toast.error('Unable to verify practice access.');
+      }
+    }
   };
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
@@ -115,15 +144,33 @@ export function AuthForm() {
 
   return (
     <div className="min-h-screen bg-background">
+      {selectedPracticeName && (
+        <Button
+          variant="ghost"
+          onClick={clearPracticeSelection}
+          className="fixed top-4 left-4 z-50"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to practice selection
+        </Button>
+      )}
       <AppHeader />
       <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            {selectedPracticeName && (
+              <div className="mb-4 p-3 bg-primary/10 rounded-lg flex items-center justify-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-primary">{selectedPracticeName}</span>
+              </div>
+            )}
             <CardTitle className="text-2xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               GP Surgery Audit & Compliance
             </CardTitle>
             <CardDescription>
-              Comprehensive compliance and audit management for GP surgeries
+              {selectedPracticeName 
+                ? `Sign in to access ${selectedPracticeName}`
+                : 'Comprehensive compliance and audit management for GP surgeries'}
             </CardDescription>
           </CardHeader>
           <CardContent>

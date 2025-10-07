@@ -5,19 +5,22 @@ import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
 import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
+import { PracticeSelection } from '@/components/auth/PracticeSelection';
 import { GenerateTestData } from '@/components/admin/GenerateTestData';
 import { useOrganizationSetup } from '@/hooks/useOrganizationSetup';
+import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { isMasterUser, selectedPracticeId, setSelectedPractice, clearSelectedPractice, loading: masterLoading } = useMasterUser();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
+  const { selectedPracticeId: preAuthPracticeId, loading: practiceLoading } = usePracticeSelection();
   
   // Check if user needs to change password
   const needsPasswordChange = user?.user_metadata?.force_password_change === true;
 
-  if (authLoading || setupLoading || masterLoading) {
+  if (authLoading || setupLoading || masterLoading || practiceLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -26,6 +29,11 @@ const Index = () => {
   }
 
   if (!user) {
+    // Show practice selection first, then auth form
+    if (!preAuthPracticeId) {
+      return <PracticeSelection onPracticeSelected={() => {}} />;
+    }
+    
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-4">
         <AuthForm />
