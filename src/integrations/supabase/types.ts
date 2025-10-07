@@ -2661,6 +2661,10 @@ export type Database = {
         Args: { _completed_at: string; _due_at: string; _sla_hours: number }
         Returns: boolean
       }
+      is_user_practice_manager_for_practice: {
+        Args: { _practice_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_mfa_enabled: {
         Args: { _user_id: string }
         Returns: boolean
