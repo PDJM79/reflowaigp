@@ -480,6 +480,30 @@ export type Database = {
           },
         ]
       }
+      country_profile_settings: {
+        Row: {
+          country: Database["public"]["Enums"]["country_code"]
+          created_at: string | null
+          id: string
+          overrides_json: Json
+          updated_at: string | null
+        }
+        Insert: {
+          country: Database["public"]["Enums"]["country_code"]
+          created_at?: string | null
+          id?: string
+          overrides_json?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          country?: Database["public"]["Enums"]["country_code"]
+          created_at?: string | null
+          id?: string
+          overrides_json?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           created_at: string | null
@@ -1111,6 +1135,64 @@ export type Database = {
         }
         Relationships: []
       }
+      improvement_recommendations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string | null
+          generated_at: string
+          id: string
+          overall_score: number
+          practice_id: string
+          recommendations_json: Json
+          status: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string | null
+          generated_at?: string
+          id?: string
+          overall_score: number
+          practice_id: string
+          recommendations_json?: Json
+          status?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string | null
+          generated_at?: string
+          id?: string
+          overall_score?: number
+          practice_id?: string
+          recommendations_json?: Json
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "improvement_recommendations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "improvement_recommendations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "improvement_recommendations_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidents: {
         Row: {
           actions: Json | null
@@ -1576,9 +1658,48 @@ export type Database = {
           },
         ]
       }
+      practice_targets: {
+        Row: {
+          created_at: string | null
+          effective_from: string
+          id: string
+          practice_id: string
+          section_key: string | null
+          target_score: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          effective_from?: string
+          id?: string
+          practice_id: string
+          section_key?: string | null
+          target_score: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          effective_from?: string
+          id?: string
+          practice_id?: string
+          section_key?: string | null
+          target_score?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_targets_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practices: {
         Row: {
           address: string | null
+          audit_country: Database["public"]["Enums"]["country_code"] | null
           country: string | null
           created_at: string | null
           group_id: string | null
@@ -1594,6 +1715,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          audit_country?: Database["public"]["Enums"]["country_code"] | null
           country?: string | null
           created_at?: string | null
           group_id?: string | null
@@ -1609,6 +1731,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          audit_country?: Database["public"]["Enums"]["country_code"] | null
           country?: string | null
           created_at?: string | null
           group_id?: string | null
@@ -1837,6 +1960,79 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rooms_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      score_current: {
+        Row: {
+          contributors_json: Json | null
+          gates_json: Json | null
+          practice_id: string
+          score: number
+          section_key: string
+          updated_at: string
+        }
+        Insert: {
+          contributors_json?: Json | null
+          gates_json?: Json | null
+          practice_id: string
+          score: number
+          section_key: string
+          updated_at?: string
+        }
+        Update: {
+          contributors_json?: Json | null
+          gates_json?: Json | null
+          practice_id?: string
+          score?: number
+          section_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "score_current_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      score_snapshot: {
+        Row: {
+          contributors_json: Json | null
+          created_at: string | null
+          id: string
+          practice_id: string
+          score: number
+          section_key: string | null
+          snapshot_date: string
+        }
+        Insert: {
+          contributors_json?: Json | null
+          created_at?: string | null
+          id?: string
+          practice_id: string
+          score: number
+          section_key?: string | null
+          snapshot_date: string
+        }
+        Update: {
+          contributors_json?: Json | null
+          created_at?: string | null
+          id?: string
+          practice_id?: string
+          score?: number
+          section_key?: string | null
+          snapshot_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "score_snapshot_practice_id_fkey"
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
@@ -2489,6 +2685,7 @@ export type Database = {
         | "reception"
         | "auditor"
         | "group_manager"
+      country_code: "Wales" | "England" | "Scotland"
       evidence_type: "photo" | "note" | "signature"
       frequency:
         | "daily"
@@ -2670,6 +2867,7 @@ export const Constants = {
         "auditor",
         "group_manager",
       ],
+      country_code: ["Wales", "England", "Scotland"],
       evidence_type: ["photo", "note", "signature"],
       frequency: [
         "daily",
