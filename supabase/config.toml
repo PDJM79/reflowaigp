@@ -14,3 +14,12 @@ verify_jwt = true
 
 [functions.suggest-improvements]
 verify_jwt = true
+
+[functions.generate-test-data]
+verify_jwt = false
+
+[functions.create-initial-processes]
+verify_jwt = true
+
+[functions.create-missing-accounts]
+verify_jwt = true
