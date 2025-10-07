@@ -461,11 +461,20 @@ export function UserDashboard() {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
+                    <span className="text-sm">Completed</span>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success" />
+                      <span className="text-sm font-medium">
+                        {[...userTasks, ...otherTasks].filter(t => t.progress === 'Complete').length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-sm">On Track</span>
                     <div className="flex items-center gap-2">
                       <RAGBadge status="green" />
                       <span className="text-sm font-medium">
-                        {[...userTasks, ...otherTasks].filter(t => t.status === 'green').length}
+                        {[...userTasks, ...otherTasks].filter(t => t.status === 'green' && t.progress !== 'Complete').length}
                       </span>
                     </div>
                   </div>

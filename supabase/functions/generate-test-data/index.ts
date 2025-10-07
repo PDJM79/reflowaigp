@@ -162,7 +162,7 @@ serve(async (req) => {
         practice_id: practice.id,
         name: 'Fire Safety Weekly Check',
         frequency: 'weekly',
-        responsible_role: 'administrator',
+        responsible_role: 'hca',
         sla_hours: 168,
         start_date: tomorrow.toISOString().split('T')[0],
         steps: [],
@@ -182,11 +182,61 @@ serve(async (req) => {
         practice_id: practice.id,
         name: 'Cleaning Standards Inspection',
         frequency: 'daily',
-        responsible_role: 'administrator',
+        responsible_role: 'reception',
         sla_hours: 24,
         start_date: tomorrow.toISOString().split('T')[0],
         steps: [],
         evidence_hint: 'Verify all rooms are clean and sanitized'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Staff Training Review',
+        frequency: 'monthly',
+        responsible_role: 'practice_manager',
+        sla_hours: 168,
+        start_date: tomorrow.toISOString().split('T')[0],
+        steps: [],
+        evidence_hint: 'Review staff training records and certificates'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Patient Records Audit',
+        frequency: 'weekly',
+        responsible_role: 'administrator',
+        sla_hours: 168,
+        start_date: tomorrow.toISOString().split('T')[0],
+        steps: [],
+        evidence_hint: 'Audit patient record completeness'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Prescription Review',
+        frequency: 'daily',
+        responsible_role: 'gp',
+        sla_hours: 24,
+        start_date: tomorrow.toISOString().split('T')[0],
+        steps: [],
+        evidence_hint: 'Review and sign off pending prescriptions'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Clinical Governance Check',
+        frequency: 'monthly',
+        responsible_role: 'cd_lead_gp',
+        sla_hours: 168,
+        start_date: tomorrow.toISOString().split('T')[0],
+        steps: [],
+        evidence_hint: 'Review clinical governance compliance'
+      },
+      {
+        practice_id: practice.id,
+        name: 'Reception Area Check',
+        frequency: 'daily',
+        responsible_role: 'reception_lead',
+        sla_hours: 24,
+        start_date: tomorrow.toISOString().split('T')[0],
+        steps: [],
+        evidence_hint: 'Check reception area cleanliness and supplies'
       }
     ];
 
@@ -202,16 +252,20 @@ serve(async (req) => {
 
     console.log('Created process templates:', createdTemplates?.length || 0);
 
-    // Create initial process instances
+    // Create initial process instances with proper assignments
     if (createdTemplates && createdTemplates.length > 0) {
       const instances = createdTemplates.map(template => {
         const dueDate = new Date(template.start_date);
         const periodEnd = new Date(dueDate);
         periodEnd.setHours(23, 59, 59, 999);
 
+        // Find user with matching role to assign the task
+        const assignedUser = createdUsers.find(u => u.role === template.responsible_role);
+
         return {
           template_id: template.id,
           practice_id: practice.id,
+          assignee_id: assignedUser?.id || null,
           status: 'pending',
           period_start: template.start_date,
           period_end: periodEnd.toISOString(),
@@ -219,9 +273,15 @@ serve(async (req) => {
         };
       });
 
-      await supabaseAdmin
+      const { error: instancesError } = await supabaseAdmin
         .from('process_instances')
         .insert(instances);
+      
+      if (instancesError) {
+        console.error('Error creating process instances:', instancesError);
+      } else {
+        console.log('Created process instances:', instances.length);
+      }
     }
 
     // Mark setup as complete
