@@ -12,6 +12,7 @@ import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
 import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
 import { PasswordReset } from '@/components/admin/PasswordReset';
+import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -397,6 +398,11 @@ export function UserDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Ready for Audit - visible to Practice Managers and Master Users */}
+            {(isPracticeManager || isMasterUser) && (
+              <ReadyForAudit />
+            )}
 
             {/* Other Tasks - visible to Practice Managers and Master Users */}
             {(isPracticeManager || isMasterUser) && (
