@@ -28,6 +28,13 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
 
       if (!userData) return null;
 
+      // Get practice country
+      const { data: practiceData } = await supabase
+        .from('practices')
+        .select('audit_country')
+        .eq('id', userData.practice_id)
+        .single();
+
       // Get current score
       const { data: score } = await supabase
         .from('score_current')
@@ -44,7 +51,11 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
         .eq('section_key', sectionKey)
         .maybeSingle();
 
-      return { score, target };
+      return { 
+        score, 
+        target,
+        country: practiceData?.audit_country || 'England'
+      };
     },
   });
 
@@ -59,13 +70,16 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
   }
 
   if (!scoreData?.score) {
+    const country = scoreData?.country || 'England';
+    const regulatoryBody = country === 'Wales' ? 'HIW' : country === 'Scotland' ? 'HIS' : 'CQC';
+    
     return (
       <Card className="border-none shadow-sm bg-muted/50">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">{sectionLabel} Readiness</p>
-              <p className="text-xs text-muted-foreground">Not yet calculated</p>
+              <p className="text-xs text-muted-foreground">Not yet calculated • {regulatoryBody}</p>
             </div>
             <AlertCircle className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -74,7 +88,8 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
     );
   }
 
-  const { score, target } = scoreData;
+  const { score, target, country } = scoreData;
+  const regulatoryBody = country === 'Wales' ? 'HIW' : country === 'Scotland' ? 'HIS' : 'CQC';
   const meetsTarget = target ? score.score >= target.target_score : false;
 
   return (
@@ -82,7 +97,10 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium">{sectionLabel} Readiness</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium">{sectionLabel} Readiness</p>
+              <Badge variant="outline" className="text-xs">{regulatoryBody}</Badge>
+            </div>
             {target && (
               <p className="text-xs text-muted-foreground">Target: {target.target_score}</p>
             )}

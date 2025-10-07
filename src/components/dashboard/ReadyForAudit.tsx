@@ -63,6 +63,29 @@ const SECTION_LABELS: Record<string, string> = {
 export function ReadyForAudit() {
   const [activeTab, setActiveTab] = useState<"overview" | "bySection">("overview");
 
+  // Fetch practice country
+  const { data: practiceData } = useQuery({
+    queryKey: ['practice-country'],
+    queryFn: async () => {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!userData) return null;
+
+      const { data, error } = await supabase
+        .from('practices')
+        .select('id, name, audit_country')
+        .eq('id', userData.practice_id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch current scores
   const { data: scores, isLoading: scoresLoading } = useQuery({
     queryKey: ['audit-scores'],
@@ -145,6 +168,8 @@ export function ReadyForAudit() {
     );
   }
 
+  const country = practiceData?.audit_country || 'England';
+  const regulatoryBody = country === 'Wales' ? 'HIW' : country === 'Scotland' ? 'HIS' : 'CQC';
   const overallScore = scores?.find(s => s.section_key === 'Overall');
   const sectionScores = scores?.filter(s => s.section_key !== 'Overall') || [];
   const overallTarget = targets?.find(t => t.section_key === null);
@@ -174,8 +199,15 @@ export function ReadyForAudit() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl">Ready for Audit</CardTitle>
-              <CardDescription>Overall audit readiness score and trends</CardDescription>
+              <div className="flex items-center gap-2 mb-1">
+                <CardTitle className="text-2xl">Ready for Audit</CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {country} - {regulatoryBody}
+                </Badge>
+              </div>
+              <CardDescription>
+                Overall audit readiness score and trends for {regulatoryBody} compliance
+              </CardDescription>
             </div>
             {overallScore && (
               <Badge variant={RAGBadgeVariant(overallScore.score)} className="text-lg px-4 py-2">

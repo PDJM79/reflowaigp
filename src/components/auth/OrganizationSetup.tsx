@@ -20,6 +20,7 @@ interface OrganizationSetupProps {
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const { signOut } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
+  const [country, setCountry] = useState<'Wales' | 'England' | 'Scotland'>('England');
   const [roleAssignments, setRoleAssignments] = useState<RoleEmailAssignment[]>([
     { email: '', name: '', password: '', roles: ['practice_manager'] }
   ]);
@@ -142,10 +143,13 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Create practice
+      // Create practice with country
       const { data: practice, error: practiceError } = await supabase
         .from('practices')
-        .insert({ name: organizationName.trim() })
+        .insert({ 
+          name: organizationName.trim(),
+          audit_country: country
+        })
         .select()
         .single();
 
@@ -357,13 +361,13 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       <AppHeader />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Organization Name */}
+          {/* Organization Name and Country */}
           <Card>
             <CardHeader>
               <CardTitle>Organization Details</CardTitle>
-              <CardDescription>Enter your organization or practice name</CardDescription>
+              <CardDescription>Enter your organization details and select your country</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="orgName">Organization/Practice Name</Label>
                 <Input
@@ -374,6 +378,23 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                   placeholder="Enter your practice name"
                   required
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Select value={country} onValueChange={(value: any) => setCountry(value)}>
+                  <SelectTrigger id="country">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Wales">Wales (HIW)</SelectItem>
+                    <SelectItem value="England">England (CQC)</SelectItem>
+                    <SelectItem value="Scotland">Scotland (HIS)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  This determines which audit procedures and regulations apply to your practice
+                </p>
               </div>
             </CardContent>
           </Card>
