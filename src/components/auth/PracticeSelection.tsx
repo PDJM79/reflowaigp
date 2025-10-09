@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,19 @@ interface PracticeSelectionProps {
 }
 
 export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps) => {
-  const { practices, loading, selectPractice } = usePracticeSelection();
+  const { practices, loading, selectPractice, clearPracticeSelection } = usePracticeSelection();
   const [selectedId, setSelectedId] = useState<string>('');
+
+  // Clear old practice selection and auto-select if only one practice
+  useEffect(() => {
+    clearPracticeSelection();
+    if (!loading && practices.length === 1) {
+      const practice = practices[0];
+      setSelectedId(practice.id);
+      selectPractice(practice.id, practice.name);
+      setTimeout(() => onPracticeSelected(), 100);
+    }
+  }, [practices, loading]);
 
   const handleContinue = () => {
     const practice = practices.find(p => p.id === selectedId);
