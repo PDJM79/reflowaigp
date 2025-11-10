@@ -154,6 +154,41 @@ export function useEmailLogs(params: UseEmailLogsParams = {}) {
     };
 
     fetchLogs();
+
+    // Set up realtime subscription for email_logs
+    const channel = supabase
+      .channel('email-logs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'email_logs',
+        },
+        (payload) => {
+          console.log('New email log received:', payload);
+          // Refetch data when new logs arrive
+          fetchLogs();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'email_logs',
+        },
+        (payload) => {
+          console.log('Email log updated:', payload);
+          // Refetch data when logs are updated (status changes)
+          fetchLogs();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, search, dateRange, status, emailType, page, pageSize]);
 
   return {
