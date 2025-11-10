@@ -119,6 +119,17 @@
       "policy_review": "Adolygiad Polisi",
       "policy_acknowledgment_reminder": "Atgof Cydnabyddiaeth",
       "policy_escalation": "Esgyniad Polisi"
+    },
+    "pagination": {
+      "showing": "Dangos",
+      "of": "o",
+      "results": "canlyniadau",
+      "rows_per_page": "Rhesi y dudalen:",
+      "page": "Tudalen",
+      "first_page": "Tudalen gyntaf",
+      "previous_page": "Tudalen flaenorol",
+      "next_page": "Tudalen nesaf",
+      "last_page": "Tudalen olaf"
     }
   }
 }

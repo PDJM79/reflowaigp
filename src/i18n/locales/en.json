@@ -158,6 +158,17 @@
       "policy_review": "Policy Review",
       "policy_acknowledgment_reminder": "Acknowledgment Reminder",
       "policy_escalation": "Policy Escalation"
+    },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "results": "results",
+      "rows_per_page": "Rows per page:",
+      "page": "Page",
+      "first_page": "First page",
+      "previous_page": "Previous page",
+      "next_page": "Next page",
+      "last_page": "Last page"
     }
   }
 }

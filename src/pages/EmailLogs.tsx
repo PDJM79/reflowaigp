@@ -5,6 +5,7 @@ import { useEmailLogs } from '@/hooks/useEmailLogs';
 import { EmailLogFilters } from '@/components/email-logs/EmailLogFilters';
 import { EmailLogsTable } from '@/components/email-logs/EmailLogsTable';
 import { EmailLogDetailDialog } from '@/components/email-logs/EmailLogDetailDialog';
+import { EmailLogPagination } from '@/components/email-logs/EmailLogPagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, CheckCircle2, XCircle, Eye, Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -20,17 +21,19 @@ export default function EmailLogs() {
   const [status, setStatus] = useState('all');
   const [emailType, setEmailType] = useState('all');
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const { logs, stats, loading, error } = useEmailLogs({
+  const { logs, stats, totalCount, loading, error } = useEmailLogs({
     search,
     status,
     emailType,
     dateRange,
-    page: 1,
-    pageSize: 50,
+    page: currentPage,
+    pageSize,
   });
 
   const handleViewDetails = (log: any) => {
@@ -223,7 +226,7 @@ export default function EmailLogs() {
         <CardHeader>
           <CardTitle>Email Logs</CardTitle>
           <CardDescription>
-            {loading ? 'Loading...' : `Showing ${logs.length} email${logs.length !== 1 ? 's' : ''}`}
+            {loading ? 'Loading...' : `${totalCount} total email${totalCount !== 1 ? 's' : ''}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -238,7 +241,18 @@ export default function EmailLogs() {
               <p>Error loading email logs: {error}</p>
             </div>
           ) : (
-            <EmailLogsTable logs={logs} onViewDetails={handleViewDetails} />
+            <>
+              <EmailLogsTable logs={logs} onViewDetails={handleViewDetails} />
+              {totalCount > 0 && (
+                <EmailLogPagination
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  totalCount={totalCount}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>
