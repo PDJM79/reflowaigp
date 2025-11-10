@@ -300,33 +300,51 @@ export type Database = {
       }
       claim_runs: {
         Row: {
+          claim_type: string | null
           created_at: string | null
           generated_at: string | null
           id: string
+          pdf_storage_path: string | null
           period_end: string
           period_start: string
           practice_id: string
           status: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          total_items: number | null
+          total_scripts: number | null
           updated_at: string | null
         }
         Insert: {
+          claim_type?: string | null
           created_at?: string | null
           generated_at?: string | null
           id?: string
+          pdf_storage_path?: string | null
           period_end: string
           period_start: string
           practice_id: string
           status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_items?: number | null
+          total_scripts?: number | null
           updated_at?: string | null
         }
         Update: {
+          claim_type?: string | null
           created_at?: string | null
           generated_at?: string | null
           id?: string
+          pdf_storage_path?: string | null
           period_end?: string
           period_start?: string
           practice_id?: string
           status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_items?: number | null
+          total_scripts?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -335,6 +353,20 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_runs_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_runs_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1502,6 +1534,7 @@ export type Database = {
       }
       month_end_scripts: {
         Row: {
+          claim_run_id: string | null
           created_at: string | null
           created_by: string
           drug_code: string
@@ -1514,8 +1547,13 @@ export type Database = {
           practice_id: string
           prescriber: string
           quantity: number
+          removed: boolean | null
+          removed_at: string | null
+          removed_by: string | null
+          removed_reason: string | null
         }
         Insert: {
+          claim_run_id?: string | null
           created_at?: string | null
           created_by: string
           drug_code: string
@@ -1528,8 +1566,13 @@ export type Database = {
           practice_id: string
           prescriber: string
           quantity: number
+          removed?: boolean | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_reason?: string | null
         }
         Update: {
+          claim_run_id?: string | null
           created_at?: string | null
           created_by?: string
           drug_code?: string
@@ -1542,8 +1585,19 @@ export type Database = {
           practice_id?: string
           prescriber?: string
           quantity?: number
+          removed?: boolean | null
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_reason?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "month_end_scripts_claim_run_id_fkey"
+            columns: ["claim_run_id"]
+            isOneToOne: false
+            referencedRelation: "claim_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "month_end_scripts_created_by_fkey"
             columns: ["created_by"]
@@ -1563,6 +1617,20 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "month_end_scripts_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "month_end_scripts_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1599,11 +1667,59 @@ export type Database = {
           },
         ]
       }
+      policy_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          created_at: string | null
+          id: string
+          ip_address: unknown
+          policy_id: string
+          practice_id: string
+          user_agent: string | null
+          user_id: string
+          version_acknowledged: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown
+          policy_id: string
+          practice_id: string
+          user_agent?: string | null
+          user_id: string
+          version_acknowledged: string
+        }
+        Update: {
+          acknowledged_at?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown
+          policy_id?: string
+          practice_id?: string
+          user_agent?: string | null
+          user_id?: string
+          version_acknowledged?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_acknowledgments_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policy_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       policy_documents: {
         Row: {
           created_at: string | null
           effective_from: string | null
+          file_mime_type: string | null
+          file_size: number | null
           id: string
+          last_reviewed_at: string | null
+          last_reviewed_by: string | null
           owner_role: Database["public"]["Enums"]["user_role"] | null
           practice_id: string
           review_due: string | null
@@ -1613,13 +1729,18 @@ export type Database = {
           storage_path: string | null
           title: string
           updated_at: string | null
+          uploaded_by: string | null
           url: string | null
           version: string | null
         }
         Insert: {
           created_at?: string | null
           effective_from?: string | null
+          file_mime_type?: string | null
+          file_size?: number | null
           id?: string
+          last_reviewed_at?: string | null
+          last_reviewed_by?: string | null
           owner_role?: Database["public"]["Enums"]["user_role"] | null
           practice_id: string
           review_due?: string | null
@@ -1629,13 +1750,18 @@ export type Database = {
           storage_path?: string | null
           title: string
           updated_at?: string | null
+          uploaded_by?: string | null
           url?: string | null
           version?: string | null
         }
         Update: {
           created_at?: string | null
           effective_from?: string | null
+          file_mime_type?: string | null
+          file_size?: number | null
           id?: string
+          last_reviewed_at?: string | null
+          last_reviewed_by?: string | null
           owner_role?: Database["public"]["Enums"]["user_role"] | null
           practice_id?: string
           review_due?: string | null
@@ -1645,15 +1771,44 @@ export type Database = {
           storage_path?: string | null
           title?: string
           updated_at?: string | null
+          uploaded_by?: string | null
           url?: string | null
           version?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "policy_documents_last_reviewed_by_fkey"
+            columns: ["last_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_documents_last_reviewed_by_fkey"
+            columns: ["last_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "policy_documents_practice_id_fkey"
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
