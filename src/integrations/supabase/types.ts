@@ -3029,6 +3029,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_user_id_from_auth: { Args: never; Returns: string }
       get_user_practice_from_roles: {
         Args: { _user_id: string }
         Returns: string
@@ -3069,6 +3070,10 @@ export type Database = {
       is_current_user_master: { Args: never; Returns: boolean }
       is_current_user_practice_manager: { Args: never; Returns: boolean }
       is_group_manager: { Args: { user_id: string }; Returns: boolean }
+      is_in_same_practice: {
+        Args: { _target_user_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_master_user: { Args: { user_id: string }; Returns: boolean }
       is_practice_manager: { Args: { user_id: string }; Returns: boolean }
       is_task_compliant: {
