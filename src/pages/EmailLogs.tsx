@@ -19,6 +19,7 @@ export default function EmailLogs() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [emailType, setEmailType] = useState('all');
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | undefined>(undefined);
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -27,6 +28,7 @@ export default function EmailLogs() {
     search,
     status,
     emailType,
+    dateRange,
     page: 1,
     pageSize: 50,
   });
@@ -73,6 +75,12 @@ export default function EmailLogs() {
         query = query.eq('email_type', emailType);
       }
 
+      if (dateRange) {
+        query = query
+          .gte('sent_at', dateRange.start.toISOString())
+          .lte('sent_at', dateRange.end.toISOString());
+      }
+
       const { data, error } = await query;
 
       if (error) throw error;
@@ -83,7 +91,7 @@ export default function EmailLogs() {
       }
 
       // Generate filename with filters
-      const filename = generateEmailLogsFilename({ search, status, emailType });
+      const filename = generateEmailLogsFilename({ search, status, emailType, dateRange });
 
       // Export to CSV
       exportEmailLogsToCSV(data, filename);
@@ -201,9 +209,11 @@ export default function EmailLogs() {
             search={search}
             status={status}
             emailType={emailType}
+            dateRange={dateRange}
             onSearchChange={setSearch}
             onStatusChange={setStatus}
             onEmailTypeChange={setEmailType}
+            onDateRangeChange={setDateRange}
           />
         </CardContent>
       </Card>

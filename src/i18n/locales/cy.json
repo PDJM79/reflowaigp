@@ -97,6 +97,8 @@
     "search_placeholder": "Chwilio yn ôl e-bost neu bwnc...",
     "filter_status": "Hidlo yn ôl statws",
     "filter_email_type": "Hidlo yn ôl math",
+    "filter_date": "Hidlo yn ôl Dyddiad",
+    "clear_date": "Clirio hidlydd dyddiad",
     "all_statuses": "Pob Statws",
     "all_types": "Pob Math",
     "view_details": "Gweld Manylion",

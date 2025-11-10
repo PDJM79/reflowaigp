@@ -117,6 +117,7 @@ export function generateEmailLogsFilename(filters: {
   search?: string;
   status?: string;
   emailType?: string;
+  dateRange?: { start: Date; end: Date };
 }): string {
   const timestamp = format(new Date(), 'yyyy-MM-dd-HHmmss');
   const parts = ['email-logs', timestamp];
@@ -127,6 +128,12 @@ export function generateEmailLogsFilename(filters: {
   
   if (filters.emailType && filters.emailType !== 'all') {
     parts.push(filters.emailType.replace(/_/g, '-'));
+  }
+
+  if (filters.dateRange) {
+    const startDate = format(filters.dateRange.start, 'yyyy-MM-dd');
+    const endDate = format(filters.dateRange.end, 'yyyy-MM-dd');
+    parts.push(`${startDate}_to_${endDate}`);
   }
   
   return `${parts.join('_')}.csv`;

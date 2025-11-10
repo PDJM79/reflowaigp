@@ -136,6 +136,8 @@
     "search_placeholder": "Search by email or subject...",
     "filter_status": "Filter by status",
     "filter_email_type": "Filter by type",
+    "filter_date": "Filter by Date",
+    "clear_date": "Clear date filter",
     "all_statuses": "All Statuses",
     "all_types": "All Types",
     "view_details": "View Details",
