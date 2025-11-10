@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.send-policy-acknowledgment-reminders]
 verify_jwt = false
+
+[functions.send-policy-escalation-emails]
+verify_jwt = false

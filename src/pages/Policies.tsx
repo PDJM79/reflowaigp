@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell, Mail, Clock } from 'lucide-react';
+import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell, Mail, Clock, AlertTriangle } from 'lucide-react';
 import { PolicyUploadDialog } from '@/components/policies/PolicyUploadDialog';
 import { PolicyAcknowledgmentDialog } from '@/components/policies/PolicyAcknowledgmentDialog';
 import { PolicyStaffTracker } from '@/components/policies/PolicyStaffTracker';
@@ -28,6 +28,7 @@ export default function Policies() {
   const [checkingReviews, setCheckingReviews] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
   const [sendingAckReminders, setSendingAckReminders] = useState(false);
+  const [sendingEscalations, setSendingEscalations] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -204,6 +205,38 @@ export default function Policies() {
     }
   };
 
+  const handleSendEscalationEmails = async () => {
+    setSendingEscalations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-escalation-emails');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Escalations Needed', {
+            description: 'No staff have exceeded the 21-day acknowledgment deadline.'
+          });
+        } else {
+          toast.success('Escalation Emails Sent Successfully', {
+            description: `Sent ${data.emails_sent} escalation(s) to managers about staff who haven't acknowledged policies after 21 days.`
+          });
+        }
+      } else {
+        toast.error('Failed to send escalation emails', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending escalation emails:', error);
+      toast.error('Failed to send escalation emails', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingEscalations(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -246,6 +279,15 @@ export default function Policies() {
             >
               <Clock className="h-4 w-4 mr-2" />
               {sendingAckReminders ? 'Sending Reminders...' : 'Send Acknowledgment Reminders'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSendEscalationEmails}
+              disabled={sendingEscalations}
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              {sendingEscalations ? 'Sending Escalations...' : 'Send Escalation Emails'}
             </Button>
             <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
