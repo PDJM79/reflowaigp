@@ -148,13 +148,12 @@ serve(async (req) => {
         continue;
       }
 
-      // Create users table record
+      // Create users table record (without role - roles go in user_roles table)
       const { data: dbUser, error: dbError } = await supabaseAdmin
         .from('users')
         .insert({
           auth_user_id: authUser.user.id,
           practice_id: practice.id,
-          role: user.role,
           name: user.name,
           email: user.email,
           is_practice_manager: user.role === 'practice_manager',
@@ -168,7 +167,21 @@ serve(async (req) => {
         continue;
       }
 
-      createdUsers.push(dbUser);
+      // Create user_roles entry
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: authUser.user.id,
+          role: user.role,
+          practice_id: practice.id,
+          created_by: dbUser.id
+        });
+
+      if (roleError) {
+        console.error('Role error for', user.email, roleError);
+      }
+
+      createdUsers.push({ ...dbUser, role: user.role });
       console.log('Created user:', user.email);
     }
 

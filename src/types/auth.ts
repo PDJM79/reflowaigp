@@ -7,6 +7,9 @@ export interface RoleAssignment {
   password: string;
 }
 
+// Note: User roles are now stored in the user_roles table for security
+// The 'role' field has been removed from the users table to prevent privilege escalation
+
 export interface OrganizationSetup {
   organizationName: string;
   roleAssignments: RoleAssignment[];

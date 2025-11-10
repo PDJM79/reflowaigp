@@ -54,10 +54,13 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get all users in this practice
+    // Get all users in this practice with their roles from user_roles table
     const { data: practiceUsers, error: usersError } = await supabaseClient
       .from('users')
-      .select('id, role')
+      .select(`
+        id,
+        user_roles!inner(role)
+      `)
       .eq('practice_id', practice_id)
       .eq('is_active', true);
 
@@ -82,11 +85,15 @@ const handler = async (req: Request): Promise<Response> => {
     // Create process instances for each template
     for (const template of templates) {
       // Find users with matching roles for this template
-      const assignedUsers = practiceUsers.filter(user => user.role === template.responsible_role);
+      const assignedUsers = practiceUsers.filter(user => 
+        Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === template.responsible_role)
+      );
       
       // If no specific user found, assign to practice manager
       const targetUsers = assignedUsers.length > 0 ? assignedUsers : 
-        practiceUsers.filter(user => user.role === 'practice_manager');
+        practiceUsers.filter(user => 
+          Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === 'practice_manager')
+        );
 
       for (const user of targetUsers) {
         // Calculate due date based on frequency

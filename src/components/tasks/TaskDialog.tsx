@@ -77,7 +77,11 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
           .eq('practice_id', userData.practice_id),
         supabase
           .from('users')
-          .select('id, name, role')
+          .select(`
+            id, 
+            name,
+            user_roles!inner(role)
+          `)
           .eq('practice_id', userData.practice_id)
           .eq('is_active', true),
       ]);
@@ -283,7 +287,7 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.role})
+                      {user.name} ({Array.isArray(user.user_roles) ? user.user_roles.map((r: any) => r.role).join(', ') : 'No role'})
                     </SelectItem>
                   ))}
                 </SelectContent>
