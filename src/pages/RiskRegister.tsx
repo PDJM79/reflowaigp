@@ -21,7 +21,6 @@ interface RiskProcess {
   };
   users: {
     name: string;
-    role: string;
   };
   risk_level: 'high' | 'medium' | 'low';
   days_overdue: number;
@@ -54,13 +53,12 @@ export default function RiskRegister() {
               name,
               responsible_role,
               frequency
-            ),
-            users!assignee_id (
-              name,
-              role
-            )
-          `)
-          .eq('practice_id', userData.practice_id)
+          ),
+          users!assignee_id (
+            name
+          )
+        `)
+        .eq('practice_id', userData.practice_id)
           .neq('status', 'complete')
           .order('due_at', { ascending: true });
 

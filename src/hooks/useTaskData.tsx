@@ -31,7 +31,7 @@ export function useTaskData() {
       // Get user's practice info
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, practice_id, name, role, is_master_user')
+        .select('id, practice_id, name, is_master_user')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -60,7 +60,7 @@ export function useTaskData() {
       // Get practice manager for default assignment
       const { data: practiceManager } = await supabase
         .from('users')
-        .select('id, name, role')
+        .select('id, name')
         .eq('practice_id', targetPracticeId)
         .eq('is_practice_manager', true)
         .single();
@@ -78,8 +78,7 @@ export function useTaskData() {
           ),
           users!assignee_id (
             id,
-            name,
-            role
+            name
           )
         `)
         .eq('practice_id', targetPracticeId);
@@ -115,8 +114,7 @@ export function useTaskData() {
               ),
               users!assignee_id (
                 id,
-                name,
-                role
+                name
               )
             `)
             .eq('practice_id', targetPracticeId);
@@ -158,7 +156,7 @@ export function useTaskData() {
           status,
           progress,
           assigneeName: assignee?.name || 'Unassigned',
-          assigneeRole: assignee?.role || 'Unknown',
+          assigneeRole: template?.responsible_role || 'Unknown',
           isCurrentUser: isCurrentUserTask
         };
       });

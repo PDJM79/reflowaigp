@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -131,7 +131,7 @@ export type Database = {
             foreignKeyName: "audit_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -185,7 +185,7 @@ export type Database = {
             foreignKeyName: "audit_trail_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -366,7 +366,7 @@ export type Database = {
             foreignKeyName: "claim_runs_submitted_by_fkey"
             columns: ["submitted_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -414,7 +414,7 @@ export type Database = {
             foreignKeyName: "cleaning_logs_completed_by_fkey"
             columns: ["completed_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -500,7 +500,7 @@ export type Database = {
             foreignKeyName: "complaints_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -671,7 +671,7 @@ export type Database = {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -767,7 +767,7 @@ export type Database = {
             foreignKeyName: "evidence_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -848,7 +848,7 @@ export type Database = {
             foreignKeyName: "evidence_v2_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -936,7 +936,7 @@ export type Database = {
             foreignKeyName: "form_submissions_signed_off_by_fkey"
             columns: ["signed_off_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1282,7 +1282,7 @@ export type Database = {
             foreignKeyName: "improvement_recommendations_accepted_by_fkey"
             columns: ["accepted_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1359,7 +1359,7 @@ export type Database = {
             foreignKeyName: "incidents_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -1416,7 +1416,7 @@ export type Database = {
             foreignKeyName: "issues_assigned_to_id_fkey"
             columns: ["assigned_to_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1437,7 +1437,7 @@ export type Database = {
             foreignKeyName: "issues_raised_by_id_fkey"
             columns: ["raised_by_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1678,7 +1678,7 @@ export type Database = {
             foreignKeyName: "month_end_scripts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1699,7 +1699,7 @@ export type Database = {
             foreignKeyName: "month_end_scripts_removed_by_fkey"
             columns: ["removed_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -1808,7 +1808,7 @@ export type Database = {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -1965,7 +1965,7 @@ export type Database = {
             foreignKeyName: "policy_documents_last_reviewed_by_fkey"
             columns: ["last_reviewed_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -1986,7 +1986,7 @@ export type Database = {
             foreignKeyName: "policy_documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -2044,7 +2044,7 @@ export type Database = {
             foreignKeyName: "policy_review_history_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -2233,7 +2233,7 @@ export type Database = {
             foreignKeyName: "process_instances_assignee_id_fkey"
             columns: ["assignee_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -2667,7 +2667,7 @@ export type Database = {
             foreignKeyName: "tasks_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -2681,7 +2681,7 @@ export type Database = {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -2702,7 +2702,7 @@ export type Database = {
             foreignKeyName: "tasks_returned_by_fkey"
             columns: ["returned_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
           {
@@ -2770,7 +2770,7 @@ export type Database = {
             foreignKeyName: "temp_logs_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -2854,7 +2854,7 @@ export type Database = {
             foreignKeyName: "user_auth_sensitive_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -2896,7 +2896,7 @@ export type Database = {
             foreignKeyName: "user_roles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users_safe_view"
+            referencedRelation: "users_for_assignment"
             referencedColumns: ["id"]
           },
         ]
@@ -2913,7 +2913,6 @@ export type Database = {
           mfa_enabled: boolean | null
           name: string
           practice_id: string
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
         }
         Insert: {
@@ -2927,7 +2926,6 @@ export type Database = {
           mfa_enabled?: boolean | null
           name: string
           practice_id: string
-          role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
         Update: {
@@ -2941,7 +2939,6 @@ export type Database = {
           mfa_enabled?: boolean | null
           name?: string
           practice_id?: string
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
         Relationships: [
@@ -2956,48 +2953,14 @@ export type Database = {
       }
     }
     Views: {
-      users_safe_view: {
+      users_for_assignment: {
         Row: {
           auth_user_id: string | null
-          created_at: string | null
-          email: string | null
           id: string | null
           is_active: boolean | null
-          is_master_user: boolean | null
-          is_practice_manager: boolean | null
-          mfa_enabled: boolean | null
           name: string | null
           practice_id: string | null
-          role: Database["public"]["Enums"]["user_role"] | null
-          updated_at: string | null
-        }
-        Insert: {
-          auth_user_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_master_user?: boolean | null
-          is_practice_manager?: boolean | null
-          mfa_enabled?: boolean | null
-          name?: string | null
-          practice_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
-          updated_at?: string | null
-        }
-        Update: {
-          auth_user_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_master_user?: boolean | null
-          is_practice_manager?: boolean | null
-          mfa_enabled?: boolean | null
-          name?: string | null
-          practice_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
-          updated_at?: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
         }
         Relationships: [
           {

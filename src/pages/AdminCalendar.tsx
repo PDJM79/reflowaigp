@@ -50,17 +50,17 @@ export default function AdminCalendar() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('id, is_practice_manager, role')
+        .select('id, is_practice_manager')
         .eq('auth_user_id', user.id)
         .single();
 
       if (!userData) return;
 
-      // Check if user is practice manager OR has administrator role
+      // Check if user is practice manager OR has administrator role via user_roles
       const { data: roleData } = await supabase
-        .from('role_assignments')
+        .from('user_roles')
         .select('role')
-        .eq('user_id', userData.id)
+        .eq('user_id', user.id)
         .in('role', ['administrator', 'practice_manager']);
 
       setIsAdmin(userData.is_practice_manager || (roleData && roleData.length > 0));

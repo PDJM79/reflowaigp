@@ -41,7 +41,7 @@ export function UserDashboard() {
         console.log('Fetching user info for auth user:', user.id);
         const { data, error } = await supabase
           .from('users')
-          .select('name, is_practice_manager, role, practice_id, is_master_user')
+          .select('name, is_practice_manager, practice_id, is_master_user')
           .eq('auth_user_id', user.id)
           .single();
 
@@ -50,20 +50,29 @@ export function UserDashboard() {
         if (data) {
           setUserName(data.name);
           setIsPracticeManager(data.is_practice_manager);
-          setUserRole(data.role);
           
           // For master users, use selected practice, otherwise use user's practice
           const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
           setUserPracticeId(practiceId);
 
-          console.log('User role:', data.role, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
+          // Fetch user roles from user_roles table
+          const { data: userRoles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id);
 
-          // Fetch all process templates where the user's role is responsible
+          const primaryRole = userRoles?.[0]?.role || 'unknown';
+          setUserRole(primaryRole);
+
+          console.log('User roles:', userRoles, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
+
+          // Fetch all process templates where any of the user's roles is responsible
+          const roles = userRoles?.map(r => r.role) || [];
           const { data: templates, error: templatesError } = await supabase
             .from('process_templates')
             .select('name, responsible_role, frequency')
             .eq('practice_id', practiceId)
-            .eq('responsible_role', data.role);
+            .in('responsible_role', roles);
 
           console.log('Process templates for role:', templates, 'Error:', templatesError);
           setAllProcessesByRole(templates || []);

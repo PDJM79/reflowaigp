@@ -33,15 +33,25 @@ export default function Schedule() {
     if (!user) return;
 
     const fetchTasksAndRole = async () => {
-      // Get user role
+      // Get user and primary role
       const { data: userData } = await supabase
         .from('users')
-        .select('id, role, practice_id')
+        .select('id, practice_id')
         .eq('auth_user_id', user.id)
         .single();
 
       if (!userData) return;
-      setUserRole(userData.role);
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (roleData) {
+        setUserRole(roleData.role);
+      }
 
       // Fetch tasks for next 12 months
       const startDate = new Date();

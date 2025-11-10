@@ -24,7 +24,6 @@ interface ProcessInstance {
   };
   users: {
     name: string;
-    role: string;
   };
 }
 
@@ -58,13 +57,12 @@ export default function AllProcesses() {
               name,
               responsible_role,
               frequency
-            ),
-            users!assignee_id (
-              name,
-              role
-            )
-          `)
-          .eq('practice_id', userData.practice_id)
+          ),
+          users!assignee_id (
+            name
+          )
+        `)
+        .eq('practice_id', userData.practice_id)
           .order('created_at', { ascending: false });
 
         setProcesses(processInstances || []);

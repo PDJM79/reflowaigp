@@ -33,15 +33,23 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchUserAndTasks = async () => {
-      // Get user role
+      // Get user and role
       const { data: userData } = await supabase
         .from('users')
-        .select('id, role')
+        .select('id')
         .eq('auth_user_id', user.id)
         .single();
 
-      if (userData) {
-        setUserRole(userData.role);
+      // Get user's primary role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (userData && roleData) {
+        setUserRole(roleData.role);
 
         // Fetch tasks assigned to this user
         const { data: tasksData } = await supabase

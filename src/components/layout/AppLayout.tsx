@@ -25,12 +25,13 @@ export function AppLayout() {
       return;
     }
 
-    // Fetch user role
+    // Fetch user roles
     const fetchUserRole = async () => {
       const { data } = await supabase
-        .from('users')
+        .from('user_roles')
         .select('role')
-        .eq('auth_user_id', user.id)
+        .eq('user_id', user.id)
+        .limit(1)
         .single();
       
       if (data) setUserRole(data.role);
