@@ -29,3 +29,6 @@ verify_jwt = true
 
 [functions.create-missing-accounts]
 verify_jwt = true
+
+[functions.send-policy-review-emails]
+verify_jwt = false
