@@ -16,7 +16,8 @@
     "policies": "Policies Library",
     "fridge_temps": "Fridge Temperatures",
     "schedule": "Schedule",
-    "reports": "Reports"
+    "reports": "Reports",
+    "email_logs": "Email Logs"
   },
   "infectionControl": {
     "title": "Infection Control Audit",
@@ -79,6 +80,7 @@
     "medical_requests": "Insurance/Medicals",
     "policies": "Policies",
     "fridge_temps": "Fridge Temps",
+    "email_logs": "Email Logs",
     "settings": "Settings",
     "logout": "Logout"
   },
@@ -123,5 +125,35 @@
     "confirm": "Confirm",
     "yes": "Yes",
     "no": "No"
+  },
+  "email_logs": {
+    "title": "Email Delivery Dashboard",
+    "description": "Track and monitor email delivery status",
+    "total_sent": "Total Sent",
+    "delivery_rate": "Delivery Rate",
+    "bounce_rate": "Bounce Rate",
+    "open_rate": "Open Rate",
+    "search_placeholder": "Search by email or subject...",
+    "filter_status": "Filter by status",
+    "filter_email_type": "Filter by type",
+    "all_statuses": "All Statuses",
+    "all_types": "All Types",
+    "view_details": "View Details",
+    "no_logs": "No email logs found",
+    "status": {
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "bounced": "Bounced",
+      "failed": "Failed",
+      "opened": "Opened",
+      "clicked": "Clicked",
+      "complained": "Complained",
+      "queued": "Queued"
+    },
+    "type": {
+      "policy_review": "Policy Review",
+      "policy_acknowledgment_reminder": "Acknowledgment Reminder",
+      "policy_escalation": "Policy Escalation"
+    }
   }
 }

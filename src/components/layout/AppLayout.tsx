@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Home, Calendar, ListTodo, FileText, FolderOpen, BarChart3,
   Pill, PoundSterling, Shield, Droplet, AlertTriangle, Flame,
-  Users, MessageSquare, FileCheck, BookOpen, Thermometer,
+  Users, MessageSquare, FileCheck, BookOpen, Thermometer, Mail,
   Settings, LogOut, Menu, X
 } from 'lucide-react';
 
@@ -60,6 +60,7 @@ export function AppLayout() {
     { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', roles: ['administrator', 'practice_manager'] },
     { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
     { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', roles: 'all' },
+    { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', roles: ['practice_manager', 'ig_lead'] },
     { icon: BarChart3, label: t('nav.reports'), path: '/reports', roles: ['practice_manager', 'group_manager'] },
   ];
 

@@ -22,6 +22,7 @@
     "medical_requests": "Yswiriant/Morgais Meddygol",
     "policies": "Polisïau",
     "fridge_temps": "Tymereddau Oergell",
+    "email_logs": "Cofnodion E-bost",
     "settings": "Gosodiadau",
     "logout": "Allgofnodi"
   },
@@ -85,5 +86,35 @@
     "confirm": "Cadarnhau",
     "yes": "Ie",
     "no": "Na"
+  },
+  "email_logs": {
+    "title": "Bwrdd Gwaith Dosbarthu E-bost",
+    "description": "Olrhain a monitro statws dosbarthu e-bost",
+    "total_sent": "Cyfanswm a Anfonwyd",
+    "delivery_rate": "Cyfradd Dosbarthu",
+    "bounce_rate": "Cyfradd Bownsio",
+    "open_rate": "Cyfradd Agor",
+    "search_placeholder": "Chwilio yn ôl e-bost neu bwnc...",
+    "filter_status": "Hidlo yn ôl statws",
+    "filter_email_type": "Hidlo yn ôl math",
+    "all_statuses": "Pob Statws",
+    "all_types": "Pob Math",
+    "view_details": "Gweld Manylion",
+    "no_logs": "Dim cofnodion e-bost wedi'u canfod",
+    "status": {
+      "sent": "Anfonwyd",
+      "delivered": "Dosbarthwyd",
+      "bounced": "Bownsio",
+      "failed": "Methiant",
+      "opened": "Agorwyd",
+      "clicked": "Cliciwyd",
+      "complained": "Cwyno",
+      "queued": "Mewn Ciw"
+    },
+    "type": {
+      "policy_review": "Adolygiad Polisi",
+      "policy_acknowledgment_reminder": "Atgof Cydnabyddiaeth",
+      "policy_escalation": "Esgyniad Polisi"
+    }
   }
 }

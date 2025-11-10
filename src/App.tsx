@@ -35,6 +35,7 @@ import MedicalRequests from "./pages/MedicalRequests";
 import Policies from "./pages/Policies";
 import PolicyReviewHistory from "./pages/PolicyReviewHistory";
 import Reports from "./pages/Reports";
+import EmailLogs from "./pages/EmailLogs";
 
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/policies/review-history" element={<PolicyReviewHistory />} />
                 <Route path="/fridge-temps" element={<FridgeTemps />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/email-logs" element={<EmailLogs />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />
