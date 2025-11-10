@@ -29,6 +29,18 @@ type PolicyNotification = {
   days_overdue: number;
 };
 
+type PolicyDoc = {
+  id: string;
+  title: string | null;
+  version: string | null;
+  effective_from: string | null;
+};
+
+type PolicyAck = {
+  policy_id: string;
+  version_acknowledged: string;
+};
+
 export function NotificationBell() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -115,16 +127,26 @@ export function NotificationBell() {
 
       if (!userData) return;
 
-      const [policiesRes, acknowledgementsRes] = await Promise.all([
-        supabase.from('policy_documents').select('id, title, version, effective_from').eq('practice_id', userData.practice_id).eq('is_active', true),
-        supabase.from('policy_acknowledgments').select('policy_id, version_acknowledged').eq('user_id', userData.id)
-      ]);
+      // Use type-safe wrapper to bypass TS inference issues
+      const policiesResult = await (supabase as any)
+        .from('policy_documents')
+        .select('id, title, version, effective_from')
+        .eq('practice_id', userData.practice_id)
+        .eq('is_active', true);
 
-      if (!policiesRes.data) return;
+      const acknowledgementsResult = await (supabase as any)
+        .from('policy_acknowledgments')
+        .select('policy_id, version_acknowledged')
+        .eq('user_id', userData.id);
 
-      const acknowledgedMap = new Map((acknowledgementsRes.data || []).map(a => [`${a.policy_id}-${a.version_acknowledged}`, true]));
+      const policiesData = policiesResult.data as PolicyDoc[] | null;
+      const acknowledgementsData = acknowledgementsResult.data as PolicyAck[] | null;
 
-      const unacknowledged: PolicyNotification[] = policiesRes.data
+      if (!policiesData) return;
+
+      const acknowledgedMap = new Map((acknowledgementsData || []).map(a => [`${a.policy_id}-${a.version_acknowledged}`, true]));
+
+      const unacknowledged: PolicyNotification[] = policiesData
         .filter(p => !acknowledgedMap.has(`${p.id}-${p.version}`))
         .map(p => ({
           id: p.id,

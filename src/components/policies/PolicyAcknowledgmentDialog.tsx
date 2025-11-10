@@ -19,6 +19,31 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
   const [loading, setLoading] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
+  // Track policy view when dialog opens
+  const trackPolicyView = async () => {
+    if (!policy || !user) return;
+
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      await (supabase as any)
+        .from('policy_views')
+        .insert({
+          policy_id: policy.id,
+          user_id: userData.id,
+          version: policy.version || 'unversioned',
+        });
+    } catch (error) {
+      console.error('Error tracking policy view:', error);
+    }
+  };
+
   const handleAcknowledge = async () => {
     if (!acknowledged) {
       toast.error('Please confirm you have read and understood this policy');
@@ -71,6 +96,9 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
       toast.error('Document file not available');
       return;
     }
+
+    // Track policy view
+    await trackPolicyView();
 
     try {
       const { data, error } = await supabase.storage
