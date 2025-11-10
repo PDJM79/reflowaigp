@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell } from 'lucide-react';
+import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell, Mail } from 'lucide-react';
 import { PolicyUploadDialog } from '@/components/policies/PolicyUploadDialog';
 import { PolicyAcknowledgmentDialog } from '@/components/policies/PolicyAcknowledgmentDialog';
 import { PolicyStaffTracker } from '@/components/policies/PolicyStaffTracker';
@@ -26,6 +26,7 @@ export default function Policies() {
   const [selectedPolicyForTracker, setSelectedPolicyForTracker] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [checkingReviews, setCheckingReviews] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -138,6 +139,38 @@ export default function Policies() {
     }
   };
 
+  const handleSendEmailReminders = async () => {
+    setSendingEmails(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-review-emails');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Email Reminders Needed', {
+            description: data.message || 'No overdue policies found that require email notifications.'
+          });
+        } else {
+          toast.success('Email Reminders Sent Successfully', {
+            description: `Sent ${data.emails_sent} email(s) to managers about ${data.overdue_policies} overdue policy review(s) across ${data.practices_affected} practice(s).`
+          });
+        }
+      } else {
+        toast.error('Failed to send emails', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending email reminders:', error);
+      toast.error('Failed to send email reminders', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingEmails(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -164,6 +197,14 @@ export default function Policies() {
             >
               <Bell className="h-4 w-4 mr-2" />
               {checkingReviews ? 'Checking...' : 'Check Policy Reviews Now'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSendEmailReminders}
+              disabled={sendingEmails}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              {sendingEmails ? 'Sending Emails...' : 'Send Email Reminders Now'}
             </Button>
             <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
