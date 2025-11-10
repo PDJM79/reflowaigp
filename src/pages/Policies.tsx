@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users } from 'lucide-react';
+import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell } from 'lucide-react';
 import { PolicyUploadDialog } from '@/components/policies/PolicyUploadDialog';
 import { PolicyAcknowledgmentDialog } from '@/components/policies/PolicyAcknowledgmentDialog';
 import { PolicyStaffTracker } from '@/components/policies/PolicyStaffTracker';
+import { toast } from 'sonner';
 
 export default function Policies() {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ export default function Policies() {
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [selectedPolicyForTracker, setSelectedPolicyForTracker] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [checkingReviews, setCheckingReviews] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -110,6 +112,32 @@ export default function Policies() {
     setSelectedPolicyForTracker(policyId);
   };
 
+  const handleCheckPolicyReviews = async () => {
+    setCheckingReviews(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('policy-review-reminders');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success('Policy Review Check Complete', {
+          description: `Checked ${data.policies_checked} policies. Created ${data.notifications_created} notification(s) for ${data.practices_affected} practice(s).`
+        });
+      } else {
+        toast.error('Check failed', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error checking policy reviews:', error);
+      toast.error('Failed to check policy reviews', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setCheckingReviews(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -121,10 +149,20 @@ export default function Policies() {
           <p className="text-muted-foreground">Manage and access practice policies</p>
         </div>
         {canUpload && (
-          <Button onClick={() => setUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Policy
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleCheckPolicyReviews}
+              disabled={checkingReviews}
+            >
+              <Bell className="h-4 w-4 mr-2" />
+              {checkingReviews ? 'Checking...' : 'Check Policy Reviews Now'}
+            </Button>
+            <Button onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Policy
+            </Button>
+          </div>
         )}
       </div>
 
