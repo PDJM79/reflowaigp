@@ -2600,18 +2600,12 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
-      get_current_user_practice_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_practice_id: { Args: never; Returns: string }
       get_user_practice_from_roles: {
         Args: { _user_id: string }
         Returns: string
       }
-      get_user_practice_id: {
-        Args: { user_id: string }
-        Returns: string
-      }
+      get_user_practice_id: { Args: { user_id: string }; Returns: string }
       get_user_profile: {
         Args: { user_id: string }
         Returns: {
@@ -2630,6 +2624,13 @@ export type Database = {
           updated_at: string
         }[]
       }
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2637,26 +2638,11 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_current_user_master: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_current_user_practice_manager: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_group_manager: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      is_master_user: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      is_practice_manager: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
+      is_current_user_master: { Args: never; Returns: boolean }
+      is_current_user_practice_manager: { Args: never; Returns: boolean }
+      is_group_manager: { Args: { user_id: string }; Returns: boolean }
+      is_master_user: { Args: { user_id: string }; Returns: boolean }
+      is_practice_manager: { Args: { user_id: string }; Returns: boolean }
       is_task_compliant: {
         Args: { _completed_at: string; _due_at: string; _sla_hours: number }
         Returns: boolean
@@ -2665,10 +2651,7 @@ export type Database = {
         Args: { _practice_id: string; _user_id: string }
         Returns: boolean
       }
-      user_has_mfa_enabled: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      user_has_mfa_enabled: { Args: { _user_id: string }; Returns: boolean }
       verify_user_mfa_token: {
         Args: { _token: string; _user_id: string }
         Returns: boolean
