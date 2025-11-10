@@ -36,6 +36,7 @@ import Policies from "./pages/Policies";
 import PolicyReviewHistory from "./pages/PolicyReviewHistory";
 import Reports from "./pages/Reports";
 import EmailLogs from "./pages/EmailLogs";
+import EmailReportsSettings from "./pages/EmailReportsSettings";
 
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
@@ -85,6 +86,7 @@ const App = () => (
                 <Route path="/fridge-temps" element={<FridgeTemps />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/email-logs" element={<EmailLogs />} />
+                <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />

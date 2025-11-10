@@ -184,5 +184,34 @@
       "status_distribution": "Email Status Distribution",
       "status_distribution_desc": "Breakdown of all email statuses"
     }
+  },
+  "email_reports": {
+    "title": "Email Reports Settings",
+    "description": "Configure automated email delivery reports sent to practice managers",
+    "schedule_title": "Report Schedule",
+    "schedule_description": "Configure when email reports are automatically sent",
+    "weekly_reports": "Weekly Reports",
+    "weekly_reports_desc": "Send email delivery summary every Monday at 9 AM",
+    "monthly_reports": "Monthly Reports",
+    "monthly_reports_desc": "Send email delivery summary on the 1st of each month at 9 AM",
+    "schedule_info_title": "Current Schedule:",
+    "schedule_info_weekly": "• Weekly reports: Every Monday at 9:00 AM",
+    "schedule_info_monthly": "• Monthly reports: 1st day of each month at 9:00 AM",
+    "recipients_title": "Report Recipients",
+    "recipients_description": "Who receives the automated email reports",
+    "recipients_info": "Reports are automatically sent to all active practice managers in your organization.",
+    "test_report_title": "Send Test Report",
+    "test_report_description": "Generate and send a test report immediately",
+    "weekly": "Weekly Report",
+    "monthly": "Monthly Report",
+    "send_test": "Send Test Report",
+    "sending": "Sending...",
+    "test_report_note": "Test reports are sent immediately and include data from the selected period (last 7 days for weekly, last 30 days for monthly).",
+    "setup_title": "Automated Scheduling Setup",
+    "setup_description": "To enable automated scheduled reports, run the following SQL in your Supabase SQL Editor",
+    "setup_step_1_title": "Step 1: Enable Required Extensions",
+    "setup_step_1_desc": "Enable pg_cron and pg_net extensions in your Supabase project settings under Database → Extensions.",
+    "setup_step_2_title": "Step 2: Create Cron Jobs",
+    "setup_step_2_desc": "Run this SQL in your Supabase SQL Editor to schedule the reports:"
   }
 }
