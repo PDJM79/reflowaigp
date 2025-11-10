@@ -1889,6 +1889,64 @@ export type Database = {
           },
         ]
       }
+      policy_review_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          policy_id: string
+          practice_id: string
+          review_type: string
+          reviewed_at: string
+          reviewed_by: string
+          version_reviewed: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          policy_id: string
+          practice_id: string
+          review_type: string
+          reviewed_at?: string
+          reviewed_by: string
+          version_reviewed: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          policy_id?: string
+          practice_id?: string
+          review_type?: string
+          reviewed_at?: string
+          reviewed_by?: string
+          version_reviewed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_review_history_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policy_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_review_history_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_review_history_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_targets: {
         Row: {
           created_at: string | null

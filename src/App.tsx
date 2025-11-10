@@ -33,6 +33,7 @@ import HR from "./pages/HR";
 import Complaints from "./pages/Complaints";
 import MedicalRequests from "./pages/MedicalRequests";
 import Policies from "./pages/Policies";
+import PolicyReviewHistory from "./pages/PolicyReviewHistory";
 import Reports from "./pages/Reports";
 
 // Existing Pages (to be migrated)
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="/complaints" element={<Complaints />} />
                 <Route path="/medical-requests" element={<MedicalRequests />} />
                 <Route path="/policies" element={<Policies />} />
+                <Route path="/policies/review-history" element={<PolicyReviewHistory />} />
                 <Route path="/fridge-temps" element={<FridgeTemps />} />
                 <Route path="/reports" element={<Reports />} />
                 

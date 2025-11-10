@@ -152,6 +152,13 @@ export default function Policies() {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
+              onClick={() => navigate('/policies/review-history')}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Review History
+            </Button>
+            <Button 
+              variant="outline" 
               onClick={handleCheckPolicyReviews}
               disabled={checkingReviews}
             >
