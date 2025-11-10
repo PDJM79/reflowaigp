@@ -15,6 +15,12 @@ verify_jwt = true
 [functions.suggest-improvements]
 verify_jwt = true
 
+[functions.policy-review-reminders]
+verify_jwt = false
+
+[functions.generate-scripts-claim-pdf]
+verify_jwt = true
+
 [functions.generate-test-data]
 verify_jwt = false
 

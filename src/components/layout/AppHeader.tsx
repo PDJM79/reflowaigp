@@ -1,4 +1,5 @@
 import { ThemeToggle } from '@/components/settings/ThemeToggle';
+import { NotificationBell } from './NotificationBell';
 
 interface AppHeaderProps {
   children?: React.ReactNode;
@@ -22,6 +23,7 @@ export function AppHeader({ children }: AppHeaderProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <ThemeToggle />
           {children}
         </div>

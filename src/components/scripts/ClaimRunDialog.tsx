@@ -68,7 +68,26 @@ export function ClaimRunDialog({ isOpen, onClose, onSuccess, selectedMonth, scri
 
       if (updateError) throw updateError;
 
-      toast.success(`Claim run created with ${totalScripts} scripts`);
+      // Generate PDF automatically
+      const { data: pdfResult, error: pdfError } = await supabase.functions.invoke(
+        'generate-scripts-claim-pdf',
+        {
+          body: { claim_run_id: claimRun.id }
+        }
+      );
+
+      if (pdfError) {
+        console.error('PDF generation error:', pdfError);
+        toast.warning(`Claim run created with ${totalScripts} scripts, but PDF generation failed`);
+      } else {
+        toast.success(`Claim run created with ${totalScripts} scripts. PDF generated successfully.`);
+        
+        // Optionally trigger download
+        if (pdfResult?.download_url) {
+          window.open(pdfResult.download_url, '_blank');
+        }
+      }
+
       onSuccess();
       onClose();
     } catch (error) {
@@ -80,8 +99,7 @@ export function ClaimRunDialog({ isOpen, onClose, onSuccess, selectedMonth, scri
   };
 
   const handleExportPDF = async () => {
-    toast.info('PDF export will be available in the next update');
-    // TODO: Call edge function to generate PDF
+    toast.info('Select scripts and create a claim run to generate PDF');
   };
 
   return (
