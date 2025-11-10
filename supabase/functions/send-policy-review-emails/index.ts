@@ -167,6 +167,19 @@ const handler = async (req: Request): Promise<Response> => {
 
           if (error) {
             console.error(`❌ Failed to send email to ${manager.email}:`, error);
+            
+            // Log failed email
+            await supabase.from('email_logs').insert({
+              practice_id: practiceData.practice_id,
+              recipient_email: manager.email,
+              recipient_name: manager.name,
+              email_type: 'policy_review',
+              subject: `⚠️ ${practiceData.overdue_policies.length} Policy Review${practiceData.overdue_policies.length > 1 ? 's' : ''} Overdue - ${practiceData.practice_name}`,
+              status: 'failed',
+              error_message: error.message,
+              metadata: { overdue_count: practiceData.overdue_policies.length },
+            });
+            
             emailResults.push({
               recipient: manager.email,
               success: false,
@@ -175,6 +188,19 @@ const handler = async (req: Request): Promise<Response> => {
           } else {
             console.log(`✅ Email sent to ${manager.name} (${manager.email})`);
             emailsSent++;
+            
+            // Log successful email
+            await supabase.from('email_logs').insert({
+              practice_id: practiceData.practice_id,
+              resend_email_id: data?.id,
+              recipient_email: manager.email,
+              recipient_name: manager.name,
+              email_type: 'policy_review',
+              subject: `⚠️ ${practiceData.overdue_policies.length} Policy Review${practiceData.overdue_policies.length > 1 ? 's' : ''} Overdue - ${practiceData.practice_name}`,
+              status: 'sent',
+              metadata: { overdue_count: practiceData.overdue_policies.length },
+            });
+            
             emailResults.push({
               recipient: manager.email,
               success: true,

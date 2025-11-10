@@ -536,6 +536,75 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          bounce_reason: string | null
+          bounce_type: string | null
+          bounced_at: string | null
+          clicked_at: string | null
+          complained_at: string | null
+          created_at: string
+          delivered_at: string | null
+          email_type: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          opened_at: string | null
+          practice_id: string
+          recipient_email: string
+          recipient_name: string | null
+          resend_email_id: string | null
+          sent_at: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          clicked_at?: string | null
+          complained_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          email_type: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          practice_id: string
+          recipient_email: string
+          recipient_name?: string | null
+          resend_email_id?: string | null
+          sent_at?: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          clicked_at?: string | null
+          complained_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          practice_id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          resend_email_id?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           created_at: string | null

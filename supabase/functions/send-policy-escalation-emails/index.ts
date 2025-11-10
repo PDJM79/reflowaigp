@@ -277,6 +277,22 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (error) {
           console.error(`❌ Failed to send escalation email to ${managerData.manager_email}:`, error);
+          
+          // Log failed email
+          await supabase.from('email_logs').insert({
+            practice_id: managerData.practice_id,
+            recipient_email: managerData.manager_email,
+            recipient_name: managerData.manager_name,
+            email_type: 'policy_escalation',
+            subject: `🚨 ESCALATION: ${managerData.unacknowledged_staff.length} Staff Member${managerData.unacknowledged_staff.length > 1 ? 's' : ''} Need Policy Acknowledgment`,
+            status: 'failed',
+            error_message: error.message,
+            metadata: { 
+              staff_count: managerData.unacknowledged_staff.length,
+              policy_count: totalUnacknowledged,
+            },
+          });
+          
           emailResults.push({
             recipient: managerData.manager_email,
             success: false,
@@ -285,6 +301,22 @@ const handler = async (req: Request): Promise<Response> => {
         } else {
           console.log(`✅ Escalation email sent to ${managerData.manager_name} (${managerData.manager_email})`);
           emailsSent++;
+          
+          // Log successful email
+          await supabase.from('email_logs').insert({
+            practice_id: managerData.practice_id,
+            resend_email_id: data?.id,
+            recipient_email: managerData.manager_email,
+            recipient_name: managerData.manager_name,
+            email_type: 'policy_escalation',
+            subject: `🚨 ESCALATION: ${managerData.unacknowledged_staff.length} Staff Member${managerData.unacknowledged_staff.length > 1 ? 's' : ''} Need Policy Acknowledgment`,
+            status: 'sent',
+            metadata: { 
+              staff_count: managerData.unacknowledged_staff.length,
+              policy_count: totalUnacknowledged,
+            },
+          });
+          
           emailResults.push({
             recipient: managerData.manager_email,
             success: true,

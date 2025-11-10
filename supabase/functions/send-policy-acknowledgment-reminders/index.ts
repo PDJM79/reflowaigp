@@ -182,6 +182,19 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (error) {
           console.error(`❌ Failed to send email to ${staffMember.email}:`, error);
+          
+          // Log failed email
+          await supabase.from('email_logs').insert({
+            practice_id: staffMember.practice_id,
+            recipient_email: staffMember.email,
+            recipient_name: staffMember.name,
+            email_type: 'policy_acknowledgment_reminder',
+            subject: `⏰ Reminder: ${staffMember.unacknowledged_policies.length} Policy Acknowledgment${staffMember.unacknowledged_policies.length > 1 ? 's' : ''} Pending`,
+            status: 'failed',
+            error_message: error.message,
+            metadata: { unacknowledged_count: staffMember.unacknowledged_policies.length },
+          });
+          
           emailResults.push({
             recipient: staffMember.email,
             success: false,
@@ -190,6 +203,19 @@ const handler = async (req: Request): Promise<Response> => {
         } else {
           console.log(`✅ Reminder email sent to ${staffMember.name} (${staffMember.email})`);
           emailsSent++;
+          
+          // Log successful email
+          await supabase.from('email_logs').insert({
+            practice_id: staffMember.practice_id,
+            resend_email_id: data?.id,
+            recipient_email: staffMember.email,
+            recipient_name: staffMember.name,
+            email_type: 'policy_acknowledgment_reminder',
+            subject: `⏰ Reminder: ${staffMember.unacknowledged_policies.length} Policy Acknowledgment${staffMember.unacknowledged_policies.length > 1 ? 's' : ''} Pending`,
+            status: 'sent',
+            metadata: { unacknowledged_count: staffMember.unacknowledged_policies.length },
+          });
+          
           emailResults.push({
             recipient: staffMember.email,
             success: true,

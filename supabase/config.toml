@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.send-policy-escalation-emails]
 verify_jwt = false
+
+[functions.resend-webhook-handler]
+verify_jwt = false
