@@ -1,15 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sun, Moon, Monitor, Bell, Lock, User } from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, Lock, User, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useNotificationPreferences, type EmailFrequency } from '@/hooks/useNotificationPreferences';
 
 type Theme = "light" | "dark" | "system";
 
 export default function Settings() {
   const [theme, setTheme] = useState<Theme>("system");
-  const [notifications, setNotifications] = useState(true);
+  const { preferences, loading, updatePreferences } = useNotificationPreferences();
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme") as Theme | null;
@@ -99,25 +101,93 @@ export default function Settings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notifications
+            Notification Preferences
           </CardTitle>
           <CardDescription>
-            Manage how you receive notifications
+            Manage how and when you receive notifications
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-base">Task Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive notifications for new tasks and updates
-              </p>
+        <CardContent className="space-y-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-            <Switch
-              checked={notifications}
-              onCheckedChange={setNotifications}
-            />
-          </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-base flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email Notification Frequency
+                  </Label>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Choose how often you want to receive email notifications
+                  </p>
+                  <Select
+                    value={preferences?.email_frequency || 'immediate'}
+                    onValueChange={(value: EmailFrequency) => 
+                      updatePreferences({ email_frequency: value })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">Immediate - As they happen</SelectItem>
+                      <SelectItem value="daily">Daily Digest - Once per day</SelectItem>
+                      <SelectItem value="weekly">Weekly Digest - Once per week</SelectItem>
+                      <SelectItem value="none">None - No email notifications</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between pt-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">In-App Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Show notifications in the notification bell
+                    </p>
+                  </div>
+                  <Switch
+                    checked={preferences?.in_app_enabled ?? true}
+                    onCheckedChange={(checked) => 
+                      updatePreferences({ in_app_enabled: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Policy Reminders</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive reminders for unacknowledged policies
+                    </p>
+                  </div>
+                  <Switch
+                    checked={preferences?.policy_reminders ?? true}
+                    onCheckedChange={(checked) => 
+                      updatePreferences({ policy_reminders: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Task Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive notifications for new tasks and updates
+                    </p>
+                  </div>
+                  <Switch
+                    checked={preferences?.task_notifications ?? true}
+                    onCheckedChange={(checked) => 
+                      updatePreferences({ task_notifications: checked })
+                    }
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

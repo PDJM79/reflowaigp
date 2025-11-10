@@ -1635,6 +1635,39 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_frequency: string
+          id: string
+          in_app_enabled: boolean
+          policy_reminders: boolean
+          task_notifications: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_frequency?: string
+          id?: string
+          in_app_enabled?: boolean
+          policy_reminders?: boolean
+          task_notifications?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_frequency?: string
+          id?: string
+          in_app_enabled?: boolean
+          policy_reminders?: boolean
+          task_notifications?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           action_url: string | null
@@ -1943,6 +1976,38 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_views: {
+        Row: {
+          id: string
+          policy_id: string
+          user_id: string
+          version: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          policy_id: string
+          user_id: string
+          version: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          policy_id?: string
+          user_id?: string
+          version?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_views_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policy_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -2891,6 +2956,10 @@ export type Database = {
       }
       expire_old_notifications: { Args: never; Returns: undefined }
       get_current_user_practice_id: { Args: never; Returns: string }
+      get_unacknowledged_policies_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_user_practice_from_roles: {
         Args: { _user_id: string }
         Returns: string

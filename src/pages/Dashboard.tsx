@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import { format, isThisMonth, isPast, isFuture } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
+import { PoliciesNeedingAcknowledgment } from '@/components/dashboard/PoliciesNeedingAcknowledgment';
 
 type Task = {
   id: string;
@@ -181,6 +182,9 @@ export default function Dashboard() {
         {/* Ready for Audit Section */}
         <ReadyForAudit />
 
+        {/* Policies Needing Acknowledgment */}
+        <PoliciesNeedingAcknowledgment />
+
         <Card>
           <CardHeader>
             <CardTitle>{t('home.due_tasks')}</CardTitle>
@@ -201,6 +205,9 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold">{t('home.welcome')}</h1>
         <p className="text-muted-foreground">{t('home.my_todos')}</p>
       </div>
+
+      {/* Policies Widget for Standard Users */}
+      <PoliciesNeedingAcknowledgment />
 
       <Tabs defaultValue="current" className="w-full">
         <TabsList>
