@@ -134,6 +134,16 @@
     "retry": "Ail-anfon E-bost",
     "retrying": "Yn Ail-anfon...",
     "retry_success": "E-bost wedi'i ail-anfon yn llwyddiannus",
-    "retry_error": "Methwyd ag ail-anfon e-bost. Rhowch gynnig arall arni."
+    "retry_error": "Methwyd ag ail-anfon e-bost. Rhowch gynnig arall arni.",
+    "analytics": {
+      "delivery_trends": "Tueddiadau Dosbarthu Dros Amser",
+      "delivery_trends_desc": "Ystadegau anfon a dosbarthu e-byst dyddiol am y 30 diwrnod diwethaf",
+      "bounce_trends": "Tueddiadau Bownsio a Methiant",
+      "bounce_trends_desc": "Cyfraddau bownsio a methiant dyddiol dros amser",
+      "open_rate_by_type": "Cyfradd Agor yn ôl Math E-bost",
+      "open_rate_by_type_desc": "Canran o e-byst a agorwyd yn ôl math e-bost",
+      "status_distribution": "Dosbarthiad Statws E-bost",
+      "status_distribution_desc": "Dadansoddiad o bob statws e-bost"
+    }
   }
 }

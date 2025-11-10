@@ -6,6 +6,7 @@ import { EmailLogFilters } from '@/components/email-logs/EmailLogFilters';
 import { EmailLogsTable } from '@/components/email-logs/EmailLogsTable';
 import { EmailLogDetailDialog } from '@/components/email-logs/EmailLogDetailDialog';
 import { EmailLogPagination } from '@/components/email-logs/EmailLogPagination';
+import { EmailAnalyticsCharts } from '@/components/email-logs/EmailAnalyticsCharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, CheckCircle2, XCircle, Eye, Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -200,6 +201,9 @@ export default function EmailLogs() {
           </Card>
         </div>
       )}
+
+      {/* Analytics Charts */}
+      <EmailAnalyticsCharts />
 
       {/* Filters */}
       <Card>

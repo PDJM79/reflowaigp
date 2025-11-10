@@ -173,6 +173,16 @@
     "retry": "Retry Email",
     "retrying": "Retrying...",
     "retry_success": "Email resent successfully",
-    "retry_error": "Failed to retry email. Please try again."
+    "retry_error": "Failed to retry email. Please try again.",
+    "analytics": {
+      "delivery_trends": "Delivery Trends Over Time",
+      "delivery_trends_desc": "Daily email sending and delivery statistics for the last 30 days",
+      "bounce_trends": "Bounce & Failure Trends",
+      "bounce_trends_desc": "Daily bounce and failure rates over time",
+      "open_rate_by_type": "Open Rate by Email Type",
+      "open_rate_by_type_desc": "Percentage of emails opened by email type",
+      "status_distribution": "Email Status Distribution",
+      "status_distribution_desc": "Breakdown of all email statuses"
+    }
   }
 }
