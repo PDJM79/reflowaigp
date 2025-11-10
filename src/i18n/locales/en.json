@@ -169,6 +169,10 @@
       "previous_page": "Previous page",
       "next_page": "Next page",
       "last_page": "Last page"
-    }
+    },
+    "retry": "Retry Email",
+    "retrying": "Retrying...",
+    "retry_success": "Email resent successfully",
+    "retry_error": "Failed to retry email. Please try again."
   }
 }

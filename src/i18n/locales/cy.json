@@ -130,6 +130,10 @@
       "previous_page": "Tudalen flaenorol",
       "next_page": "Tudalen nesaf",
       "last_page": "Tudalen olaf"
-    }
+    },
+    "retry": "Ail-anfon E-bost",
+    "retrying": "Yn Ail-anfon...",
+    "retry_success": "E-bost wedi'i ail-anfon yn llwyddiannus",
+    "retry_error": "Methwyd ag ail-anfon e-bost. Rhowch gynnig arall arni."
   }
 }

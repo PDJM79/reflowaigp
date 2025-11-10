@@ -2,10 +2,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmailStatusBadge } from './EmailStatusBadge';
-import { Copy, CheckCircle2, XCircle, Clock, Mail } from 'lucide-react';
+import { Copy, CheckCircle2, XCircle, Clock, Mail, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EmailLogDetailDialogProps {
   log: any;
@@ -15,8 +18,33 @@ interface EmailLogDetailDialogProps {
 
 export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialogProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [retrying, setRetrying] = useState(false);
 
   if (!log) return null;
+
+  const handleRetry = async () => {
+    if (!user) return;
+
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('retry-email', {
+        body: { emailLogId: log.id },
+      });
+
+      if (error) throw error;
+
+      toast.success(t('email_logs.retry_success'));
+      onClose();
+    } catch (error) {
+      console.error('Error retrying email:', error);
+      toast.error(t('email_logs.retry_error'));
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const canRetry = ['failed', 'bounced'].includes(log.status);
 
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return null;
@@ -41,7 +69,20 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Email Delivery Details</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Email Delivery Details</DialogTitle>
+            {canRetry && (
+              <Button
+                onClick={handleRetry}
+                disabled={retrying}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${retrying ? 'animate-spin' : ''}`} />
+                {retrying ? t('email_logs.retrying') : t('email_logs.retry')}
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
