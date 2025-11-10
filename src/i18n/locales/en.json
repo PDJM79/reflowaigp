@@ -140,6 +140,8 @@
     "all_types": "All Types",
     "view_details": "View Details",
     "no_logs": "No email logs found",
+    "export_csv": "Export CSV",
+    "exporting": "Exporting...",
     "status": {
       "sent": "Sent",
       "delivered": "Delivered",

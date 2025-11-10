@@ -101,6 +101,8 @@
     "all_types": "Pob Math",
     "view_details": "Gweld Manylion",
     "no_logs": "Dim cofnodion e-bost wedi'u canfod",
+    "export_csv": "Allforio CSV",
+    "exporting": "Yn Allforio...",
     "status": {
       "sent": "Anfonwyd",
       "delivered": "Dosbarthwyd",

@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useEmailLogs } from '@/hooks/useEmailLogs';
 import { EmailLogFilters } from '@/components/email-logs/EmailLogFilters';
 import { EmailLogsTable } from '@/components/email-logs/EmailLogsTable';
 import { EmailLogDetailDialog } from '@/components/email-logs/EmailLogDetailDialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Mail, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { Mail, CheckCircle2, XCircle, Eye, Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { exportEmailLogsToCSV, generateEmailLogsFilename } from '@/lib/csvExport';
+import { toast } from 'sonner';
 
 export default function EmailLogs() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [emailType, setEmailType] = useState('all');
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { logs, stats, loading, error } = useEmailLogs({
     search,
@@ -29,12 +36,88 @@ export default function EmailLogs() {
     setDetailDialogOpen(true);
   };
 
+  const handleExport = async () => {
+    if (!user) return;
+
+    setExporting(true);
+    try {
+      // Get current user's practice_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData?.practice_id) {
+        toast.error('Practice not found');
+        return;
+      }
+
+      // Build query with all filters (no pagination for export)
+      let query = supabase
+        .from('email_logs')
+        .select('*')
+        .eq('practice_id', userData.practice_id)
+        .order('sent_at', { ascending: false });
+
+      // Apply filters
+      if (search) {
+        query = query.or(`recipient_email.ilike.%${search}%,subject.ilike.%${search}%`);
+      }
+
+      if (status && status !== 'all') {
+        query = query.eq('status', status);
+      }
+
+      if (emailType && emailType !== 'all') {
+        query = query.eq('email_type', emailType);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast.warning('No email logs to export');
+        return;
+      }
+
+      // Generate filename with filters
+      const filename = generateEmailLogsFilename({ search, status, emailType });
+
+      // Export to CSV
+      exportEmailLogsToCSV(data, filename);
+
+      toast.success(`Exported ${data.length} email logs`);
+    } catch (error) {
+      console.error('Error exporting email logs:', error);
+      toast.error('Failed to export email logs');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">{t('email_logs.title')}</h1>
-        <p className="text-muted-foreground mt-2">{t('email_logs.description')}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">{t('email_logs.title')}</h1>
+          <p className="text-muted-foreground mt-2">{t('email_logs.description')}</p>
+        </div>
+        <Button onClick={handleExport} disabled={exporting || loading}>
+          {exporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t('email_logs.exporting')}
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              {t('email_logs.export_csv')}
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Stats Cards */}
