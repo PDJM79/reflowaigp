@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell, Mail } from 'lucide-react';
+import { FileText, Search, AlertCircle, Upload, CheckCircle2, Users, Bell, Mail, Clock } from 'lucide-react';
 import { PolicyUploadDialog } from '@/components/policies/PolicyUploadDialog';
 import { PolicyAcknowledgmentDialog } from '@/components/policies/PolicyAcknowledgmentDialog';
 import { PolicyStaffTracker } from '@/components/policies/PolicyStaffTracker';
@@ -27,6 +27,7 @@ export default function Policies() {
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [checkingReviews, setCheckingReviews] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [sendingAckReminders, setSendingAckReminders] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -171,6 +172,38 @@ export default function Policies() {
     }
   };
 
+  const handleSendAcknowledgmentReminders = async () => {
+    setSendingAckReminders(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-acknowledgment-reminders');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Acknowledgment Reminders Needed', {
+            description: 'All staff have acknowledged their required policies.'
+          });
+        } else {
+          toast.success('Acknowledgment Reminders Sent Successfully', {
+            description: `Sent ${data.emails_sent} reminder(s) to staff about ${data.policies_checked} policy acknowledgment(s).`
+          });
+        }
+      } else {
+        toast.error('Failed to send acknowledgment reminders', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending acknowledgment reminders:', error);
+      toast.error('Failed to send acknowledgment reminders', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingAckReminders(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -205,6 +238,14 @@ export default function Policies() {
             >
               <Mail className="h-4 w-4 mr-2" />
               {sendingEmails ? 'Sending Emails...' : 'Send Email Reminders Now'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSendAcknowledgmentReminders}
+              disabled={sendingAckReminders}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              {sendingAckReminders ? 'Sending Reminders...' : 'Send Acknowledgment Reminders'}
             </Button>
             <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
