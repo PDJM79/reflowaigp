@@ -14,7 +14,7 @@ interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: string;
+  user_roles: Array<{ role: string }>;
   is_active: boolean;
   assigned_tasks: number;
   completed_tasks: number;
@@ -29,7 +29,7 @@ interface TeamTask {
   status: string;
   assignee: {
     name: string;
-    role: string;
+    roles: Array<{ role: string }>;
   };
 }
 
@@ -56,7 +56,10 @@ export default function TeamDashboard() {
         // Fetch all team members
         const { data: members } = await supabase
           .from('users')
-          .select('*')
+          .select(`
+            *,
+            user_roles(role)
+          `)
           .eq('practice_id', userData.practice_id);
 
         // Fetch process instances with assignee info
@@ -69,7 +72,7 @@ export default function TeamDashboard() {
             ),
             users!assignee_id (
               name,
-              role
+              user_roles(role)
             )
           `)
           .eq('practice_id', userData.practice_id);
@@ -110,7 +113,7 @@ export default function TeamDashboard() {
               status: task.status,
               assignee: {
                 name: task.users?.name || 'Unknown',
-                role: task.users?.role || 'Unknown'
+                roles: task.users?.user_roles || []
               }
             }))
             .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
@@ -242,7 +245,9 @@ export default function TeamDashboard() {
                         <h3 className="font-medium">{member.name}</h3>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Badge variant="outline" className="text-xs">
-                            {member.role.replace('_', ' ').toUpperCase()}
+                            {member.user_roles && member.user_roles.length > 0 
+                              ? member.user_roles[0].role.replace('_', ' ').toUpperCase()
+                              : 'NO ROLE'}
                           </Badge>
                           <span>•</span>
                           <span>{member.assigned_tasks} tasks</span>

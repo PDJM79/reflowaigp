@@ -58,14 +58,21 @@ export default function Reports() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('practice_id, is_practice_manager, role')
+        .select(`
+          practice_id, 
+          is_practice_manager,
+          user_roles!inner(role)
+        `)
         .eq('auth_user_id', user?.id)
         .single();
 
       if (!userData) return;
 
       // Administrators and practice managers can see all tasks
-      const canSeeAllTasks = userData.is_practice_manager || userData.role === 'administrator';
+      const userRoles = Array.isArray(userData?.user_roles) 
+        ? userData.user_roles.map((r: any) => r.role) 
+        : [];
+      const canSeeAllTasks = userData.is_practice_manager || userRoles.includes('administrator');
 
       let query = supabase
         .from('tasks')
