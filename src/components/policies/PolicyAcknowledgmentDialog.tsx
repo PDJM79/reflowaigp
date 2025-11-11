@@ -116,13 +116,13 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <FileText className="h-5 w-5" />
             Acknowledge Policy
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             Please read the policy document before acknowledging
           </DialogDescription>
         </DialogHeader>
@@ -149,7 +149,7 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full min-h-[48px]"
               onClick={handleViewDocument}
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -177,11 +177,20 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
           </div>
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onClose}
+            className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+          >
             Cancel
           </Button>
-          <Button onClick={handleAcknowledge} disabled={loading || !acknowledged}>
+          <Button 
+            onClick={handleAcknowledge} 
+            disabled={loading || !acknowledged}
+            className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
+          >
             <CheckCircle className="h-4 w-4 mr-2" />
             {loading ? 'Recording...' : 'Acknowledge Policy'}
           </Button>

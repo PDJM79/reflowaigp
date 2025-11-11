@@ -167,29 +167,29 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
             {task ? 'Edit Task' : 'Create New Task'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             Create a task manually or from a template
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="template">Use Template (Optional)</Label>
+            <Label htmlFor="template" className="text-base">Use Template (Optional)</Label>
             <Select
               value={formData.template_id}
               onValueChange={handleTemplateChange}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Select a template or create from scratch" />
               </SelectTrigger>
               <SelectContent>
                 {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
+                  <SelectItem key={template.id} value={template.id} className="py-3">
                     {template.title}
                   </SelectItem>
                 ))}
@@ -198,95 +198,98 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title" className="text-base">Title *</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Task title"
+              className="h-11 text-base"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="text-base">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Task description..."
               rows={3}
+              className="min-h-[80px] text-base resize-y"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="module">Module *</Label>
+              <Label htmlFor="module" className="text-base">Module *</Label>
               <Select
                 value={formData.module}
                 onValueChange={(value) => setFormData({ ...formData, module: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select module" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="month_end">Month-End</SelectItem>
-                  <SelectItem value="claims">Claims</SelectItem>
-                  <SelectItem value="infection_control">IC Audit</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="incidents">Incidents</SelectItem>
-                  <SelectItem value="fire_safety">Fire & H&S</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="complaints">Complaints</SelectItem>
-                  <SelectItem value="medical_requests">Medicals</SelectItem>
-                  <SelectItem value="policies">Policies</SelectItem>
-                  <SelectItem value="fridge_temps">Fridge Temps</SelectItem>
+                  <SelectItem value="month_end" className="py-3">Month-End</SelectItem>
+                  <SelectItem value="claims" className="py-3">Claims</SelectItem>
+                  <SelectItem value="infection_control" className="py-3">IC Audit</SelectItem>
+                  <SelectItem value="cleaning" className="py-3">Cleaning</SelectItem>
+                  <SelectItem value="incidents" className="py-3">Incidents</SelectItem>
+                  <SelectItem value="fire_safety" className="py-3">Fire & H&S</SelectItem>
+                  <SelectItem value="hr" className="py-3">HR</SelectItem>
+                  <SelectItem value="complaints" className="py-3">Complaints</SelectItem>
+                  <SelectItem value="medical_requests" className="py-3">Medicals</SelectItem>
+                  <SelectItem value="policies" className="py-3">Policies</SelectItem>
+                  <SelectItem value="fridge_temps" className="py-3">Fridge Temps</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority *</Label>
+              <Label htmlFor="priority" className="text-base">Priority *</Label>
               <Select
                 value={formData.priority}
                 onValueChange={(value: any) => setFormData({ ...formData, priority: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="low" className="py-3">Low</SelectItem>
+                  <SelectItem value="medium" className="py-3">Medium</SelectItem>
+                  <SelectItem value="high" className="py-3">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="due_at">Due Date *</Label>
+              <Label htmlFor="due_at" className="text-base">Due Date *</Label>
               <Input
                 id="due_at"
                 type="date"
                 value={formData.due_at}
                 onChange={(e) => setFormData({ ...formData, due_at: e.target.value })}
+                className="h-11 text-base"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assigned_to">Assign To</Label>
+              <Label htmlFor="assigned_to" className="text-base">Assign To</Label>
               <Select
                 value={formData.assigned_to_user_id}
                 onValueChange={(value) => setFormData({ ...formData, assigned_to_user_id: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
+                    <SelectItem key={user.id} value={user.id} className="py-3">
                       {user.name} ({Array.isArray(user.user_roles) ? user.user_roles.map((r: any) => r.role).join(', ') : 'No role'})
                     </SelectItem>
                   ))}
@@ -295,11 +298,20 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
+            >
               {loading ? 'Saving...' : task ? 'Update Task' : 'Create Task'}
             </Button>
           </DialogFooter>

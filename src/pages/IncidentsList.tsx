@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { format } from "date-fns";
 
 export default function IncidentsList() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   const { data: incidents = [], isLoading } = useQuery<any[]>({
@@ -94,47 +96,51 @@ export default function IncidentsList() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Incidents</h1>
-            <p className="text-muted-foreground">Report and track workplace incidents</p>
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">Incidents</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Report and track workplace incidents</p>
           </div>
-          <Button onClick={() => setReportDialogOpen(true)}>
+          <Button 
+            onClick={() => setReportDialogOpen(true)}
+            size={isMobile ? 'lg' : 'default'}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Report Incident
           </Button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Incidents</CardTitle>
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 sm:gap-4">
+          <Card className="touch-manipulation">
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalIncidents}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <div className="text-2xl sm:text-3xl font-bold">{totalIncidents}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">All time</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Open Incidents</CardTitle>
+          <Card className="touch-manipulation">
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium">Open</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{openIncidents}</div>
-              <p className="text-xs text-muted-foreground">Requiring attention</p>
+              <div className="text-2xl sm:text-3xl font-bold">{openIncidents}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Active</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Critical Incidents</CardTitle>
+          <Card className="touch-manipulation">
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium">Critical</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{criticalIncidents}</div>
-              <p className="text-xs text-muted-foreground">High priority</p>
+              <div className="text-2xl sm:text-3xl font-bold text-red-600">{criticalIncidents}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Priority</p>
             </CardContent>
           </Card>
         </div>
@@ -142,8 +148,8 @@ export default function IncidentsList() {
         {/* Incidents Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Incident Reports</CardTitle>
-            <CardDescription>View and manage all incident reports</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Incident Reports</CardTitle>
+            <CardDescription className="text-sm">View and manage all incident reports</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -155,50 +161,87 @@ export default function IncidentsList() {
                 <p className="text-muted-foreground mb-4">
                   All staff can report incidents when they occur
                 </p>
-                <Button onClick={() => setReportDialogOpen(true)}>
+                <Button 
+                  onClick={() => setReportDialogOpen(true)}
+                  className="min-h-[44px]"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Report First Incident
                 </Button>
               </div>
+            ) : isMobile ? (
+              <div className="space-y-3">
+                {incidents.map((incident) => (
+                  <div 
+                    key={incident.id} 
+                    className="border rounded-lg p-4 space-y-3 touch-manipulation active:bg-accent"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm">
+                          {format(new Date(incident.incident_date), 'dd/MM/yyyy HH:mm')}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{incident.location}</p>
+                      </div>
+                      <Badge className={getSeverityColor(incident.severity)}>
+                        {incident.severity}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        {incident.category.replace(/_/g, ' ')}
+                      </Badge>
+                      <Badge className={getStatusColor(incident.status)}>
+                        {incident.status.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {incident.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {incidents.map((incident) => (
-                    <TableRow key={incident.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(incident.incident_date), 'dd/MM/yyyy HH:mm')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {incident.category.replace(/_/g, ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{incident.location}</TableCell>
-                      <TableCell>
-                        <Badge className={getSeverityColor(incident.severity)}>
-                          {incident.severity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(incident.status)}>
-                          {incident.status.replace(/_/g, ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{incident.description}</TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Severity</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Description</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {incidents.map((incident) => (
+                      <TableRow key={incident.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(incident.incident_date), 'dd/MM/yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {incident.category.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{incident.location}</TableCell>
+                        <TableCell>
+                          <Badge className={getSeverityColor(incident.severity)}>
+                            {incident.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(incident.status)}>
+                            {incident.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">{incident.description}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

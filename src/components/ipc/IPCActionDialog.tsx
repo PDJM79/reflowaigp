@@ -120,33 +120,34 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create IPC Action</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Create IPC Action</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 sm:space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="action-description">Action Description *</Label>
+            <Label htmlFor="action-description" className="text-base">Action Description *</Label>
             <Textarea
               id="action-description"
               placeholder="Describe the action required..."
               value={formData.action_description}
               onChange={(e) => setFormData({ ...formData, action_description: e.target.value })}
               rows={4}
+              className="min-h-[100px] text-base resize-y"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="severity">Severity *</Label>
+              <Label htmlFor="severity" className="text-base">Severity *</Label>
               <Select value={formData.severity} onValueChange={(value) => setFormData({ ...formData, severity: value })}>
-                <SelectTrigger id="severity">
+                <SelectTrigger id="severity" className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {SEVERITIES.map(sev => (
-                    <SelectItem key={sev.value} value={sev.value}>
+                    <SelectItem key={sev.value} value={sev.value} className="py-3">
                       {sev.label} ({sev.days} days)
                     </SelectItem>
                   ))}
@@ -160,14 +161,14 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="timeframe">Timeframe</Label>
+              <Label htmlFor="timeframe" className="text-base">Timeframe</Label>
               <Select value={formData.timeframe} onValueChange={(value) => setFormData({ ...formData, timeframe: value })}>
-                <SelectTrigger id="timeframe">
+                <SelectTrigger id="timeframe" className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {TIMEFRAMES.map(tf => (
-                    <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
+                    <SelectItem key={tf.value} value={tf.value} className="py-3">{tf.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -175,17 +176,17 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="assigned-role">Assign To Role (Optional)</Label>
+            <Label htmlFor="assigned-role" className="text-base">Assign To Role (Optional)</Label>
             <Select value={formData.assigned_to_role} onValueChange={(value) => setFormData({ ...formData, assigned_to_role: value })}>
-              <SelectTrigger id="assigned-role">
+              <SelectTrigger id="assigned-role" className="h-11">
                 <SelectValue placeholder="Select role..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="practice_manager">Practice Manager</SelectItem>
-                <SelectItem value="nurse_lead">Nurse Lead</SelectItem>
-                <SelectItem value="estates_lead">Estates Lead</SelectItem>
-                <SelectItem value="nurse">Practice Nurse</SelectItem>
-                <SelectItem value="gp">GP</SelectItem>
+                <SelectItem value="practice_manager" className="py-3">Practice Manager</SelectItem>
+                <SelectItem value="nurse_lead" className="py-3">Nurse Lead</SelectItem>
+                <SelectItem value="estates_lead" className="py-3">Estates Lead</SelectItem>
+                <SelectItem value="nurse" className="py-3">Practice Nurse</SelectItem>
+                <SelectItem value="gp" className="py-3">GP</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -197,13 +198,18 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+          >
             Cancel
           </Button>
           <Button
             onClick={() => createActionMutation.mutate()}
             disabled={!formData.action_description || createActionMutation.isPending}
+            className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
           >
             {createActionMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Action

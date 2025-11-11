@@ -161,75 +161,82 @@ export function RoomManagementDialog({ open, onOpenChange }: RoomManagementDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Room Management</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Room Management</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Add/Edit Room Form */}
           <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="font-semibold">{editingRoom ? 'Edit Room' : 'Add New Room'}</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <h3 className="font-semibold text-base sm:text-lg">{editingRoom ? 'Edit Room' : 'Add New Room'}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="room-name">Room Name *</Label>
+                <Label htmlFor="room-name" className="text-base">Room Name *</Label>
                 <Input
                   id="room-name"
                   placeholder="e.g., Consultation Room 1"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="h-11 text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="room-type">Room Type</Label>
+                <Label htmlFor="room-type" className="text-base">Room Type</Label>
                 <Select value={formData.room_type} onValueChange={(value) => setFormData({ ...formData, room_type: value })}>
-                  <SelectTrigger id="room-type">
+                  <SelectTrigger id="room-type" className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {ROOM_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      <SelectItem key={type.value} value={type.value} className="py-3">{type.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="room-location">Location</Label>
+                <Label htmlFor="room-location" className="text-base">Location</Label>
                 <Input
                   id="room-location"
                   placeholder="e.g., Ground Floor"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="h-11 text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cleaning-frequency">Cleaning Frequency</Label>
+                <Label htmlFor="cleaning-frequency" className="text-base">Cleaning Frequency</Label>
                 <Select value={formData.cleaning_frequency} onValueChange={(value) => setFormData({ ...formData, cleaning_frequency: value })}>
-                  <SelectTrigger id="cleaning-frequency">
+                  <SelectTrigger id="cleaning-frequency" className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {CLEANING_FREQUENCIES.map(freq => (
-                      <SelectItem key={freq.value} value={freq.value}>{freq.label}</SelectItem>
+                      <SelectItem key={freq.value} value={freq.value} className="py-3">{freq.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 onClick={() => saveRoomMutation.mutate()}
                 disabled={!formData.name || saveRoomMutation.isPending}
+                className="w-full sm:w-auto min-h-[44px]"
               >
                 {saveRoomMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {editingRoom ? 'Update Room' : 'Add Room'}
               </Button>
               {editingRoom && (
-                <Button variant="outline" onClick={resetForm}>
+                <Button 
+                  variant="outline" 
+                  onClick={resetForm}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
                   Cancel
                 </Button>
               )}
@@ -238,7 +245,7 @@ export function RoomManagementDialog({ open, onOpenChange }: RoomManagementDialo
 
           {/* Rooms List */}
           <div>
-            <h3 className="font-semibold mb-4">Current Rooms ({rooms.length})</h3>
+            <h3 className="font-semibold mb-4 text-base sm:text-lg">Current Rooms ({rooms.length})</h3>
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -248,58 +255,109 @@ export function RoomManagementDialog({ open, onOpenChange }: RoomManagementDialo
                 No rooms added yet. Add your first room above.
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Room Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Frequency</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rooms.map((room) => (
-                    <TableRow key={room.id}>
-                      <TableCell className="font-medium">{room.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {ROOM_TYPES.find(t => t.value === room.room_type)?.label || room.room_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{room.location || '-'}</TableCell>
-                      <TableCell>
-                        {CLEANING_FREQUENCIES.find(f => f.value === room.cleaning_frequency)?.label || 'Daily'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(room)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteRoomMutation.mutate(room.id)}
-                            disabled={deleteRoomMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+              <div className="space-y-2 sm:hidden">
+                {/* Mobile card view */}
+                {rooms.map((room) => (
+                  <div key={room.id} className="border rounded-lg p-4 space-y-2 touch-manipulation">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-base">{room.name}</p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {ROOM_TYPES.find(t => t.value === room.room_type)?.label || room.room_type}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {CLEANING_FREQUENCIES.find(f => f.value === room.cleaning_frequency)?.label || 'Daily'}
+                          </Badge>
                         </div>
-                      </TableCell>
+                        {room.location && (
+                          <p className="text-sm text-muted-foreground mt-1">{room.location}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(room)}
+                          className="min-h-[40px] min-w-[40px]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteRoomMutation.mutate(room.id)}
+                          disabled={deleteRoomMutation.isPending}
+                          className="min-h-[40px] min-w-[40px]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Desktop table view */}
+            {!isLoading && rooms.length > 0 && (
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Room Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Frequency</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {rooms.map((room) => (
+                      <TableRow key={room.id}>
+                        <TableCell className="font-medium">{room.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {ROOM_TYPES.find(t => t.value === room.room_type)?.label || room.room_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{room.location || '-'}</TableCell>
+                        <TableCell>
+                          {CLEANING_FREQUENCIES.find(f => f.value === room.cleaning_frequency)?.label || 'Daily'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(room)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRoomMutation.mutate(room.id)}
+                              disabled={deleteRoomMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
             Close
           </Button>
         </DialogFooter>

@@ -112,14 +112,14 @@ export const FireSafetyActionDialog = ({ open, onClose, assessmentId, practiceId
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Fire Safety Action</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Create Fire Safety Action</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="action_description">Action Description</Label>
+            <Label htmlFor="action_description" className="text-base">Action Description</Label>
             <Textarea
               id="action_description"
               value={formData.action_description}
@@ -127,84 +127,95 @@ export const FireSafetyActionDialog = ({ open, onClose, assessmentId, practiceId
               rows={3}
               required
               placeholder="Describe the required action..."
+              className="min-h-[80px] text-base resize-y"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="severity">Severity</Label>
+              <Label htmlFor="severity" className="text-base">Severity</Label>
               <Select
                 value={formData.severity}
                 onValueChange={(value: any) => setFormData({ ...formData, severity: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="low" className="py-3">Low</SelectItem>
+                  <SelectItem value="medium" className="py-3">Medium</SelectItem>
+                  <SelectItem value="high" className="py-3">High</SelectItem>
+                  <SelectItem value="critical" className="py-3">Critical</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="timeframe">Timeframe</Label>
+              <Label htmlFor="timeframe" className="text-base">Timeframe</Label>
               <Select
                 value={formData.timeframe}
                 onValueChange={(value: any) => setFormData({ ...formData, timeframe: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="immediate">Immediate (7 days)</SelectItem>
-                  <SelectItem value="one_month">1 Month</SelectItem>
-                  <SelectItem value="three_months">3 Months</SelectItem>
-                  <SelectItem value="six_months">6 Months</SelectItem>
-                  <SelectItem value="twelve_months">12 Months</SelectItem>
+                  <SelectItem value="immediate" className="py-3">Immediate (7 days)</SelectItem>
+                  <SelectItem value="one_month" className="py-3">1 Month</SelectItem>
+                  <SelectItem value="three_months" className="py-3">3 Months</SelectItem>
+                  <SelectItem value="six_months" className="py-3">6 Months</SelectItem>
+                  <SelectItem value="twelve_months" className="py-3">12 Months</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="assigned_to">Assign To</Label>
+              <Label htmlFor="assigned_to" className="text-base">Assign To</Label>
               <Select
                 value={formData.assigned_to}
                 onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select user..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="" className="py-3">Unassigned</SelectItem>
                   {users.map((u: any) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    <SelectItem key={u.id} value={u.id} className="py-3">{u.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="due_date">Due Date</Label>
+              <Label htmlFor="due_date" className="text-base">Due Date</Label>
               <Input
                 id="due_date"
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                className="h-11 text-base"
                 required
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={saveMutation.isPending}>
+            <Button 
+              type="submit" 
+              disabled={saveMutation.isPending}
+              className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
+            >
               {saveMutation.isPending ? 'Creating...' : 'Create Action'}
             </Button>
           </div>

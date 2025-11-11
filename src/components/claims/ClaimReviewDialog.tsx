@@ -156,9 +156,9 @@ export function ClaimReviewDialog({ claimRunId, open, onOpenChange }: ClaimRevie
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manual Claim Review Checklist</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Manual Claim Review Checklist</DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
@@ -166,19 +166,20 @@ export function ClaimReviewDialog({ claimRunId, open, onOpenChange }: ClaimRevie
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 sm:space-y-6">
             <div className="space-y-3">
               {checklist?.checklist_items?.map((item: any, index: number) => (
-                <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
+                <div key={index} className="flex items-start gap-3 p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent">
                   <Checkbox
                     id={`item-${index}`}
                     checked={item.checked}
                     onCheckedChange={(checked) => 
                       updateChecklistMutation.mutate({ itemIndex: index, checked: checked as boolean })
                     }
+                    className="mt-1 min-w-[20px] min-h-[20px]"
                   />
-                  <div className="flex-1">
-                    <Label htmlFor={`item-${index}`} className="cursor-pointer">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor={`item-${index}`} className="cursor-pointer text-sm sm:text-base">
                       {item.item}
                     </Label>
                     {item.checked && item.checked_at && (
@@ -193,13 +194,14 @@ export function ClaimReviewDialog({ claimRunId, open, onOpenChange }: ClaimRevie
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="review-notes">Review Notes</Label>
+              <Label htmlFor="review-notes" className="text-base">Review Notes</Label>
               <Textarea
                 id="review-notes"
                 placeholder="Add any notes about this claim review..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
+                className="min-h-[100px] text-base resize-y"
               />
             </div>
 
@@ -213,13 +215,18 @@ export function ClaimReviewDialog({ claimRunId, open, onOpenChange }: ClaimRevie
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+          >
             Cancel
           </Button>
           <Button
             onClick={() => completeReviewMutation.mutate()}
             disabled={!allItemsChecked || completeReviewMutation.isPending}
+            className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
           >
             {completeReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Complete Review
