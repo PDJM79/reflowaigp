@@ -107,6 +107,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Note: emailLog.recipient_email is still stored in email_logs table
+    // This is acceptable as it's for auditing purposes and already sent emails
+
     // Check if email is eligible for retry (failed or bounced)
     if (!['failed', 'bounced'].includes(emailLog.status)) {
       return new Response(

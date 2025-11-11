@@ -98,9 +98,7 @@ const handler = async (req: Request): Promise<Response> => {
       .from('users')
       .insert({
         auth_user_id: authUser.user.id,
-        email,
         name,
-        role,
         practice_id,
         is_practice_manager: role === 'practice_manager'
       })
@@ -113,6 +111,26 @@ const handler = async (req: Request): Promise<Response> => {
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       
       return new Response(JSON.stringify({ error: userTableError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Create user contact details
+    const { error: contactError } = await supabaseAdmin
+      .from('user_contact_details')
+      .insert({
+        user_id: createdUser.id,
+        email
+      });
+
+    if (contactError) {
+      console.error('Contact details error:', contactError);
+      // Clean up user and auth if contact insert fails
+      await supabaseAdmin.from('users').delete().eq('id', createdUser.id);
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+      
+      return new Response(JSON.stringify({ error: 'Failed to create user contact details' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

@@ -55,36 +55,48 @@ export default function PolicyReviewHistory() {
 
       if (!userData) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('policy_review_history')
         .select(`
-          id,
-          policy_id,
-          reviewed_by,
-          reviewed_at,
-          version_reviewed,
-          review_type,
-          notes,
-          policy_documents!inner(title),
-          users!inner(name, email)
+          *,
+          policy_documents(title),
+          users(name)
         `)
         .eq('practice_id', userData.practice_id)
         .order('reviewed_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = data?.map((item: any) => ({
-        id: item.id,
-        policy_id: item.policy_id,
-        reviewed_by: item.reviewed_by,
-        reviewed_at: item.reviewed_at,
-        version_reviewed: item.version_reviewed,
-        review_type: item.review_type,
-        notes: item.notes,
-        policy_title: item.policy_documents.title,
-        reviewer_name: item.users.name,
-        reviewer_email: item.users.email,
-      })) || [];
+      // Fetch emails separately for reviewers (audited access)
+      const formattedData = await Promise.all((data || []).map(async (item: any) => {
+        let reviewer_email = 'N/A';
+        try {
+          const { data: contactData } = await (supabase as any)
+            .from('user_contact_details')
+            .select('email')
+            .eq('user_id', item.reviewed_by)
+            .single();
+          
+          if (contactData) {
+            reviewer_email = contactData.email;
+          }
+        } catch (err) {
+          console.error('Error fetching reviewer email:', err);
+        }
+
+        return {
+          id: item.id,
+          policy_id: item.policy_id,
+          reviewed_by: item.reviewed_by,
+          reviewed_at: item.reviewed_at,
+          version_reviewed: item.version_reviewed,
+          review_type: item.review_type,
+          notes: item.notes,
+          policy_title: item.policy_documents.title,
+          reviewer_name: item.users.name,
+          reviewer_email,
+        };
+      }));
 
       setHistory(formattedData);
     } catch (error) {

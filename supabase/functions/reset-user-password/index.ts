@@ -70,22 +70,26 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Attempting to reset password for user: ${email}`);
 
-    // Find the user by email
-    const { data: users, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
+    // Find the user by email in user_contact_details
+    const { data: contactData, error: contactError } = await supabaseAdmin
+      .from('user_contact_details')
+      .select('user_id, users(auth_user_id)')
+      .eq('email', email)
+      .single();
     
-    if (searchError) {
-      console.error('Error searching for users:', searchError);
-      return new Response(JSON.stringify({ error: searchError.message }), {
-        status: 400,
+    if (contactError || !contactData) {
+      console.error('User not found:', contactError);
+      return new Response(JSON.stringify({ error: `User with email ${email} not found` }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const targetUser = users.users.find(u => u.email === email);
+    const authUserId = (contactData.users as any).auth_user_id;
     
-    if (!targetUser) {
-      console.error(`User not found: ${email}`);
-      return new Response(JSON.stringify({ error: `User with email ${email} not found` }), {
+    if (!authUserId) {
+      console.error(`Auth user ID not found for email: ${email}`);
+      return new Response(JSON.stringify({ error: `User account error` }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -93,12 +97,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Reset the user's password
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      targetUser.id,
+      authUserId,
       {
-        password: newPassword,
-        user_metadata: {
-          ...targetUser.user_metadata
-        }
+        password: newPassword
       }
     );
 

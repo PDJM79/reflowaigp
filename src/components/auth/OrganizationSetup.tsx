@@ -184,13 +184,11 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         if (updateError) throw updateError;
         currentUserId = updated.id;
       } else {
-        const { data: created, error: createError } = await supabase
+        const { data: created, error: createError } = await (supabase as any)
           .from('users')
           .insert({
             auth_user_id: user.id,
-            email: user.email!,
             name: currentUserAssignment?.name || 'Practice Manager',
-            role: currentUserAssignment?.roles[0] as any || 'practice_manager',
             practice_id: practice.id,
             is_practice_manager: isPracticeManager
           })
@@ -199,6 +197,19 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
         if (createError) throw createError;
         currentUserId = created.id;
+
+        // Insert contact details separately
+        const { error: contactError } = await (supabase as any)
+          .from('user_contact_details')
+          .insert({
+            user_id: currentUserId,
+            email: user.email!
+          });
+
+        if (contactError) {
+          console.error('Error creating contact details:', contactError);
+          // Don't fail the whole process, contact can be added later
+        }
       }
 
       // Create user accounts for other team members
