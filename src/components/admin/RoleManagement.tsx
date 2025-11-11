@@ -15,7 +15,6 @@ type UserRole = 'practice_manager' | 'administrator' | 'nurse_lead' | 'cd_lead_g
 interface RoleAssignment {
   id: string;
   assigned_name: string;
-  assigned_email: string;
   role: UserRole;
   user_id?: string;
 }
@@ -92,16 +91,28 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
 
       if (!userData) throw new Error('User practice not found');
 
-      const { error } = await supabase
+      // Insert role assignment
+      const { data: assignmentData, error: assignmentError } = await supabase
         .from('role_assignments')
         .insert({
           assigned_name: newAssignment.name,
-          assigned_email: newAssignment.email,
           role: newAssignment.role as UserRole,
           practice_id: userData.practice_id
+        })
+        .select()
+        .single();
+
+      if (assignmentError) throw assignmentError;
+
+      // Insert email in separate table
+      const { error: contactError } = await supabase
+        .from('role_assignment_contacts')
+        .insert({
+          assignment_id: assignmentData.id,
+          assigned_email: newAssignment.email
         });
 
-      if (error) throw error;
+      if (contactError) throw contactError;
 
       toast.success('Role assignment added successfully');
       setNewAssignment({ name: '', email: '', role: '' });
@@ -230,10 +241,9 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
                   <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <div>
-                          <p className="font-medium">{assignment.assigned_name}</p>
-                          <p className="text-sm text-muted-foreground">{assignment.assigned_email}</p>
-                        </div>
+                      <div>
+                        <p className="font-medium">{assignment.assigned_name}</p>
+                      </div>
                         <Badge variant="outline">
                           {roleOptions.find(r => r.value === assignment.role)?.label || assignment.role}
                         </Badge>

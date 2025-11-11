@@ -211,12 +211,43 @@ export type Database = {
           },
         ]
       }
+      candidate_contact_details: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          email: string | null
+          phone_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          email?: string | null
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          email?: string | null
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_contact_details_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           applied_for: string | null
           created_at: string | null
           cv_evidence_id: string | null
-          email: string | null
           id: string
           last_contact_at: string | null
           name: string
@@ -229,7 +260,6 @@ export type Database = {
           applied_for?: string | null
           created_at?: string | null
           cv_evidence_id?: string | null
-          email?: string | null
           id?: string
           last_contact_at?: string | null
           name: string
@@ -242,7 +272,6 @@ export type Database = {
           applied_for?: string | null
           created_at?: string | null
           cv_evidence_id?: string | null
-          email?: string | null
           id?: string
           last_contact_at?: string | null
           name?: string
@@ -640,10 +669,41 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_contact_details: {
+        Row: {
+          created_at: string
+          email: string | null
+          employee_id: string
+          phone_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          employee_id: string
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          employee_id?: string
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_contact_details_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string | null
-          email: string | null
           end_date: string | null
           id: string
           manager_id: string | null
@@ -656,7 +716,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          email?: string | null
           end_date?: string | null
           id?: string
           manager_id?: string | null
@@ -669,7 +728,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          email?: string | null
           end_date?: string | null
           id?: string
           manager_id?: string | null
@@ -2454,9 +2512,37 @@ export type Database = {
           },
         ]
       }
-      role_assignments: {
+      role_assignment_contacts: {
         Row: {
           assigned_email: string
+          assignment_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_email: string
+          assignment_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_email?: string
+          assignment_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignment_contacts_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: true
+            referencedRelation: "role_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_assignments: {
+        Row: {
           assigned_name: string
           created_at: string
           id: string
@@ -2466,7 +2552,6 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          assigned_email: string
           assigned_name: string
           created_at?: string
           id?: string
@@ -2476,7 +2561,6 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          assigned_email?: string
           assigned_name?: string
           created_at?: string
           id?: string
@@ -3034,6 +3118,55 @@ export type Database = {
           },
         ]
       }
+      user_contact_details: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          phone_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          phone_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          phone_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_contact_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_contact_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_for_assignment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_contact_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_public_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3087,7 +3220,6 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           created_at: string | null
-          email: string
           id: string
           is_active: boolean | null
           is_master_user: boolean | null
@@ -3100,7 +3232,6 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           created_at?: string | null
-          email: string
           id?: string
           is_active?: boolean | null
           is_master_user?: boolean | null
@@ -3113,7 +3244,6 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           created_at?: string | null
-          email?: string
           id?: string
           is_active?: boolean | null
           is_master_user?: boolean | null
@@ -3135,6 +3265,52 @@ export type Database = {
       }
     }
     Views: {
+      user_mfa_status: {
+        Row: {
+          created_at: string | null
+          mfa_enabled: boolean | null
+          phone_configured: boolean | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          mfa_enabled?: never
+          phone_configured?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          mfa_enabled?: never
+          phone_configured?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_auth_sensitive_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_auth_sensitive_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_for_assignment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_auth_sensitive_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_public_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users_for_assignment: {
         Row: {
           id: string | null
@@ -3200,11 +3376,24 @@ export type Database = {
         Returns: boolean
       }
       expire_old_notifications: { Args: never; Returns: undefined }
+      get_candidate_email_audited: {
+        Args: { _candidate_id: string }
+        Returns: string
+      }
       get_current_user_practice_id: { Args: never; Returns: string }
+      get_employee_email_audited: {
+        Args: { _employee_id: string }
+        Returns: string
+      }
+      get_role_assignment_email_audited: {
+        Args: { _assignment_id: string }
+        Returns: string
+      }
       get_unacknowledged_policies_count: {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_user_email_audited: { Args: { _user_id: string }; Returns: string }
       get_user_id_from_auth: { Args: never; Returns: string }
       get_user_practice_from_roles: {
         Args: { _user_id: string }

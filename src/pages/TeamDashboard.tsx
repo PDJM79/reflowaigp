@@ -13,7 +13,6 @@ import { RAGBadge } from '@/components/dashboard/RAGBadge';
 interface TeamMember {
   id: string;
   name: string;
-  email: string;
   user_roles: Array<{ role: string }>;
   is_active: boolean;
   assigned_tasks: number;
@@ -57,7 +56,9 @@ export default function TeamDashboard() {
         const { data: members } = await supabase
           .from('users')
           .select(`
-            *,
+            id,
+            name,
+            is_active,
             user_roles(role)
           `)
           .eq('practice_id', userData.practice_id);

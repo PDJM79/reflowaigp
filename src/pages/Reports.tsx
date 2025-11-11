@@ -32,7 +32,6 @@ interface Task {
   created_at: string;
   assignedUser?: {
     name: string;
-    email: string;
   } | null;
 }
 
@@ -78,7 +77,7 @@ export default function Reports() {
         .from('tasks')
         .select(`
           *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name, email)
+          assignedUser:users!tasks_assigned_to_user_id_fkey(name)
         `)
         .eq('practice_id', userData.practice_id)
         .order('due_at', { ascending: true });

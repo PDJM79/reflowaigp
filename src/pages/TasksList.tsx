@@ -26,7 +26,6 @@ interface Task {
   created_at: string;
   assignedUser?: {
     name: string;
-    email: string;
   } | null;
   task_templates?: {
     title: string;
@@ -70,7 +69,7 @@ export default function TasksList() {
         .from('tasks')
         .select(`
           *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name, email),
+          assignedUser:users!tasks_assigned_to_user_id_fkey(name),
           task_templates(title)
         `)
         .eq('practice_id', userData.practice_id)
