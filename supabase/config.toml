@@ -1,5 +1,8 @@
 project_id = "eeqfqklcdstbziedsnxc"
 
+[functions.create-practice-during-setup]
+verify_jwt = true
+
 [functions.step-help-chat]
 verify_jwt = true
 

@@ -143,17 +143,23 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Create practice with country
-      const { data: practice, error: practiceError } = await supabase
-        .from('practices')
-        .insert({ 
-          name: organizationName.trim(),
-          audit_country: country
-        })
-        .select()
-        .single();
+      // Create practice using security definer function
+      // This bypasses the RLS restriction that prevents regular users from creating practices
+      const { data: practiceResponse, error: practiceError } = await supabase.functions.invoke(
+        'create-practice-during-setup',
+        {
+          body: {
+            name: organizationName.trim(),
+            country: country,
+          }
+        }
+      );
 
-      if (practiceError) throw practiceError;
+      if (practiceError || !practiceResponse?.success) {
+        throw new Error(practiceError?.message || 'Failed to create practice');
+      }
+
+      const practice = practiceResponse.practice;
 
       // Find the current user's assignment
       const currentUserAssignment = filledAssignments.find(a => a.email === user.email);
