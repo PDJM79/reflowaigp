@@ -45,8 +45,57 @@ export default function WorkforceDashboard() {
     enabled: !!user?.id,
   });
 
-  const handleExportPDF = () => {
-    console.log('Exporting Workforce PDF...');
+  const handleExportPDF = async () => {
+    if (!workforceData) return;
+
+    const { DashboardPDFExporter, generateFilename } = await import('@/lib/pdfExport');
+    
+    const exporter = new DashboardPDFExporter({
+      title: 'Workforce Dashboard',
+      subtitle: 'Staff Compliance, Training, and HR Monitoring',
+    });
+
+    // Key Metrics
+    exporter.addSection('Key Workforce Metrics');
+    exporter.addMetricsGrid([
+      { label: 'Active Staff', value: `${workforceData.employees.length}`, subtitle: 'Current headcount' },
+      { label: 'DBS Checks', value: `${workforceData.dbsChecks.length}`, subtitle: `${dbsDueSoon} due within 6 months` },
+      { label: 'Training Records', value: `${workforceData.training.length}`, subtitle: `${trainingExpiringSoon} expiring soon` },
+      { label: 'Pending Appraisals', value: `${pendingAppraisals}`, subtitle: 'To be completed' },
+    ]);
+
+    // DBS Review Schedule
+    exporter.addSection('DBS Review Schedule (3-Year Cycle)');
+    const dbsRows = workforceData.dbsChecks.slice(0, 10).map((check: any) => {
+      const isDueSoon = new Date(check.next_review_due).getTime() < new Date().setMonth(new Date().getMonth() + 6);
+      return [
+        check.employee_id.slice(0, 8),
+        new Date(check.check_date).toLocaleDateString(),
+        new Date(check.next_review_due).toLocaleDateString(),
+        isDueSoon ? 'Due Soon' : 'On Track',
+      ];
+    });
+    exporter.addTable(['Employee ID', 'Last Check', 'Next Review', 'Status'], dbsRows);
+
+    // Appraisal Status
+    exporter.addSection('Annual Appraisal Status');
+    const completedAppraisals = workforceData.appraisals.filter((a: any) => a.status === 'completed').length;
+    const completionRate = Math.round((completedAppraisals / Math.max(workforceData.employees.length, 1)) * 100);
+    exporter.addKeyValuePairs([
+      { key: 'Completed This Year', value: `${completedAppraisals} appraisals (${completionRate}%)` },
+      { key: 'Scheduled', value: `${pendingAppraisals} pending` },
+    ]);
+
+    // Training Compliance
+    if (trainingExpiringSoon > 0) {
+      exporter.addSection('Training Expiry Alerts');
+      exporter.addList([
+        `${trainingExpiringSoon} training certificates expiring within 90 days`,
+        'Review TrainingExpiryAlerts component for detailed breakdown',
+      ]);
+    }
+
+    exporter.save(generateFilename('workforce-dashboard'));
   };
 
   if (!workforceData) {

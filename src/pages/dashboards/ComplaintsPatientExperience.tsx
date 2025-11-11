@@ -61,8 +61,65 @@ export default function ComplaintsPatientExperience() {
     enabled: !!user?.id && !!dateRange.start,
   });
 
-  const handleExportPDF = () => {
-    console.log('Exporting Complaints & Patient Experience PDF...');
+  const handleExportPDF = async () => {
+    if (!complaintsData) return;
+
+    const { DashboardPDFExporter, generateFilename } = await import('@/lib/pdfExport');
+    
+    const exporter = new DashboardPDFExporter({
+      title: 'Complaints & Patient Experience Dashboard',
+      subtitle: 'Patient Feedback, SLA Compliance, and Sentiment Analysis',
+      dateRange,
+    });
+
+    // SLA Compliance Summary
+    exporter.addSection('SLA Compliance Summary');
+    const onTrack = complaintsData.complaints.filter((c: any) => c.sla_status === 'on_track' || c.sla_status === 'completed').length;
+    const atRisk = complaintsData.complaints.filter((c: any) => c.sla_status === 'at_risk').length;
+    const overdue = complaintsData.complaints.filter((c: any) => c.sla_status === 'overdue').length;
+    
+    exporter.addMetricsGrid([
+      { label: 'On Track', value: `${onTrack}`, subtitle: 'Meeting SLA deadlines' },
+      { label: 'At Risk', value: `${atRisk}`, subtitle: 'Approaching deadline' },
+      { label: 'Overdue', value: `${overdue}`, subtitle: 'Missed deadline' },
+      { label: 'Total Complaints', value: `${totalComplaints}`, subtitle: 'Last 3 months' },
+    ]);
+
+    // Complaint Volume by Severity
+    exporter.addSection('Complaint Volume by Severity');
+    const severityRows = [
+      ['Low Severity', bySeverity.low.toString(), `${Math.round((bySeverity.low / Math.max(totalComplaints, 1)) * 100)}%`],
+      ['Medium Severity', bySeverity.medium.toString(), `${Math.round((bySeverity.medium / Math.max(totalComplaints, 1)) * 100)}%`],
+      ['High Severity', bySeverity.high.toString(), `${Math.round((bySeverity.high / Math.max(totalComplaints, 1)) * 100)}%`],
+    ];
+    exporter.addTable(['Severity', 'Count', 'Percentage'], severityRows);
+
+    // Category Breakdown
+    exporter.addSection('Complaints by Category');
+    const categories = ['clinical_care', 'staff_attitude', 'waiting_times', 'communication', 'prescriptions'];
+    const categoryRows = categories.map(category => {
+      const count = complaintsData.complaints.filter((c: any) => c.category === category).length;
+      const percentage = Math.round((count / Math.max(totalComplaints, 1)) * 100);
+      return [category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()), count.toString(), `${percentage}%`];
+    });
+    exporter.addTable(['Category', 'Count', 'Percentage'], categoryRows);
+
+    // Response Times
+    exporter.addSection('Average Response Times');
+    exporter.addKeyValuePairs([
+      { key: '48-Hour Acknowledgment', value: '1.2 days average' },
+      { key: '30-Day Final Response', value: `${complaintsData.analytics?.avg_completion_days || 0} days average` },
+    ]);
+
+    // AI Theme Analysis Summary
+    exporter.addSection('AI Theme Analysis');
+    exporter.addList([
+      'Quarterly AI-powered theme analysis identifies recurring patterns',
+      'Sentiment analysis tracks patient satisfaction trends',
+      'Proactive insights help address systemic issues before escalation',
+    ]);
+
+    exporter.save(generateFilename('complaints-patient-experience', dateRange));
   };
 
   if (!complaintsData) {

@@ -74,9 +74,62 @@ export default function ComplianceOverview() {
     return 'red';
   };
 
-  const handleExportPDF = () => {
-    // TODO: Implement PDF export
-    console.log('Exporting PDF...');
+  const handleExportPDF = async () => {
+    if (!complianceData) return;
+
+    const { DashboardPDFExporter, generateFilename } = await import('@/lib/pdfExport');
+    
+    const exporter = new DashboardPDFExporter({
+      title: 'Compliance Overview Dashboard',
+      subtitle: 'HIW/CQC Readiness & Regulatory Compliance Tracking',
+      dateRange,
+    });
+
+    // Key Metrics
+    exporter.addSection('Key Performance Indicators');
+    exporter.addMetricsGrid([
+      { label: 'Overall Compliance Score', value: `${avgScore}%`, subtitle: getRAGStatus(avgScore).toUpperCase() },
+      { label: 'Task Completion Rate', value: `${taskCompletionRate}%`, subtitle: `${completedTasks} of ${complianceData.tasks.length} completed` },
+      { label: 'Active Policies', value: `${complianceData.policies.filter((p: any) => p.status === 'active').length}`, subtitle: 'Up to date' },
+      { label: 'Safety Incidents', value: `${complianceData.incidents.length}`, subtitle: 'Last 3 months' },
+    ]);
+
+    // Regulatory Framework Compliance
+    exporter.addSection('Regulatory Framework Compliance');
+    
+    exporter.addRAGIndicator('HIW - Healthcare Inspectorate Wales', getRAGStatus(85), 85);
+    exporter.addKeyValuePairs([
+      { key: 'Quality of patient experience', value: '85%' },
+      { key: 'Delivery of safe & effective care', value: '82%' },
+      { key: 'Quality of management & leadership', value: '88%' },
+    ]);
+
+    exporter.addRAGIndicator('CQC - Care Quality Commission', getRAGStatus(83), 83);
+    exporter.addKeyValuePairs([
+      { key: 'Safe', value: '80%' },
+      { key: 'Effective', value: '85%' },
+      { key: 'Caring', value: '90%' },
+      { key: 'Responsive', value: '82%' },
+      { key: 'Well-led', value: '78%' },
+    ]);
+
+    exporter.addRAGIndicator('QOF - Quality & Outcomes Framework', getRAGStatus(92), 92);
+    exporter.addKeyValuePairs([
+      { key: 'Clinical indicators', value: '95%' },
+      { key: 'Public health indicators', value: '88%' },
+      { key: 'Quality improvement', value: '93%' },
+    ]);
+
+    // Inspection Readiness
+    exporter.addSection('Inspection Readiness');
+    exporter.addList([
+      '✓ Evidence Pack Complete - All required documents ready',
+      '⚠ Policy Reviews - 3 policies need review',
+      '✓ Staff Training Records - All staff up to date',
+      '✓ Safety Audits - Latest audits completed',
+    ]);
+
+    exporter.save(generateFilename('compliance-overview', dateRange));
   };
 
   if (!complianceData) {

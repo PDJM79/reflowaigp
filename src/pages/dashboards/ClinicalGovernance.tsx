@@ -57,8 +57,57 @@ export default function ClinicalGovernance() {
     enabled: !!user?.id && !!dateRange.start,
   });
 
-  const handleExportPDF = () => {
-    console.log('Exporting Clinical Governance PDF...');
+  const handleExportPDF = async () => {
+    if (!clinicalData) return;
+
+    const { DashboardPDFExporter, generateFilename } = await import('@/lib/pdfExport');
+    
+    const exporter = new DashboardPDFExporter({
+      title: 'Clinical Governance Dashboard',
+      subtitle: 'Patient Safety, Incidents, and Clinical Quality Monitoring',
+      dateRange,
+    });
+
+    // Key Metrics
+    exporter.addSection('Key Clinical Metrics');
+    exporter.addMetricsGrid([
+      { label: 'Total Incidents', value: `${clinicalData.incidents.length}`, subtitle: `${criticalIncidents} critical` },
+      { label: 'Claims Processed', value: `${clinicalData.claims.length}`, subtitle: 'Enhanced services' },
+      { label: 'IPC Actions', value: `${pendingIPC}`, subtitle: 'Pending completion' },
+      { label: 'Medical Request Turnaround', value: `${avgMedicalRequestTurnaround} days`, subtitle: 'Average time' },
+    ]);
+
+    // Incident Analysis
+    exporter.addSection('Incident Trends & Analysis');
+    const incidentCategories = ['Clinical', 'Non-Clinical', 'Medication Error', 'Near Miss'];
+    const incidentRows = incidentCategories.map(category => {
+      const count = clinicalData.incidents.filter((i: any) => 
+        i.incident_category?.toLowerCase().includes(category.toLowerCase())
+      ).length;
+      const percentage = Math.round((count / Math.max(clinicalData.incidents.length, 1)) * 100);
+      return [category, count.toString(), `${percentage}%`];
+    });
+    exporter.addTable(['Category', 'Count', 'Percentage'], incidentRows, 'Incidents by Category');
+
+    // IPC Compliance
+    exporter.addSection('Infection Prevention & Control');
+    exporter.addList([
+      '✓ Six-Monthly IPC Audits - May & December audits up to date',
+      `Action Plan Items - ${pendingIPC} pending actions`,
+    ]);
+
+    // Month-End Scripts
+    if (clinicalData.scripts.length > 0) {
+      exporter.addSection('Month-End Script Review');
+      const scriptRows = clinicalData.scripts.slice(0, 10).map((script: any) => [
+        new Date(script.date).toLocaleDateString(),
+        script.medication || 'N/A',
+        script.status || 'N/A',
+      ]);
+      exporter.addTable(['Date', 'Medication', 'Status'], scriptRows, `${clinicalData.scripts.length} scripts reviewed this quarter`);
+    }
+
+    exporter.save(generateFilename('clinical-governance', dateRange));
   };
 
   if (!clinicalData) {
