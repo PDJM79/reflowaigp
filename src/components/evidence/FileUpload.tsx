@@ -90,18 +90,18 @@ export function FileUpload({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[95vw] max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Upload className="h-5 w-5" />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             Upload a file as evidence for this step
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 sm:space-y-6">
           {!selectedFile ? (
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -113,14 +113,17 @@ export function FileUpload({
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
-              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-4">
+              <Upload className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-sm sm:text-base text-muted-foreground mb-4">
                 Drag and drop a file here, or click to select
               </p>
               <Button 
                 variant="outline" 
                 onClick={() => fileInputRef.current?.click()}
+                size="lg"
+                className="min-h-[48px] px-8"
               >
+                <Upload className="h-4 w-4 mr-2" />
                 Choose File
               </Button>
               <input
@@ -157,12 +160,19 @@ export function FileUpload({
             </div>
           )}
 
-          <div className="flex justify-center gap-4">
-            <Button variant="outline" onClick={handleClose}>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+            <Button 
+              variant="outline" 
+              onClick={handleClose}
+              className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+            >
               Cancel
             </Button>
             {selectedFile && (
-              <Button onClick={handleUpload}>
+              <Button 
+                onClick={handleUpload}
+                className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
               </Button>

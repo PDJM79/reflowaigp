@@ -104,58 +104,60 @@ export function IncidentReportDialog({ open, onOpenChange }: IncidentReportDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Report Incident</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Report Incident</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="incident-date">Date & Time *</Label>
+              <Label htmlFor="incident-date" className="text-base">Date & Time *</Label>
               <Input
                 id="incident-date"
                 type="datetime-local"
                 value={formData.incident_date}
                 onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
+                className="h-11 text-base"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
+              <Label htmlFor="location" className="text-base">Location *</Label>
               <Input
                 id="location"
                 placeholder="e.g., Waiting Room"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="h-11 text-base"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="category" className="text-base">Category *</Label>
               <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                <SelectTrigger id="category">
+                <SelectTrigger id="category" className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {INCIDENT_CATEGORIES.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    <SelectItem key={cat.value} value={cat.value} className="py-3">{cat.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="severity">Severity *</Label>
+              <Label htmlFor="severity" className="text-base">Severity *</Label>
               <Select value={formData.severity} onValueChange={(value) => setFormData({ ...formData, severity: value })}>
-                <SelectTrigger id="severity">
+                <SelectTrigger id="severity" className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {INCIDENT_SEVERITIES.map(sev => (
-                    <SelectItem key={sev.value} value={sev.value}>
+                    <SelectItem key={sev.value} value={sev.value} className="py-3">
                       <div>
                         <div className="font-medium">{sev.label}</div>
                         <div className="text-xs text-muted-foreground">{sev.description}</div>
@@ -168,63 +170,76 @@ export function IncidentReportDialog({ open, onOpenChange }: IncidentReportDialo
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description" className="text-base">Description *</Label>
             <Textarea
               id="description"
               placeholder="Describe what happened in detail..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
+              className="min-h-[100px] text-base resize-y"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="immediate-action">Immediate Action Taken</Label>
+            <Label htmlFor="immediate-action" className="text-base">Immediate Action Taken</Label>
             <Textarea
               id="immediate-action"
               placeholder="Describe any immediate actions taken..."
               value={formData.immediate_action_taken}
               onChange={(e) => setFormData({ ...formData, immediate_action_taken: e.target.value })}
               rows={3}
+              className="min-h-[80px] text-base resize-y"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="people-involved">People Involved</Label>
+              <Label htmlFor="people-involved" className="text-base">People Involved</Label>
               <Input
                 id="people-involved"
                 placeholder="Names (comma-separated)"
                 value={formData.people_involved}
                 onChange={(e) => setFormData({ ...formData, people_involved: e.target.value })}
+                className="h-11 text-base"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="witnesses">Witnesses</Label>
+              <Label htmlFor="witnesses" className="text-base">Witnesses</Label>
               <Input
                 id="witnesses"
                 placeholder="Names (comma-separated)"
                 value={formData.witnesses}
                 onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })}
+                className="h-11 text-base"
               />
             </div>
           </div>
 
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-            <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground mb-2">Photo Evidence (Optional)</p>
-            <Button variant="outline" size="sm">
-              Upload Photos
+          <div className="border-2 border-dashed rounded-lg p-6 sm:p-8 text-center touch-manipulation">
+            <Camera className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm sm:text-base text-muted-foreground mb-3">Photo Evidence (Optional)</p>
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="min-h-[44px] w-full sm:w-auto"
+            >
+              <Camera className="h-4 w-4 mr-2" />
+              Take Photo
             </Button>
-            <p className="text-xs text-muted-foreground mt-2">
-              Photo upload will be available after initial report
+            <p className="text-xs text-muted-foreground mt-3">
+              Photo capture will be enabled soon
             </p>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
+          >
             Cancel
           </Button>
           <Button
@@ -234,6 +249,7 @@ export function IncidentReportDialog({ open, onOpenChange }: IncidentReportDialo
               !formData.description ||
               createIncidentMutation.isPending
             }
+            className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
           >
             {createIncidentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Report Incident

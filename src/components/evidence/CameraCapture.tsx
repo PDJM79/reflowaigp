@@ -121,18 +121,18 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Take Photo"
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Camera className="h-5 w-5" />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             {capturedImage ? 'Review your photo and confirm or retake' : 'Position your camera and tap to capture'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 sm:space-y-6">
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
             {!capturedImage ? (
               <>
@@ -159,30 +159,42 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Take Photo"
             <canvas ref={canvasRef} className="hidden" />
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             {!capturedImage ? (
               <>
-                <Button variant="outline" onClick={handleClose}>
-                  <X className="h-4 w-4 mr-2" />
+                <Button 
+                  variant="outline" 
+                  onClick={handleClose}
+                  className="w-full sm:w-auto min-h-[48px] sm:min-h-[44px] text-base order-2 sm:order-1"
+                >
+                  <X className="h-5 w-5 mr-2" />
                   Cancel
                 </Button>
                 <Button 
                   onClick={capturePhoto} 
                   disabled={!stream || isLoading}
                   size="lg"
+                  className="w-full sm:w-auto min-h-[52px] sm:min-h-[48px] text-base order-1 sm:order-2"
                 >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Capture
+                  <Camera className="h-5 w-5 mr-2" />
+                  Capture Photo
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={retakePhoto}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                <Button 
+                  variant="outline" 
+                  onClick={retakePhoto}
+                  className="w-full sm:w-auto min-h-[48px] sm:min-h-[44px] text-base order-2 sm:order-1"
+                >
+                  <RotateCcw className="h-5 w-5 mr-2" />
                   Retake
                 </Button>
-                <Button onClick={confirmPhoto}>
-                  <Check className="h-4 w-4 mr-2" />
+                <Button 
+                  onClick={confirmPhoto}
+                  className="w-full sm:w-auto min-h-[48px] sm:min-h-[44px] text-base order-1 sm:order-2"
+                >
+                  <Check className="h-5 w-5 mr-2" />
                   Use Photo
                 </Button>
               </>
