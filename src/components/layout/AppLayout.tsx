@@ -57,6 +57,7 @@ export function AppLayout() {
     { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
     { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', roles: ['estates_lead', 'practice_manager'] },
     { icon: Users, label: t('nav.hr'), path: '/hr', roles: ['practice_manager', 'administrator'] },
+    { icon: Users, label: 'My Information', path: '/staff-self-service', roles: 'all' },
     { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', roles: ['ig_lead', 'practice_manager', 'reception_lead'] },
     { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', roles: ['administrator', 'practice_manager'] },
     { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
