@@ -12,6 +12,7 @@ import {
   Users, MessageSquare, FileCheck, BookOpen, Thermometer, Mail,
   Settings, LogOut, Menu, X
 } from 'lucide-react';
+import { OfflineIndicator } from '@/components/ui/offline-indicator';
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
@@ -228,6 +229,9 @@ export function AppLayout() {
           </div>
         </nav>
       )}
+
+      {/* Offline Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }
