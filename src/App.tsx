@@ -39,6 +39,14 @@ import Reports from "./pages/Reports";
 import EmailLogs from "./pages/EmailLogs";
 import EmailReportsSettings from "./pages/EmailReportsSettings";
 
+// Phase 3 Dashboards
+import ComplianceOverview from "./pages/dashboards/ComplianceOverview";
+import ClinicalGovernance from "./pages/dashboards/ClinicalGovernance";
+import WorkforceDashboard from "./pages/dashboards/WorkforceDashboard";
+import EnvironmentalDashboard from "./pages/dashboards/EnvironmentalDashboard";
+import ComplaintsPatientExperience from "./pages/dashboards/ComplaintsPatientExperience";
+import DashboardsHub from "./pages/DashboardsHub";
+
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
@@ -89,6 +97,14 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/email-logs" element={<EmailLogs />} />
                 <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
+                
+                {/* Phase 3 Specialized Dashboards */}
+                <Route path="/dashboards" element={<DashboardsHub />} />
+                <Route path="/dashboards/compliance" element={<ComplianceOverview />} />
+                <Route path="/dashboards/clinical" element={<ClinicalGovernance />} />
+                <Route path="/dashboards/workforce" element={<WorkforceDashboard />} />
+                <Route path="/dashboards/environmental" element={<EnvironmentalDashboard />} />
+                <Route path="/dashboards/patient-experience" element={<ComplaintsPatientExperience />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />

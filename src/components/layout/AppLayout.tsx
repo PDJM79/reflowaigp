@@ -47,6 +47,7 @@ export function AppLayout() {
 
   const navItems = [
     { icon: Home, label: t('nav.home'), path: '/dashboard', roles: 'all' },
+    { icon: BarChart3, label: 'Dashboards', path: '/dashboards', roles: ['practice_manager', 'group_manager'] },
     { icon: Calendar, label: t('nav.schedule'), path: '/schedule', roles: ['practice_manager', 'administrator'] },
     { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
     { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
@@ -63,7 +64,6 @@ export function AppLayout() {
     { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
     { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', roles: 'all' },
     { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', roles: ['practice_manager', 'ig_lead'] },
-    { icon: BarChart3, label: t('nav.reports'), path: '/reports', roles: ['practice_manager', 'group_manager'] },
   ];
 
   const visibleNavItems = navItems.filter(item => 
