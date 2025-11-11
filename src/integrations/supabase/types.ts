@@ -59,6 +59,13 @@ export type Database = {
             foreignKeyName: "appraisals_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -67,6 +74,13 @@ export type Database = {
             columns: ["form_submission_id"]
             isOneToOne: false
             referencedRelation: "form_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
             referencedColumns: ["id"]
           },
           {
@@ -607,6 +621,60 @@ export type Database = {
         }
         Relationships: []
       }
+      dbs_checks: {
+        Row: {
+          certificate_number: string | null
+          check_date: string
+          created_at: string | null
+          employee_id: string
+          evidence_id: string | null
+          id: string
+          next_review_due: string | null
+          practice_id: string
+          reminder_sent_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          certificate_number?: string | null
+          check_date: string
+          created_at?: string | null
+          employee_id: string
+          evidence_id?: string | null
+          id?: string
+          next_review_due?: string | null
+          practice_id: string
+          reminder_sent_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          certificate_number?: string | null
+          check_date?: string
+          created_at?: string | null
+          employee_id?: string
+          evidence_id?: string | null
+          id?: string
+          next_review_due?: string | null
+          practice_id?: string
+          reminder_sent_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dbs_checks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dbs_checks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           bounce_reason: string | null
@@ -703,6 +771,13 @@ export type Database = {
             foreignKeyName: "employee_contact_details_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: true
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_contact_details_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -746,6 +821,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employees_manager_id_fkey"
             columns: ["manager_id"]
@@ -949,6 +1031,126 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fire_safety_actions: {
+        Row: {
+          action_description: string
+          assessment_id: string | null
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completion_notes: string | null
+          created_at: string | null
+          due_date: string
+          id: string
+          practice_id: string
+          severity: string
+          timeframe: string
+          updated_at: string | null
+        }
+        Insert: {
+          action_description: string
+          assessment_id?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          due_date: string
+          id?: string
+          practice_id: string
+          severity: string
+          timeframe: string
+          updated_at?: string | null
+        }
+        Update: {
+          action_description?: string
+          assessment_id?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          practice_id?: string
+          severity?: string
+          timeframe?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fire_safety_actions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "fire_safety_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_safety_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_safety_actions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fire_safety_assessments: {
+        Row: {
+          assessment_date: string
+          assessment_type: string
+          assessor_id: string | null
+          created_at: string | null
+          evidence_ids: string[] | null
+          id: string
+          next_assessment_due: string | null
+          overall_risk_rating: string | null
+          practice_id: string
+          summary: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assessment_date: string
+          assessment_type: string
+          assessor_id?: string | null
+          created_at?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          next_assessment_due?: string | null
+          overall_risk_rating?: string | null
+          practice_id: string
+          summary?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assessment_date?: string
+          assessment_type?: string
+          assessor_id?: string | null
+          created_at?: string | null
+          evidence_ids?: string[] | null
+          id?: string
+          next_assessment_due?: string | null
+          overall_risk_rating?: string | null
+          practice_id?: string
+          summary?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fire_safety_assessments_assessor_id_fkey"
+            columns: ["assessor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1573,7 +1775,21 @@ export type Database = {
             foreignKeyName: "leave_requests_approver_id_fkey"
             columns: ["approver_id"]
             isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
             referencedColumns: ["id"]
           },
           {
@@ -1629,6 +1845,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "medical_requests_assigned_gp_id_fkey"
+            columns: ["assigned_gp_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medical_requests_assigned_gp_id_fkey"
             columns: ["assigned_gp_id"]
@@ -2990,6 +3213,9 @@ export type Database = {
           employee_id: string
           expiry_date: string | null
           id: string
+          is_mandatory: boolean | null
+          reminder_sent_at: string | null
+          training_provider: string | null
         }
         Insert: {
           certificate_evidence_id?: string | null
@@ -2999,6 +3225,9 @@ export type Database = {
           employee_id: string
           expiry_date?: string | null
           id?: string
+          is_mandatory?: boolean | null
+          reminder_sent_at?: string | null
+          training_provider?: string | null
         }
         Update: {
           certificate_evidence_id?: string | null
@@ -3008,6 +3237,9 @@ export type Database = {
           employee_id?: string
           expiry_date?: string | null
           id?: string
+          is_mandatory?: boolean | null
+          reminder_sent_at?: string | null
+          training_provider?: string | null
         }
         Relationships: [
           {
@@ -3015,6 +3247,13 @@ export type Database = {
             columns: ["certificate_evidence_id"]
             isOneToOne: false
             referencedRelation: "evidence_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
             referencedColumns: ["id"]
           },
           {
@@ -3177,7 +3416,52 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      employee_self_service_data: {
+        Row: {
+          appraisals_completed: number | null
+          dbs_check_date: string | null
+          dbs_next_review: string | null
+          id: string | null
+          last_appraisal_date: string | null
+          manager_id: string | null
+          name: string | null
+          practice_id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          start_date: string | null
+          training_count: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employee_self_service_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_next_due_date: {
