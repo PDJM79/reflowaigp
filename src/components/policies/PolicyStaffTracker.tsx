@@ -40,7 +40,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
       // Get all active staff in the practice
       const { data: allStaff, error: staffError } = await supabase
         .from('users')
-        .select('id, name, email')
+        .select('id, name')
         .eq('practice_id', userData.practice_id)
         .eq('is_active', true);
 
@@ -135,10 +135,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
             <div className="space-y-2">
               {staffData.notAcknowledged.map((staff) => (
                 <div key={staff.id} className="flex items-center justify-between p-2 border rounded">
-                  <div>
-                    <p className="font-medium text-sm">{staff.name}</p>
-                    <p className="text-xs text-muted-foreground">{staff.email}</p>
-                  </div>
+                  <p className="font-medium text-sm">{staff.name}</p>
                   <Badge variant="outline" className="text-orange-600 border-orange-600">
                     Not Acknowledged
                   </Badge>
@@ -163,18 +160,15 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
                 <div key={staff.id} className="flex items-center justify-between p-2 border rounded">
                   <div>
                     <p className="font-medium text-sm">{staff.name}</p>
-                    <p className="text-xs text-muted-foreground">{staff.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Acknowledged
-                    </Badge>
                     {staff.acknowledgedAt && (
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground">
                         {new Date(staff.acknowledgedAt).toLocaleDateString()}
                       </p>
                     )}
                   </div>
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    Acknowledged
+                  </Badge>
                 </div>
               ))}
             </div>
