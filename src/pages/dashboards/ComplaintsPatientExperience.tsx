@@ -217,71 +217,82 @@ export default function ComplaintsPatientExperience() {
                 <p className="text-2xl font-bold">{bySeverity.high}</p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* AI Theme Analysis */}
       <ComplaintThemeAnalysis />
 
       {/* Category Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Complaints by Category</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {['clinical_care', 'staff_attitude', 'waiting_times', 'communication', 'prescriptions'].map((category) => {
-              const count = complaintsData.complaints.filter((c: any) => c.category === category).length;
-              const percentage = Math.round((count / Math.max(totalComplaints, 1)) * 100);
-              
-              return (
-                <div key={category} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium capitalize">{category.replace('_', ' ')}</p>
-                    <div className="w-full bg-muted rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-primary rounded-full h-2" 
-                        style={{ width: `${percentage}%` }}
-                      />
+      <Collapsible open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Complaints by Category</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isCategoryOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-2">
+                {['clinical_care', 'staff_attitude', 'waiting_times', 'communication', 'prescriptions'].map((category) => {
+                  const count = complaintsData.complaints.filter((c: any) => c.category === category).length;
+                  const percentage = Math.round((count / Math.max(totalComplaints, 1)) * 100);
+                  
+                  return (
+                    <div key={category} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                      <div className="flex-1 w-full">
+                        <p className="font-medium capitalize text-sm sm:text-base">{category.replace('_', ' ')}</p>
+                        <div className="w-full bg-muted rounded-full h-2 mt-1">
+                          <div 
+                            className="bg-primary rounded-full h-2" 
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="text-right self-start sm:self-center">
+                        <p className="text-xl sm:text-2xl font-bold">{count}</p>
+                        <p className="text-xs text-muted-foreground">{percentage}%</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-2xl font-bold">{count}</p>
-                    <p className="text-xs text-muted-foreground">{percentage}%</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Response Time Trends */}
       <Card>
         <CardHeader>
-          <CardTitle>Average Response Times</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Average Response Times</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="p-4 border rounded-lg">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                <p className="font-medium">48-Hour Acknowledgment</p>
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+                <p className="font-medium text-sm sm:text-base">48-Hour Acknowledgment</p>
               </div>
-              <p className="text-3xl font-bold">1.2 days</p>
-              <p className="text-sm text-muted-foreground">Average acknowledgment time</p>
+              <p className="text-2xl sm:text-3xl font-bold">1.2 days</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Average acknowledgment time</p>
             </div>
 
-            <div className="p-4 border rounded-lg">
+            <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                <p className="font-medium">30-Day Final Response</p>
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+                <p className="font-medium text-sm sm:text-base">30-Day Final Response</p>
               </div>
-              <p className="text-3xl font-bold">
+              <p className="text-2xl sm:text-3xl font-bold">
                 {complaintsData.analytics?.avg_completion_days || 0} days
               </p>
-              <p className="text-sm text-muted-foreground">Average resolution time</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Average resolution time</p>
             </div>
           </div>
         </CardContent>

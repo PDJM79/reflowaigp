@@ -262,106 +262,124 @@ export default function EnvironmentalDashboard() {
       </Collapsible>
 
       {/* Fire Safety Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Fire & Health & Safety</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Latest Risk Assessment</p>
-                <p className="text-sm text-muted-foreground">
-                  {environmentalData.fireAssessments.length > 0 
-                    ? new Date(environmentalData.fireAssessments[0].assessment_date).toLocaleDateString()
-                    : 'Not completed'}
-                </p>
-              </div>
-              <Badge variant="secondary">Annual</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Action Plan Items</p>
-                <p className="text-sm text-muted-foreground">{openFireActions} pending completion</p>
-              </div>
-              <Badge variant={openFireActions > 0 ? 'default' : 'secondary'}>
-                {openFireActions} open
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Fire Drills</p>
-                <p className="text-sm text-muted-foreground">Quarterly requirement</p>
-              </div>
-              <Badge className="bg-success">Up to Date</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Fridge Temperature Monitoring */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Fridge Temperature Monitoring (4-8°C)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {environmentalData.fridges.map((fridge: any) => {
-              const latestReading = environmentalData.fridgeReadings
-                .filter((r: any) => r.fridge_id === fridge.id)
-                .sort((a: any, b: any) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
-
-              const isInRange = latestReading 
-                ? latestReading.temperature >= fridge.min_temp && latestReading.temperature <= fridge.max_temp
-                : true;
-
-              return (
-                <div key={fridge.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{fridge.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {fridge.location} • Target: {fridge.min_temp}°C - {fridge.max_temp}°C
+      <Collapsible open={isFireOpen} onOpenChange={setIsFireOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Fire & Health & Safety</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isFireOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Latest Risk Assessment</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {environmentalData.fireAssessments.length > 0 
+                        ? new Date(environmentalData.fireAssessments[0].assessment_date).toLocaleDateString()
+                        : 'Not completed'}
                     </p>
                   </div>
-                  <div className="text-right">
-                    {latestReading ? (
-                      <>
-                        <p className="text-2xl font-bold">{latestReading.temperature}°C</p>
-                        <Badge className={isInRange ? 'bg-success' : 'bg-destructive'}>
-                          {isInRange ? 'In Range' : 'Out of Range'}
-                        </Badge>
-                      </>
-                    ) : (
-                      <Badge variant="secondary">No readings</Badge>
-                    )}
-                  </div>
+                  <Badge variant="secondary" className="self-start sm:self-center text-xs">Annual</Badge>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Action Plan Items</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{openFireActions} pending</p>
+                  </div>
+                  <Badge variant={openFireActions > 0 ? 'default' : 'secondary'} className="self-start sm:self-center text-xs">
+                    {openFireActions} open
+                  </Badge>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Fire Drills</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Quarterly requirement</p>
+                  </div>
+                  <Badge className="bg-success self-start sm:self-center text-xs">Up to Date</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      {/* COSHH & Legionella Placeholder */}
+      {/* Fridge Temperature Monitoring */}
+      <Collapsible open={isFridgeOpen} onOpenChange={setIsFridgeOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Fridge Temperature Monitoring (4-8°C)</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isFridgeOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-3">
+                {environmentalData.fridges.map((fridge: any) => {
+                  const latestReading = environmentalData.fridgeReadings
+                    .filter((r: any) => r.fridge_id === fridge.id)
+                    .sort((a: any, b: any) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
+
+                  const isInRange = latestReading 
+                    ? latestReading.temperature >= fridge.min_temp && latestReading.temperature <= fridge.max_temp
+                    : true;
+
+                  return (
+                    <div key={fridge.id} className="flex flex-col sm:flex-row items-start justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base">{fridge.name}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {fridge.location} • Target: {fridge.min_temp}°C - {fridge.max_temp}°C
+                        </p>
+                      </div>
+                      <div className="text-right self-start sm:self-center">
+                        {latestReading ? (
+                          <>
+                            <p className="text-xl sm:text-2xl font-bold">{latestReading.temperature}°C</p>
+                            <Badge className={`${isInRange ? 'bg-success' : 'bg-destructive'} text-xs`}>
+                              {isInRange ? 'In Range' : 'Out of Range'}
+                            </Badge>
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">No readings</Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* COSHH & Legionella Compliance */}
       <Card>
         <CardHeader>
-          <CardTitle>COSHH & Legionella Compliance</CardTitle>
+          <CardTitle className="text-base sm:text-lg">COSHH & Legionella Compliance</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">COSHH Risk Assessment</p>
-                <p className="text-sm text-muted-foreground">Annual review required</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm sm:text-base">COSHH Risk Assessment</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Annual review required</p>
               </div>
-              <Badge className="bg-success">Up to Date</Badge>
+              <Badge className="bg-success self-start sm:self-center text-xs">Up to Date</Badge>
             </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Legionella Risk Assessment</p>
-                <p className="text-sm text-muted-foreground">2-year review cycle</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm sm:text-base">Legionella Risk Assessment</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">2-year review cycle</p>
               </div>
-              <Badge className="bg-success">Up to Date</Badge>
+              <Badge className="bg-success self-start sm:self-center text-xs">Up to Date</Badge>
             </div>
           </div>
         </CardContent>
