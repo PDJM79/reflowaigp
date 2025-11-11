@@ -50,3 +50,12 @@ verify_jwt = false
 
 [functions.resend-webhook-handler]
 verify_jwt = false
+
+[functions.analyze-complaint-themes]
+verify_jwt = true
+
+[functions.suggest-tasks]
+verify_jwt = true
+
+[functions.calculate-compliance-scores]
+verify_jwt = true

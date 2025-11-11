@@ -1,211 +1,202 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Brain, TrendingUp, Calendar } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { Sparkles, Loader2, TrendingUp, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-export const ComplaintThemeAnalysis = () => {
+export function ComplaintThemeAnalysis() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [analyzing, setAnalyzing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const { data: userData } = useQuery({
-    queryKey: ['user-practice', user?.id],
+  const { data: latestAnalysis, refetch } = useQuery({
+    queryKey: ['complaint-themes', user?.id],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data: userData } = await supabase
         .from('users')
         .select('practice_id')
         .eq('auth_user_id', user?.id)
         .single();
+
+      if (!userData) return null;
+
+      const { data, error } = await (supabase as any)
+        .from('complaints_themes')
+        .select('*')
+        .eq('practice_id', userData.practice_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching analysis:', error);
+      }
+
       return data;
     },
     enabled: !!user?.id,
   });
 
-  // Fetch latest theme analysis
-  const { data: latestAnalysis } = useQuery({
-    queryKey: ['complaints-themes', userData?.practice_id],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('complaints_themes')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('analysis_period_start', { ascending: false })
-        .limit(1)
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
         .single();
-      return data;
-    },
-    enabled: !!userData?.practice_id,
-  });
 
-  // Run AI analysis mutation (placeholder - would call edge function)
-  const runAnalysisMutation = useMutation({
-    mutationFn: async () => {
-      setAnalyzing(true);
-      
-      // Get complaints for the last 3 months
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      if (!userData) throw new Error('User practice not found');
 
-      const { data: complaints } = await (supabase as any)
-        .from('complaints')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .gte('received_date', threeMonthsAgo.toISOString().split('T')[0]);
+      // Analyze last 3 months
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 3);
 
-      if (!complaints || complaints.length === 0) {
-        throw new Error('No complaints to analyze in the last 3 months');
-      }
-
-      // TODO: Call Lovable AI edge function for theme analysis
-      // For now, create a placeholder analysis
-      const mockThemes = [
-        { theme: 'Appointment Availability', count: 5, percentage: 35 },
-        { theme: 'Staff Attitude', count: 3, percentage: 21 },
-        { theme: 'Waiting Times', count: 3, percentage: 21 },
-        { theme: 'Communication', count: 2, percentage: 14 },
-        { theme: 'Prescriptions', count: 1, percentage: 7 },
-      ];
-
-      const mockSentiment = {
-        positive: 1,
-        neutral: 3,
-        negative: 8,
-        very_negative: 2,
-      };
-
-      const { error } = await (supabase as any)
-        .from('complaints_themes')
-        .insert({
-          practice_id: userData.practice_id,
-          analysis_period_start: threeMonthsAgo.toISOString().split('T')[0],
-          analysis_period_end: new Date().toISOString().split('T')[0],
-          themes: mockThemes,
-          sentiment_breakdown: mockSentiment,
-          total_complaints: complaints.length,
-          analyzed_by: 'placeholder-system',
-        });
+      const { data, error } = await supabase.functions.invoke('analyze-complaint-themes', {
+        body: {
+          practiceId: userData.practice_id,
+          dateRange: {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0],
+          },
+        },
+      });
 
       if (error) throw error;
 
-      setAnalyzing(false);
-    },
-    onSuccess: () => {
       toast({
         title: 'Analysis Complete',
-        description: 'AI theme analysis has been generated',
+        description: 'AI-powered complaint theme analysis has been generated.',
       });
-      queryClient.invalidateQueries({ queryKey: ['complaints-themes'] });
-    },
-    onError: (error: any) => {
-      setAnalyzing(false);
+
+      refetch();
+    } catch (error: any) {
+      console.error('Error analyzing complaints:', error);
       toast({
-        title: 'Error',
-        description: error.message,
+        title: 'Analysis Failed',
+        description: error.message || 'Failed to analyze complaint themes. Please try again.',
         variant: 'destructive',
       });
-    },
-  });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-  if (!latestAnalysis) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
-            AI Theme Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-muted-foreground mb-4">No theme analysis available yet</p>
-            <Button onClick={() => runAnalysisMutation.mutate()} disabled={analyzing}>
-              <Brain className="h-4 w-4 mr-2" />
-              {analyzing ? 'Analyzing...' : 'Run Analysis'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const themes = latestAnalysis.themes || [];
-  const sentiment = latestAnalysis.sentiment_breakdown || {};
+  const themes = (latestAnalysis as any)?.themes || [];
+  const sentiment = (latestAnalysis as any)?.sentiment || { positive: 0, neutral: 0, negative: 0 };
+  const insights = (latestAnalysis as any)?.insights || '';
+  const recommendations = (latestAnalysis as any)?.recommendations || [];
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
+          <Sparkles className="h-5 w-5 text-primary" />
           AI Theme Analysis
         </CardTitle>
-        <Button size="sm" variant="outline" onClick={() => runAnalysisMutation.mutate()} disabled={analyzing}>
-          <TrendingUp className="h-4 w-4 mr-2" />
-          {analyzing ? 'Analyzing...' : 'Refresh'}
+        <Button 
+          onClick={handleAnalyze}
+          disabled={isAnalyzing}
+          size="sm"
+        >
+          {isAnalyzing ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            'Analyze Complaints'
+          )}
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* Analysis Period */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>
-              {new Date(latestAnalysis.analysis_period_start).toLocaleDateString()} - {new Date(latestAnalysis.analysis_period_end).toLocaleDateString()}
-            </span>
-            <Badge variant="secondary">{latestAnalysis.total_complaints} complaints</Badge>
+        {!latestAnalysis ? (
+          <div className="text-center py-8">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">
+              No AI analysis available yet. Click "Analyze Complaints" to generate insights.
+            </p>
           </div>
-
-          {/* Top Themes */}
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Top Complaint Themes</h4>
-            {themes.map((theme: any, index: number) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium">{theme.theme}</p>
-                  <div className="w-full bg-muted rounded-full h-2 mt-1">
-                    <div 
-                      className="bg-primary rounded-full h-2" 
-                      style={{ width: `${theme.percentage}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="text-right ml-4">
-                  <p className="text-2xl font-bold">{theme.count}</p>
-                  <p className="text-xs text-muted-foreground">{theme.percentage}%</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Sentiment Breakdown */}
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Sentiment Distribution</h4>
-            <div className="grid grid-cols-4 gap-2">
-              <div className="text-center p-2 border rounded">
-                <p className="text-2xl font-bold text-success">{sentiment.positive || 0}</p>
+        ) : (
+          <div className="space-y-6">
+            {/* Sentiment Overview */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 border rounded-lg text-center">
+                <p className="text-2xl font-bold text-success">{sentiment.positive}%</p>
                 <p className="text-xs text-muted-foreground">Positive</p>
               </div>
-              <div className="text-center p-2 border rounded">
-                <p className="text-2xl font-bold">{sentiment.neutral || 0}</p>
+              <div className="p-3 border rounded-lg text-center">
+                <p className="text-2xl font-bold">{sentiment.neutral}%</p>
                 <p className="text-xs text-muted-foreground">Neutral</p>
               </div>
-              <div className="text-center p-2 border rounded">
-                <p className="text-2xl font-bold text-warning">{sentiment.negative || 0}</p>
+              <div className="p-3 border rounded-lg text-center">
+                <p className="text-2xl font-bold text-destructive">{sentiment.negative}%</p>
                 <p className="text-xs text-muted-foreground">Negative</p>
               </div>
-              <div className="text-center p-2 border rounded">
-                <p className="text-2xl font-bold text-destructive">{sentiment.very_negative || 0}</p>
-                <p className="text-xs text-muted-foreground">Very Neg.</p>
-              </div>
             </div>
+
+            {/* Themes */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm">Key Themes</h4>
+              {themes.map((theme: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{theme.name}</p>
+                      <p className="text-sm text-muted-foreground">{theme.count} complaints</p>
+                    </div>
+                  </div>
+                  <Badge 
+                    className={
+                      theme.severity_level === 'high'
+                        ? 'bg-destructive' 
+                        : theme.severity_level === 'medium'
+                        ? 'bg-warning'
+                        : 'bg-success'
+                    }
+                  >
+                    {theme.severity_level}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+
+            {/* Insights */}
+            {insights && (
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-medium text-sm mb-2">AI Insights</h4>
+                <p className="text-sm text-muted-foreground">{insights}</p>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {recommendations.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm mb-2">Recommendations</h4>
+                <ul className="space-y-2">
+                  {recommendations.map((rec: string, index: number) => (
+                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Analysis metadata */}
+            <p className="text-xs text-muted-foreground text-center">
+              Last analyzed: {new Date((latestAnalysis as any).created_at).toLocaleDateString()}
+            </p>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
-};
+}

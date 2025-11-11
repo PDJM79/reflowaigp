@@ -10,6 +10,8 @@ import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react'
 import { format, isThisMonth, isPast, isFuture } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { PoliciesNeedingAcknowledgment } from '@/components/dashboard/PoliciesNeedingAcknowledgment';
+import { AITaskSuggestions } from '@/components/dashboard/AITaskSuggestions';
+import { AIComplianceScores } from '@/components/dashboard/AIComplianceScores';
 
 type Task = {
   id: string;
@@ -192,6 +194,12 @@ export default function Dashboard() {
 
         {/* Policies Needing Acknowledgment */}
         <PoliciesNeedingAcknowledgment />
+
+        {/* AI Components */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <AITaskSuggestions />
+          <AIComplianceScores />
+        </div>
 
         <Card>
           <CardHeader>
