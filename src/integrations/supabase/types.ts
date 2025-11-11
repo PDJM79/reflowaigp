@@ -506,6 +506,83 @@ export type Database = {
           },
         ]
       }
+      compliance_status: {
+        Row: {
+          assessed_by: string | null
+          created_at: string | null
+          evidence_count: number | null
+          framework_id: string
+          id: string
+          last_assessed_at: string | null
+          notes: string | null
+          practice_id: string
+          rag_status: string | null
+          score: number | null
+          standard_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          assessed_by?: string | null
+          created_at?: string | null
+          evidence_count?: number | null
+          framework_id: string
+          id?: string
+          last_assessed_at?: string | null
+          notes?: string | null
+          practice_id: string
+          rag_status?: string | null
+          score?: number | null
+          standard_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          assessed_by?: string | null
+          created_at?: string | null
+          evidence_count?: number | null
+          framework_id?: string
+          id?: string
+          last_assessed_at?: string | null
+          notes?: string | null
+          practice_id?: string
+          rag_status?: string | null
+          score?: number | null
+          standard_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_status_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_status_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_frameworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_status_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_status_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_standards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       country_profile_settings: {
         Row: {
           country: Database["public"]["Enums"]["country_code"]
@@ -1657,6 +1734,67 @@ export type Database = {
           },
         ]
       }
+      notification_delivery_log: {
+        Row: {
+          created_at: string | null
+          delivered_at: string | null
+          delivery_method: string
+          error_message: string | null
+          failed: boolean | null
+          id: string
+          notification_id: string | null
+          practice_id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_method: string
+          error_message?: string | null
+          failed?: boolean | null
+          id?: string
+          notification_id?: string | null
+          practice_id: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_method?: string
+          error_message?: string | null
+          failed?: boolean | null
+          id?: string
+          notification_id?: string | null
+          practice_id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_log_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_delivery_log_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_delivery_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
@@ -2052,8 +2190,13 @@ export type Database = {
           created_at: string | null
           group_id: string | null
           id: string
+          initial_setup_by: string | null
           logo_url: string | null
           name: string
+          onboarding_completed_at: string | null
+          onboarding_stage:
+            | Database["public"]["Enums"]["onboarding_stage"]
+            | null
           sharepoint_drive_id: string | null
           sharepoint_root_path: string | null
           sharepoint_site_id: string | null
@@ -2068,8 +2211,13 @@ export type Database = {
           created_at?: string | null
           group_id?: string | null
           id?: string
+          initial_setup_by?: string | null
           logo_url?: string | null
           name: string
+          onboarding_completed_at?: string | null
+          onboarding_stage?:
+            | Database["public"]["Enums"]["onboarding_stage"]
+            | null
           sharepoint_drive_id?: string | null
           sharepoint_root_path?: string | null
           sharepoint_site_id?: string | null
@@ -2084,8 +2232,13 @@ export type Database = {
           created_at?: string | null
           group_id?: string | null
           id?: string
+          initial_setup_by?: string | null
           logo_url?: string | null
           name?: string
+          onboarding_completed_at?: string | null
+          onboarding_stage?:
+            | Database["public"]["Enums"]["onboarding_stage"]
+            | null
           sharepoint_drive_id?: string | null
           sharepoint_root_path?: string | null
           sharepoint_site_id?: string | null
@@ -2099,6 +2252,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practices_initial_setup_by_fkey"
+            columns: ["initial_setup_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -2173,6 +2333,7 @@ export type Database = {
       process_templates: {
         Row: {
           active: boolean | null
+          compliance_metadata: Json | null
           created_at: string | null
           custom_frequency: string | null
           evidence_hint: string | null
@@ -2180,6 +2341,7 @@ export type Database = {
           id: string
           name: string
           practice_id: string
+          regulatory_standards: string[] | null
           remedials: Json
           responsible_role: Database["public"]["Enums"]["user_role"]
           sla_hours: number | null
@@ -2190,6 +2352,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          compliance_metadata?: Json | null
           created_at?: string | null
           custom_frequency?: string | null
           evidence_hint?: string | null
@@ -2197,6 +2360,7 @@ export type Database = {
           id?: string
           name: string
           practice_id: string
+          regulatory_standards?: string[] | null
           remedials?: Json
           responsible_role: Database["public"]["Enums"]["user_role"]
           sla_hours?: number | null
@@ -2207,6 +2371,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          compliance_metadata?: Json | null
           created_at?: string | null
           custom_frequency?: string | null
           evidence_hint?: string | null
@@ -2214,6 +2379,7 @@ export type Database = {
           id?: string
           name?: string
           practice_id?: string
+          regulatory_standards?: string[] | null
           remedials?: Json
           responsible_role?: Database["public"]["Enums"]["user_role"]
           sla_hours?: number | null
@@ -2228,6 +2394,77 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_frameworks: {
+        Row: {
+          active: boolean | null
+          country: string | null
+          created_at: string | null
+          description: string | null
+          framework_code: string
+          framework_name: string
+          id: string
+        }
+        Insert: {
+          active?: boolean | null
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          framework_code: string
+          framework_name: string
+          id?: string
+        }
+        Update: {
+          active?: boolean | null
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          framework_code?: string
+          framework_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      regulatory_standards: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          framework_id: string
+          id: string
+          standard_code: string
+          standard_name: string
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          framework_id: string
+          id?: string
+          standard_code: string
+          standard_name: string
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          framework_id?: string
+          id?: string
+          standard_code?: string
+          standard_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_standards_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_frameworks"
             referencedColumns: ["id"]
           },
         ]
@@ -2327,6 +2564,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rooms_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_reminders: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_run_at: string | null
+          metadata: Json | null
+          next_run_at: string
+          practice_id: string
+          reminder_type: Database["public"]["Enums"]["notification_type"]
+          schedule_pattern: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          metadata?: Json | null
+          next_run_at: string
+          practice_id: string
+          reminder_type: Database["public"]["Enums"]["notification_type"]
+          schedule_pattern: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          metadata?: Json | null
+          next_run_at?: string
+          practice_id?: string
+          reminder_type?: Database["public"]["Enums"]["notification_type"]
+          schedule_pattern?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_reminders_practice_id_fkey"
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
@@ -2535,6 +2819,7 @@ export type Database = {
           assigned_to_user_id: string | null
           completed_at: string | null
           completion_time_seconds: number | null
+          compliance_metadata: Json | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -2543,6 +2828,7 @@ export type Database = {
           module: string
           practice_id: string
           priority: string | null
+          regulatory_standards: string[] | null
           requires_photo: boolean | null
           return_notes: string | null
           returned_by: string | null
@@ -2558,6 +2844,7 @@ export type Database = {
           assigned_to_user_id?: string | null
           completed_at?: string | null
           completion_time_seconds?: number | null
+          compliance_metadata?: Json | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -2566,6 +2853,7 @@ export type Database = {
           module: string
           practice_id: string
           priority?: string | null
+          regulatory_standards?: string[] | null
           requires_photo?: boolean | null
           return_notes?: string | null
           returned_by?: string | null
@@ -2581,6 +2869,7 @@ export type Database = {
           assigned_to_user_id?: string | null
           completed_at?: string | null
           completion_time_seconds?: number | null
+          compliance_metadata?: Json | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -2589,6 +2878,7 @@ export type Database = {
           module?: string
           practice_id?: string
           priority?: string | null
+          regulatory_standards?: string[] | null
           requires_photo?: boolean | null
           return_notes?: string | null
           returned_by?: string | null
@@ -3036,6 +3326,26 @@ export type Database = {
         | "annually"
         | "as_needed"
       issue_status: "open" | "in_progress" | "resolved"
+      notification_priority: "low" | "medium" | "high" | "urgent"
+      notification_type:
+        | "claim_reminder"
+        | "ipc_audit_due"
+        | "fire_assessment_due"
+        | "coshh_due"
+        | "legionella_due"
+        | "room_assessment_due"
+        | "dbs_review_due"
+        | "training_expiry"
+        | "appraisal_due"
+        | "complaint_holding_letter"
+        | "complaint_final_response"
+        | "medical_request_reminder"
+        | "medical_request_escalation"
+        | "fridge_temp_alert"
+        | "policy_review_due"
+        | "task_overdue"
+        | "general"
+      onboarding_stage: "invited" | "registered" | "configured" | "live"
       process_frequency:
         | "daily"
         | "weekly"
@@ -3219,6 +3529,27 @@ export const Constants = {
         "as_needed",
       ],
       issue_status: ["open", "in_progress", "resolved"],
+      notification_priority: ["low", "medium", "high", "urgent"],
+      notification_type: [
+        "claim_reminder",
+        "ipc_audit_due",
+        "fire_assessment_due",
+        "coshh_due",
+        "legionella_due",
+        "room_assessment_due",
+        "dbs_review_due",
+        "training_expiry",
+        "appraisal_due",
+        "complaint_holding_letter",
+        "complaint_final_response",
+        "medical_request_reminder",
+        "medical_request_escalation",
+        "fridge_temp_alert",
+        "policy_review_due",
+        "task_overdue",
+        "general",
+      ],
+      onboarding_stage: ["invited", "registered", "configured", "live"],
       process_frequency: [
         "daily",
         "weekly",

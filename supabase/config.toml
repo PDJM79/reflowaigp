@@ -1,5 +1,11 @@
 project_id = "eeqfqklcdstbziedsnxc"
 
+[functions.auto-provision-practice]
+verify_jwt = true
+
+[functions.process-scheduled-reminders]
+verify_jwt = false
+
 [functions.create-practice-during-setup]
 verify_jwt = true
 

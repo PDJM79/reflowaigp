@@ -360,6 +360,16 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         description: `Your practice has been set up with ${filledAssignments.length} team members and ${taskSchedules.length} task templates`,
       });
 
+      // Call auto-provision to seed templates and reminders
+      try {
+        await supabase.functions.invoke('auto-provision-practice', {
+          body: { practice_id: practice.id }
+        });
+      } catch (autoProvisionError) {
+        console.error('Auto-provision error:', autoProvisionError);
+        // Don't fail the setup if auto-provision fails
+      }
+
       onComplete();
     } catch (error: any) {
       console.error('Setup error:', error);
