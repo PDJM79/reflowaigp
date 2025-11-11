@@ -17,11 +17,13 @@ export function AppHeader({ children, useLoginStyles = false }: AppHeaderProps) 
         useLoginStyles ? 'w-full' : 'container mx-auto'
       } px-4 py-4 flex justify-between items-center`}>
         <div className="flex items-center gap-4">
-          <img 
-            src="/lovable-uploads/0677a790-976c-4155-b715-06fc3d1155a9.png" 
-            alt="ReflowAI Logo" 
-            className="h-12 w-auto drop-shadow-md"
-          />
+          <div className="bg-slate-800/80 dark:bg-slate-900/80 p-2 rounded-lg">
+            <img 
+              src="/lovable-uploads/0677a790-976c-4155-b715-06fc3d1155a9.png" 
+              alt="ReflowAI Logo" 
+              className="h-[4.2rem] w-auto drop-shadow-md"
+            />
+          </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               GP Surgery Audit & Compliance
