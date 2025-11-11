@@ -4,8 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserPlus, GraduationCap, Calendar as CalendarIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, FileText, GraduationCap, Calendar, Shield, Plus } from 'lucide-react';
+import { DBSTrackingDialog } from '@/components/hr/DBSTrackingDialog';
+import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 
 export default function HR() {
   const { user } = useAuth();
@@ -14,7 +17,11 @@ export default function HR() {
   const [appraisals, setAppraisals] = useState<any[]>([]);
   const [trainingRecords, setTrainingRecords] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [dbsChecks, setDbsChecks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDBSDialogOpen, setIsDBSDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [practiceId, setPracticeId] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -66,7 +73,7 @@ export default function HR() {
           <p className="text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
         <Button>
-          <UserPlus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 mr-2" />
           Add Employee
         </Button>
       </div>
@@ -115,6 +122,7 @@ export default function HR() {
         <Tabs defaultValue="employees" className="space-y-4">
           <TabsList>
             <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="dbs">DBS Checks</TabsTrigger>
             <TabsTrigger value="appraisals">Appraisals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="leave">Leave Requests</TabsTrigger>
@@ -158,7 +166,7 @@ export default function HR() {
               <CardContent>
                 {appraisals.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No appraisals scheduled</p>
                   </div>
                 ) : (
@@ -223,7 +231,7 @@ export default function HR() {
               <CardContent>
                 {leaveRequests.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No pending leave requests</p>
                   </div>
                 ) : (
@@ -248,6 +256,19 @@ export default function HR() {
             </Card>
           </TabsContent>
         </Tabs>
+      )}
+
+      {/* DBS Dialog */}
+      {selectedEmployee && (
+        <DBSTrackingDialog
+          open={isDBSDialogOpen}
+          onClose={() => {
+            setIsDBSDialogOpen(false);
+            setSelectedEmployee(null);
+          }}
+          employeeId={selectedEmployee.id}
+          practiceId={practiceId}
+        />
       )}
     </div>
   );
