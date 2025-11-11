@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2, Camera } from 'lucide-react';
+import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2, Camera, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { SectionScoreBadge } from '@/components/dashboard/SectionScoreBadge';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { triggerHaptic } from '@/lib/haptics';
 
 export default function FridgeTemps() {
   const { user } = useAuth();
@@ -25,6 +27,14 @@ export default function FridgeTemps() {
     location: '',
     min_temp: '2',
     max_temp: '8'
+  });
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await fetchData();
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
   });
 
   useEffect(() => {
@@ -129,7 +139,22 @@ export default function FridgeTemps() {
   const compliant = logs.filter(l => !l.breach_flag);
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+    <div ref={scrollableRef} className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
+      {isMobile && (isPulling || isRefreshing) && (
+        <div 
+          className="flex items-center justify-center py-4 transition-opacity"
+          style={{ opacity: isPulling ? pullProgress : 1 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className="h-6 w-6 text-primary transition-transform"
+              style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+            />
+          )}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">

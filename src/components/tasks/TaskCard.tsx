@@ -2,8 +2,14 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, User, AlertCircle, CheckCircle, Clock, ArrowRight } from 'lucide-react';
+import { Calendar, User, AlertCircle, CheckCircle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import { triggerHaptic } from '@/lib/haptics';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TaskCardProps {
   task: {
@@ -24,8 +30,42 @@ interface TaskCardProps {
   onRefresh: () => void;
 }
 
-export function TaskCard({ task, isMyTask }: TaskCardProps) {
+export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const handleCompleteTask = async () => {
+    if (task.status === 'complete') return;
+    
+    setIsCompleting(true);
+    triggerHaptic('medium');
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'complete' })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast.success('Task completed!');
+      triggerHaptic('success');
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error completing task:', error);
+      toast.error('Failed to complete task');
+      triggerHaptic('error');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const { elementRef, swipeDistance, isSwiping } = useSwipeGesture({
+    onSwipeRight: handleCompleteTask,
+    enabled: isMobile && task.status !== 'complete',
+    threshold: 120,
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -65,7 +105,28 @@ export function TaskCard({ task, isMyTask }: TaskCardProps) {
   const daysUntilDue = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <Card className={`hover:shadow-lg transition-shadow ${isMyTask ? 'border-primary' : ''}`}>
+    <div 
+      ref={elementRef}
+      className="relative overflow-hidden"
+      style={{
+        transform: isSwiping ? `translateX(${Math.min(swipeDistance, 150)}px)` : undefined,
+        transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+      }}
+    >
+      {/* Swipe Action Background */}
+      {isMobile && task.status !== 'complete' && (
+        <div 
+          className="absolute inset-0 bg-success flex items-center px-6 rounded-lg"
+          style={{
+            opacity: Math.min(Math.abs(swipeDistance) / 120, 1),
+          }}
+        >
+          <CheckCircle2 className="h-8 w-8 text-white" />
+          <span className="ml-3 text-white font-semibold">Complete</span>
+        </div>
+      )}
+
+      <Card className={`hover:shadow-lg transition-shadow cursor-pointer touch-manipulation active:scale-[0.98] relative z-10 bg-background ${isMyTask ? 'border-primary' : ''}`}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg line-clamp-2">{task.title}</CardTitle>
@@ -113,7 +174,11 @@ export function TaskCard({ task, isMyTask }: TaskCardProps) {
 
         <Button
           className="w-full"
-          onClick={() => navigate(`/task/${task.id}`)}
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerHaptic('light');
+            navigate(`/task/${task.id}`);
+          }}
           disabled={task.status === 'complete'}
         >
           {task.status === 'complete' ? (
@@ -135,5 +200,6 @@ export function TaskCard({ task, isMyTask }: TaskCardProps) {
         </Button>
       </CardContent>
     </Card>
+    </div>
   );
 }

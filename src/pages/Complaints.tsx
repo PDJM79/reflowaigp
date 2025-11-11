@@ -5,15 +5,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText } from 'lucide-react';
+import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText, Loader2, RefreshCw } from 'lucide-react';
 import { ComplaintSLADialog } from '@/components/complaints/ComplaintSLADialog';
 import { ComplaintThemeAnalysis } from '@/components/complaints/ComplaintThemeAnalysis';
 import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker';
 import { useQuery } from '@tanstack/react-query';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { triggerHaptic } from '@/lib/haptics';
 
 export default function Complaints() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
   const [dialogAction, setDialogAction] = useState<'acknowledgment' | 'final_response'>('acknowledgment');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -25,7 +29,7 @@ export default function Complaints() {
   }, [user, navigate]);
 
   // Fetch complaints with new SLA fields
-  const { data: complaints = [], isLoading } = useQuery({
+  const { data: complaints = [], isLoading, refetch } = useQuery({
     queryKey: ['complaints', user?.id],
     queryFn: async () => {
       const { data: userData } = await (supabase as any)
@@ -46,6 +50,14 @@ export default function Complaints() {
       return data || [];
     },
     enabled: !!user?.id,
+  });
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await refetch();
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
   });
 
   const needsAck = complaints.filter((c: any) => !c.acknowledgment_sent_at);
@@ -81,7 +93,22 @@ export default function Complaints() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div ref={scrollableRef} className="container mx-auto p-6 space-y-6 overflow-y-auto">
+      {isMobile && (isPulling || isRefreshing) && (
+        <div 
+          className="flex items-center justify-center py-4 transition-opacity"
+          style={{ opacity: isPulling ? pullProgress : 1 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className="h-6 w-6 text-primary transition-transform"
+              style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+            />
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">

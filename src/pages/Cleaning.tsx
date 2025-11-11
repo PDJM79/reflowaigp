@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplet, Calendar, ListChecks } from 'lucide-react';
+import { Droplet, Calendar, ListChecks, Loader2, RefreshCw } from 'lucide-react';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { triggerHaptic } from '@/lib/haptics';
 
 export default function Cleaning() {
   const { user } = useAuth();
@@ -15,6 +17,14 @@ export default function Cleaning() {
   const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await fetchCleaningTasks();
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -54,7 +64,22 @@ export default function Cleaning() {
   const completedTasks = tasks.filter(t => t.status === 'complete');
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+    <div ref={scrollableRef} className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
+      {isMobile && (isPulling || isRefreshing) && (
+        <div 
+          className="flex items-center justify-center py-4 transition-opacity"
+          style={{ opacity: isPulling ? pullProgress : 1 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className="h-6 w-6 text-primary transition-transform"
+              style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+            />
+          )}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">

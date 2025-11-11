@@ -9,15 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { IncidentReportDialog } from "@/components/incidents/IncidentReportDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, AlertCircle, TrendingUp } from "lucide-react";
+import { Plus, AlertCircle, TrendingUp, Loader2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { triggerHaptic } from "@/lib/haptics";
 
 export default function IncidentsList() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
-  const { data: incidents = [], isLoading } = useQuery<any[]>({
+  const { data: incidents = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ['incidents', user?.id],
     queryFn: async () => {
       const { data: userData } = await supabase
@@ -38,6 +40,14 @@ export default function IncidentsList() {
       return data as any[];
     },
     enabled: !!user?.id,
+  });
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await refetch();
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
   });
 
   const { data: trends } = useQuery<any[]>({
@@ -96,7 +106,22 @@ export default function IncidentsList() {
 
   return (
     <>
-      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div ref={scrollableRef} className="space-y-4 sm:space-y-6 p-3 sm:p-6 overflow-y-auto">
+        {isMobile && (isPulling || isRefreshing) && (
+          <div 
+            className="flex items-center justify-center py-4 transition-opacity"
+            style={{ opacity: isPulling ? pullProgress : 1 }}
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            ) : (
+              <RefreshCw 
+                className="h-6 w-6 text-primary transition-transform"
+                style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+              />
+            )}
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold">Incidents</h1>

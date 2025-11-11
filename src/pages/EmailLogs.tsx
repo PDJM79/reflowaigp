@@ -8,8 +8,11 @@ import { EmailLogDetailDialog } from '@/components/email-logs/EmailLogDetailDial
 import { EmailLogPagination } from '@/components/email-logs/EmailLogPagination';
 import { EmailAnalyticsCharts } from '@/components/email-logs/EmailAnalyticsCharts';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Mail, CheckCircle2, XCircle, Eye, Download, Loader2 } from 'lucide-react';
+import { Mail, CheckCircle2, XCircle, Eye, Download, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { triggerHaptic } from '@/lib/haptics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { exportEmailLogsToCSV, generateEmailLogsFilename } from '@/lib/csvExport';
@@ -18,6 +21,7 @@ import { toast } from 'sonner';
 export default function EmailLogs() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [emailType, setEmailType] = useState('all');
@@ -27,6 +31,7 @@ export default function EmailLogs() {
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { logs, stats, totalCount, loading, error } = useEmailLogs({
     search,
@@ -35,6 +40,14 @@ export default function EmailLogs() {
     dateRange,
     page: currentPage,
     pageSize,
+  });
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      setRefreshKey(prev => prev + 1);
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
   });
 
   const handleViewDetails = (log: any) => {
@@ -110,7 +123,22 @@ export default function EmailLogs() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div ref={scrollableRef} className="container mx-auto p-6 space-y-6 overflow-y-auto">
+      {isMobile && (isPulling || isRefreshing) && (
+        <div 
+          className="flex items-center justify-center py-4 transition-opacity"
+          style={{ opacity: isPulling ? pullProgress : 1 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className="h-6 w-6 text-primary transition-transform"
+              style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+            />
+          )}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

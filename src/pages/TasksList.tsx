@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Calendar, User, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { triggerHaptic } from '@/lib/haptics';
 
 interface Task {
   id: string;
@@ -47,6 +49,14 @@ export default function TasksList() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await fetchTasks();
+      triggerHaptic('success');
+    },
+    enabled: isMobile,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -118,14 +128,32 @@ export default function TasksList() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+    <div ref={scrollableRef} className="space-y-4 sm:space-y-6 p-3 sm:p-6 overflow-y-auto">
+      {isMobile && (isPulling || isRefreshing) && (
+        <div 
+          className="flex items-center justify-center py-4 transition-opacity"
+          style={{ opacity: isPulling ? pullProgress : 1 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className="h-6 w-6 text-primary transition-transform"
+              style={{ transform: `rotate(${pullProgress * 360}deg)` }}
+            />
+          )}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold">{t('tasks.title')}</h1>
           <p className="text-sm sm:text-base text-muted-foreground">{t('tasks.description')}</p>
         </div>
         <Button 
-          onClick={() => setShowDialog(true)}
+          onClick={() => {
+            triggerHaptic('light');
+            setShowDialog(true);
+          }}
           size={isMobile ? 'lg' : 'default'}
           className="w-full sm:w-auto min-h-[44px]"
         >
