@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Download, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { MessageSquare, Download, TrendingUp, AlertTriangle, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ComplaintThemeAnalysis } from '@/components/complaints/ComplaintThemeAnalysis';
 import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker';
@@ -12,7 +14,10 @@ import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker
 export default function ComplaintsPatientExperience() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [isVolumeOpen, setIsVolumeOpen] = useState(true);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -134,31 +139,40 @@ export default function ComplaintsPatientExperience() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <MessageSquare className="h-8 w-8" />
-            Complaints & Patient Experience Dashboard
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8" />
+            Complaints & Patient Experience
           </h1>
-          <p className="text-muted-foreground">Patient feedback, SLA compliance, and sentiment analysis</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Feedback & SLA compliance</p>
         </div>
-        <Button onClick={handleExportPDF}>
+        <Button 
+          onClick={handleExportPDF}
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      {/* SLA Compliance Metrics */}
       <ComplaintSLATracker />
 
-      {/* Complaint Volume Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Complaint Volume by Severity (Last 3 Months)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+      <Collapsible open={isVolumeOpen} onOpenChange={setIsVolumeOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Complaint Volume by Severity</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isVolumeOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-3">
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex-1">
                 <p className="font-medium text-success">Low Severity</p>

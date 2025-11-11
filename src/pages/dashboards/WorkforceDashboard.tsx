@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Download, Shield, GraduationCap, FileText } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Users, Download, Shield, GraduationCap, FileText, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 
 export default function WorkforceDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isDBSOpen, setIsDBSOpen] = useState(false);
+  const [isAppraisalOpen, setIsAppraisalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) navigate('/');
@@ -99,7 +104,7 @@ export default function WorkforceDashboard() {
   };
 
   if (!workforceData) {
-    return <div className="container mx-auto p-6">Loading workforce data...</div>;
+    return <div className="space-y-4 p-3 sm:p-6">Loading workforce data...</div>;
   }
 
   const dbsDueSoon = workforceData.dbsChecks.filter((check: any) => {
@@ -121,69 +126,73 @@ export default function WorkforceDashboard() {
   }).length;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="h-8 w-8" />
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Users className="h-6 w-6 sm:h-8 sm:w-8" />
             Workforce Dashboard
           </h1>
-          <p className="text-muted-foreground">Staff compliance, training, and HR monitoring</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Staff compliance & HR monitoring</p>
         </div>
-        <Button onClick={handleExportPDF}>
+        <Button 
+          onClick={handleExportPDF}
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Staff</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{workforceData.employees.length}</div>
-            <p className="text-xs text-muted-foreground">Current headcount</p>
+            <div className="text-2xl sm:text-3xl font-bold">{workforceData.employees.length}</div>
+            <p className="text-xs text-muted-foreground">Headcount</p>
           </CardContent>
         </Card>
 
-        <Card className={dbsDueSoon > 0 ? 'border-warning' : ''}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+        <Card className={`touch-manipulation ${dbsDueSoon > 0 ? 'border-warning' : ''}`}>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
+              <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
               DBS Checks
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{workforceData.dbsChecks.length}</div>
-            <p className="text-xs text-muted-foreground">{dbsDueSoon} due within 6 months</p>
+            <div className="text-2xl sm:text-3xl font-bold">{workforceData.dbsChecks.length}</div>
+            <p className="text-xs text-muted-foreground">{dbsDueSoon} due soon</p>
           </CardContent>
         </Card>
 
-        <Card className={trainingExpiringSoon > 0 ? 'border-warning' : ''}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Training Records
+        <Card className={`touch-manipulation ${trainingExpiringSoon > 0 ? 'border-warning' : ''}`}>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
+              <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
+              Training
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{workforceData.training.length}</div>
-            <p className="text-xs text-muted-foreground">{trainingExpiringSoon} expiring soon</p>
+            <div className="text-2xl sm:text-3xl font-bold">{workforceData.training.length}</div>
+            <p className="text-xs text-muted-foreground">{trainingExpiringSoon} expiring</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
               Appraisals
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pendingAppraisals}</div>
-            <p className="text-xs text-muted-foreground">Pending completion</p>
+            <div className="text-2xl sm:text-3xl font-bold">{pendingAppraisals}</div>
+            <p className="text-xs text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
       </div>
@@ -192,63 +201,81 @@ export default function WorkforceDashboard() {
       <TrainingExpiryAlerts />
 
       {/* DBS Review Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>DBS Review Schedule (3-Year Cycle)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {workforceData.dbsChecks.slice(0, 10).map((check: any) => (
-              <div key={check.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium">Employee ID: {check.employee_id.slice(0, 8)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Last check: {new Date(check.check_date).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium">Next Review</p>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(check.next_review_due).toLocaleDateString()}
-                  </p>
-                  {dbsDueSoon > 0 && new Date(check.next_review_due).getTime() < new Date().setMonth(new Date().getMonth() + 6) && (
-                    <Badge className="bg-warning mt-1">Due Soon</Badge>
-                  )}
-                </div>
+      <Collapsible open={isDBSOpen} onOpenChange={setIsDBSOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>DBS Review Schedule (3-Year Cycle)</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isDBSOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-2">
+                {workforceData.dbsChecks.slice(0, 10).map((check: any) => (
+                  <div key={check.id} className="flex flex-col sm:flex-row items-start justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm sm:text-base">ID: {check.employee_id.slice(0, 8)}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Last: {new Date(check.check_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right self-start sm:self-center">
+                      <p className="text-xs sm:text-sm font-medium">Next Review</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        {new Date(check.next_review_due).toLocaleDateString()}
+                      </p>
+                      {dbsDueSoon > 0 && new Date(check.next_review_due).getTime() < new Date().setMonth(new Date().getMonth() + 6) && (
+                        <Badge className="bg-warning mt-1 text-xs">Due Soon</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Appraisal Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Annual Appraisal Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Completed This Year</p>
-                <p className="text-sm text-muted-foreground">
-                  {workforceData.appraisals.filter((a: any) => a.status === 'completed').length} appraisals
-                </p>
+      <Collapsible open={isAppraisalOpen} onOpenChange={setIsAppraisalOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Annual Appraisal Status</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isAppraisalOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Completed This Year</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {workforceData.appraisals.filter((a: any) => a.status === 'completed').length} appraisals
+                    </p>
+                  </div>
+                  <Badge className="bg-success self-start sm:self-center">
+                    {Math.round((workforceData.appraisals.filter((a: any) => a.status === 'completed').length / Math.max(workforceData.employees.length, 1)) * 100)}%
+                  </Badge>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Scheduled</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{pendingAppraisals} pending</p>
+                  </div>
+                  <Badge variant="secondary" className="self-start sm:self-center">{pendingAppraisals}</Badge>
+                </div>
               </div>
-              <Badge className="bg-success">
-                {Math.round((workforceData.appraisals.filter((a: any) => a.status === 'completed').length / Math.max(workforceData.employees.length, 1)) * 100)}%
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Scheduled</p>
-                <p className="text-sm text-muted-foreground">{pendingAppraisals} pending</p>
-              </div>
-              <Badge variant="secondary">{pendingAppraisals}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }

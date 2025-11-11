@@ -2,16 +2,22 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Download, TrendingUp, AlertCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Activity, Download, TrendingUp, AlertCircle, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 export default function ClinicalGovernance() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [isTrendsOpen, setIsTrendsOpen] = useState(true);
+  const [isIPCOpen, setIsIPCOpen] = useState(true);
+  const [isScriptsOpen, setIsScriptsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -111,7 +117,7 @@ export default function ClinicalGovernance() {
   };
 
   if (!clinicalData) {
-    return <div className="container mx-auto p-6">Loading clinical governance data...</div>;
+    return <div className="space-y-4 p-3 sm:p-6">Loading clinical governance data...</div>;
   }
 
   const criticalIncidents = clinicalData.incidents.filter((i: any) => i.severity === 'critical').length;
@@ -119,139 +125,170 @@ export default function ClinicalGovernance() {
   const avgMedicalRequestTurnaround = 5; // Placeholder calculation
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Activity className="h-8 w-8" />
-            Clinical Governance Dashboard
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Activity className="h-6 w-6 sm:h-8 sm:w-8" />
+            Clinical Governance
           </h1>
-          <p className="text-muted-foreground">Patient safety, incidents, and clinical quality monitoring</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Patient safety monitoring</p>
         </div>
-        <Button onClick={handleExportPDF}>
+        <Button 
+          onClick={handleExportPDF}
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Incidents</CardTitle>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Incidents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{clinicalData.incidents.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{clinicalData.incidents.length}</div>
             <p className="text-xs text-muted-foreground">{criticalIncidents} critical</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Claims Processed</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Claims</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{clinicalData.claims.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{clinicalData.claims.length}</div>
             <p className="text-xs text-muted-foreground">Enhanced services</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">IPC Actions</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">IPC Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pendingIPC}</div>
-            <p className="text-xs text-muted-foreground">Pending completion</p>
+            <div className="text-2xl sm:text-3xl font-bold">{pendingIPC}</div>
+            <p className="text-xs text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Medical Request Turnaround</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Request Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{avgMedicalRequestTurnaround} days</div>
-            <p className="text-xs text-muted-foreground">Average time</p>
+            <div className="text-2xl sm:text-3xl font-bold">{avgMedicalRequestTurnaround} days</div>
+            <p className="text-xs text-muted-foreground">Average</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Incident Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Incident Trends & Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {['Clinical', 'Non-Clinical', 'Medication Error', 'Near Miss'].map((category) => {
-              const count = clinicalData.incidents.filter((i: any) => i.incident_category?.toLowerCase().includes(category.toLowerCase())).length;
-              return (
-                <div key={category} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{category}</p>
-                    <div className="w-full bg-muted rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-primary rounded-full h-2" 
-                        style={{ width: `${(count / Math.max(clinicalData.incidents.length, 1)) * 100}%` }}
-                      />
+      <Collapsible open={isTrendsOpen} onOpenChange={setIsTrendsOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Incident Trends & Analysis</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isTrendsOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-3">
+                {['Clinical', 'Non-Clinical', 'Medication Error', 'Near Miss'].map((category) => {
+                  const count = clinicalData.incidents.filter((i: any) => i.incident_category?.toLowerCase().includes(category.toLowerCase())).length;
+                  return (
+                    <div key={category} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                      <div className="flex-1 w-full">
+                        <p className="font-medium text-sm sm:text-base mb-1">{category}</p>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-primary rounded-full h-2" 
+                            style={{ width: `${(count / Math.max(clinicalData.incidents.length, 1)) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="text-right self-start sm:self-center">
+                        <p className="text-xl sm:text-2xl font-bold">{count}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-2xl font-bold">{count}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* IPC Compliance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Infection Prevention & Control</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Six-Monthly IPC Audits</p>
-                <p className="text-sm text-muted-foreground">May & December audits</p>
+      <Collapsible open={isIPCOpen} onOpenChange={setIsIPCOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Infection Prevention & Control</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isIPCOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Six-Monthly IPC Audits</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">May & December</p>
+                  </div>
+                  <Badge className="bg-success self-start sm:self-center">Up to Date</Badge>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Action Plan Items</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{pendingIPC} pending</p>
+                  </div>
+                  <Badge variant="secondary" className="self-start sm:self-center">{pendingIPC} open</Badge>
+                </div>
               </div>
-              <Badge className="bg-success">Up to Date</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Action Plan Items</p>
-                <p className="text-sm text-muted-foreground">{pendingIPC} pending actions</p>
-              </div>
-              <Badge variant="secondary">{pendingIPC} open</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Month-End Scripts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Month-End Script Review</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">
-            {clinicalData.scripts.length} scripts reviewed this quarter
-          </p>
-          <div className="space-y-2">
-            {clinicalData.scripts.slice(0, 5).map((script: any) => (
-              <div key={script.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
-                <span>{new Date(script.date).toLocaleDateString()}</span>
-                <span>{script.medication}</span>
-                <Badge variant="outline">{script.status}</Badge>
+      <Collapsible open={isScriptsOpen} onOpenChange={setIsScriptsOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Month-End Script Review</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isScriptsOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                {clinicalData.scripts.length} scripts reviewed this quarter
+              </p>
+              <div className="space-y-2">
+                {clinicalData.scripts.slice(0, 5).map((script: any) => (
+                  <div key={script.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg text-xs sm:text-sm touch-manipulation active:bg-accent gap-2">
+                    <span className="font-medium">{new Date(script.date).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground">{script.medication}</span>
+                    <Badge variant="outline" className="self-start sm:self-center">{script.status}</Badge>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }

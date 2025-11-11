@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Download, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Shield, Download, TrendingUp, AlertTriangle, CheckCircle, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 import { ComplianceTagBadge } from '@/components/compliance/ComplianceTagBadge';
@@ -13,7 +15,10 @@ import { ComplianceTagBadge } from '@/components/compliance/ComplianceTagBadge';
 export default function ComplianceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState(true);
+  const [isReadinessOpen, setIsReadinessOpen] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -133,7 +138,7 @@ export default function ComplianceOverview() {
   };
 
   if (!complianceData) {
-    return <div className="container mx-auto p-6">Loading compliance data...</div>;
+    return <div className="space-y-4 p-3 sm:p-6">Loading compliance data...</div>;
   }
 
   const totalScore = complianceData.scores.reduce((sum: number, s: any) => sum + (s.score || 0), 0);
@@ -144,204 +149,226 @@ export default function ComplianceOverview() {
     : 0;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Shield className="h-8 w-8" />
-            Compliance Overview Dashboard
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Shield className="h-6 w-6 sm:h-8 sm:w-8" />
+            Compliance Overview
           </h1>
-          <p className="text-muted-foreground">HIW/CQC readiness and regulatory compliance tracking</p>
+          <p className="text-sm sm:text-base text-muted-foreground">HIW/CQC readiness tracking</p>
         </div>
-        <Button onClick={handleExportPDF}>
+        <Button 
+          onClick={handleExportPDF}
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Overall Compliance Score</CardTitle>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Overall Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3">
-              <div className="text-3xl font-bold">{avgScore}%</div>
+            <div className="flex items-center gap-2">
+              <div className="text-2xl sm:text-3xl font-bold">{avgScore}%</div>
               <RAGBadge status={getRAGStatus(avgScore)} />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Task Completion Rate</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Task Completion</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{taskCompletionRate}%</div>
+            <div className="text-2xl sm:text-3xl font-bold">{taskCompletionRate}%</div>
             <p className="text-xs text-muted-foreground">
-              {completedTasks} of {complianceData.tasks.length} completed
+              {completedTasks}/{complianceData.tasks.length}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Active Policies</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Policies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-2xl sm:text-3xl font-bold">
               {complianceData.policies.filter((p: any) => p.status === 'active').length}
             </div>
             <p className="text-xs text-muted-foreground">Up to date</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Safety Incidents</CardTitle>
+        <Card className="touch-manipulation col-span-2 sm:col-span-1">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Incidents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{complianceData.incidents.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{complianceData.incidents.length}</div>
             <p className="text-xs text-muted-foreground">Last 3 months</p>
           </CardContent>
         </Card>
       </div>
 
       {/* HIW/CQC Domain Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Regulatory Framework Compliance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">HIW - Healthcare Inspectorate Wales</h4>
-                <RAGBadge status={getRAGStatus(85)} />
-              </div>
-              <div className="grid gap-2 mt-3">
-                <div className="flex justify-between text-sm">
-                  <span>Quality of patient experience</span>
-                  <Badge variant="secondary">85%</Badge>
+      <Collapsible open={isFrameworkOpen} onOpenChange={setIsFrameworkOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Regulatory Framework Compliance</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isFrameworkOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+                    <h4 className="font-medium text-sm sm:text-base">HIW - Healthcare Inspectorate Wales</h4>
+                    <RAGBadge status={getRAGStatus(85)} />
+                  </div>
+                  <div className="grid gap-2 mt-3">
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Quality of patient experience</span>
+                      <Badge variant="secondary" className="text-xs">85%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Delivery of safe & effective care</span>
+                      <Badge variant="secondary" className="text-xs">82%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Quality of management & leadership</span>
+                      <Badge variant="secondary" className="text-xs">88%</Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Delivery of safe & effective care</span>
-                  <Badge variant="secondary">82%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Quality of management & leadership</span>
-                  <Badge variant="secondary">88%</Badge>
-                </div>
-              </div>
-            </div>
 
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">CQC - Care Quality Commission</h4>
-                <RAGBadge status={getRAGStatus(83)} />
-              </div>
-              <div className="grid gap-2 mt-3">
-                <div className="flex justify-between text-sm">
-                  <span>Safe</span>
-                  <Badge variant="secondary">80%</Badge>
+                <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+                    <h4 className="font-medium text-sm sm:text-base">CQC - Care Quality Commission</h4>
+                    <RAGBadge status={getRAGStatus(83)} />
+                  </div>
+                  <div className="grid gap-2 mt-3">
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span>Safe</span>
+                      <Badge variant="secondary" className="text-xs">80%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span>Effective</span>
+                      <Badge variant="secondary" className="text-xs">85%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span>Caring</span>
+                      <Badge variant="secondary" className="text-xs">90%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span>Responsive</span>
+                      <Badge variant="secondary" className="text-xs">82%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span>Well-led</span>
+                      <Badge variant="secondary" className="text-xs">78%</Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Effective</span>
-                  <Badge variant="secondary">85%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Caring</span>
-                  <Badge variant="secondary">90%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Responsive</span>
-                  <Badge variant="secondary">82%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Well-led</span>
-                  <Badge variant="secondary">78%</Badge>
-                </div>
-              </div>
-            </div>
 
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">QOF - Quality & Outcomes Framework</h4>
-                <RAGBadge status={getRAGStatus(92)} />
+                <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+                    <h4 className="font-medium text-sm sm:text-base">QOF - Quality & Outcomes Framework</h4>
+                    <RAGBadge status={getRAGStatus(92)} />
+                  </div>
+                  <div className="grid gap-2 mt-3">
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Clinical indicators</span>
+                      <Badge variant="secondary" className="text-xs">95%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Public health indicators</span>
+                      <Badge variant="secondary" className="text-xs">88%</Badge>
+                    </div>
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
+                      <span className="flex-1">Quality improvement</span>
+                      <Badge variant="secondary" className="text-xs">93%</Badge>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid gap-2 mt-3">
-                <div className="flex justify-between text-sm">
-                  <span>Clinical indicators</span>
-                  <Badge variant="secondary">95%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Public health indicators</span>
-                  <Badge variant="secondary">88%</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Quality improvement</span>
-                  <Badge variant="secondary">93%</Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Readiness Indicators */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Inspection Readiness</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium">Evidence Pack Complete</p>
-                  <p className="text-sm text-muted-foreground">All required documents ready</p>
+      <Collapsible open={isReadinessOpen} onOpenChange={setIsReadinessOpen}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                <span>Inspection Readiness</span>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isReadinessOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Evidence Pack Complete</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">All documents ready</p>
+                  </div>
                 </div>
+                <Badge className="bg-success self-start sm:self-center">Ready</Badge>
               </div>
-              <Badge className="bg-success">Ready</Badge>
-            </div>
 
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-warning" />
-                <div>
-                  <p className="font-medium">Policy Reviews</p>
-                  <p className="text-sm text-muted-foreground">3 policies need review</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Policy Reviews</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">3 policies need review</p>
+                  </div>
                 </div>
+                <Badge className="bg-warning self-start sm:self-center whitespace-nowrap">Action Required</Badge>
               </div>
-              <Badge className="bg-warning">Action Required</Badge>
-            </div>
 
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium">Staff Training Records</p>
-                  <p className="text-sm text-muted-foreground">All staff up to date</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Staff Training Records</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">All staff up to date</p>
+                  </div>
                 </div>
+                <Badge className="bg-success self-start sm:self-center">Ready</Badge>
               </div>
-              <Badge className="bg-success">Ready</Badge>
-            </div>
 
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium">Safety Audits</p>
-                  <p className="text-sm text-muted-foreground">Latest audits completed</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Safety Audits</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Latest audits completed</p>
+                  </div>
                 </div>
+                <Badge className="bg-success self-start sm:self-center">Ready</Badge>
               </div>
-              <Badge className="bg-success">Ready</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }
