@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 export default function HR() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [employees, setEmployees] = useState<any[]>([]);
   const [appraisals, setAppraisals] = useState<any[]>([]);
   const [trainingRecords, setTrainingRecords] = useState<any[]>([]);
@@ -63,55 +65,58 @@ export default function HR() {
   const pendingAppraisals = appraisals.filter(a => !a.completed_date);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="h-8 w-8" />
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Users className="h-6 w-6 sm:h-8 sm:w-8" />
             Human Resources
           </h1>
-          <p className="text-muted-foreground">Manage employees, training, appraisals, and leave</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
-        <Button>
+        <Button 
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Employee
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Employees</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeEmployees.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{activeEmployees.length}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pending Appraisals</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Pending Appraisals</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pendingAppraisals.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{pendingAppraisals.length}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Leave Requests</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Leave Requests</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{leaveRequests.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{leaveRequests.length}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Training Records</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Training Records</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{trainingRecords.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{trainingRecords.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -120,18 +125,18 @@ export default function HR() {
         <div className="text-center py-8">Loading HR data...</div>
       ) : (
         <Tabs defaultValue="employees" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="dbs">DBS Checks</TabsTrigger>
-            <TabsTrigger value="appraisals">Appraisals</TabsTrigger>
-            <TabsTrigger value="training">Training</TabsTrigger>
-            <TabsTrigger value="leave">Leave Requests</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5">
+            <TabsTrigger value="employees" className="text-xs sm:text-sm">Employees</TabsTrigger>
+            <TabsTrigger value="dbs" className="text-xs sm:text-sm">DBS</TabsTrigger>
+            <TabsTrigger value="appraisals" className="text-xs sm:text-sm">Appraisals</TabsTrigger>
+            <TabsTrigger value="training" className="text-xs sm:text-sm">Training</TabsTrigger>
+            <TabsTrigger value="leave" className="text-xs sm:text-sm">Leave</TabsTrigger>
           </TabsList>
 
           <TabsContent value="employees">
             <Card>
               <CardHeader>
-                <CardTitle>Employee Directory</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Employee Directory</CardTitle>
               </CardHeader>
               <CardContent>
                 {employees.length === 0 ? (
@@ -140,14 +145,17 @@ export default function HR() {
                     <p>No employees registered</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {employees.map((employee) => (
-                      <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{employee.name}</p>
-                          <p className="text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
+                      <div 
+                        key={employee.id} 
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base">{employee.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
                         </div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm text-muted-foreground">
                           {employee.start_date && `Started ${new Date(employee.start_date).toLocaleDateString()}`}
                         </div>
                       </div>
@@ -161,7 +169,7 @@ export default function HR() {
           <TabsContent value="appraisals">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Appraisals</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Recent Appraisals</CardTitle>
               </CardHeader>
               <CardContent>
                 {appraisals.length === 0 ? (
@@ -170,16 +178,21 @@ export default function HR() {
                     <p>No appraisals scheduled</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {appraisals.map((appraisal: any) => (
-                      <div key={appraisal.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{appraisal.employees?.name}</p>
-                          <p className="text-sm text-muted-foreground">Period: {appraisal.period}</p>
+                      <div 
+                        key={appraisal.id} 
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base">{appraisal.employees?.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Period: {appraisal.period}</p>
                         </div>
-                        <div className="text-sm">
+                        <div className="text-xs sm:text-sm whitespace-nowrap">
                           {appraisal.completed_date ? (
-                            <span className="text-success">Completed</span>
+                            <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300">
+                              Completed
+                            </Badge>
                           ) : (
                             <span>Due: {appraisal.scheduled_date ? new Date(appraisal.scheduled_date).toLocaleDateString() : 'TBC'}</span>
                           )}
@@ -195,7 +208,7 @@ export default function HR() {
           <TabsContent value="training">
             <Card>
               <CardHeader>
-                <CardTitle>Training Records</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Training Records</CardTitle>
               </CardHeader>
               <CardContent>
                 {trainingRecords.length === 0 ? (
@@ -204,16 +217,21 @@ export default function HR() {
                     <p>No training records</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {trainingRecords.map((record: any) => (
-                      <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{record.course_name}</p>
-                          <p className="text-sm text-muted-foreground">{record.employees?.name}</p>
+                      <div 
+                        key={record.id} 
+                        className="flex flex-col sm:flex-row items-start justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base">{record.course_name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{record.employees?.name}</p>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          Completed: {new Date(record.completion_date).toLocaleDateString()}
-                          {record.expiry_date && ` • Expires: ${new Date(record.expiry_date).toLocaleDateString()}`}
+                        <div className="text-xs sm:text-sm text-muted-foreground">
+                          <div>Completed: {new Date(record.completion_date).toLocaleDateString()}</div>
+                          {record.expiry_date && (
+                            <div>Expires: {new Date(record.expiry_date).toLocaleDateString()}</div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -226,7 +244,7 @@ export default function HR() {
           <TabsContent value="leave">
             <Card>
               <CardHeader>
-                <CardTitle>Pending Leave Requests</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Pending Leave Requests</CardTitle>
               </CardHeader>
               <CardContent>
                 {leaveRequests.length === 0 ? (
@@ -235,18 +253,25 @@ export default function HR() {
                     <p>No pending leave requests</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {leaveRequests.map((request: any) => (
-                      <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{request.employees?.name}</p>
-                          <p className="text-sm text-muted-foreground">
+                      <div 
+                        key={request.id} 
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base">{request.employees?.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()} ({request.days_count} days)
                           </p>
                         </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline">Approve</Button>
-                          <Button size="sm" variant="outline">Decline</Button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <Button size={isMobile ? 'default' : 'sm'} variant="outline" className="flex-1 sm:flex-none min-h-[44px]">
+                            Approve
+                          </Button>
+                          <Button size={isMobile ? 'default' : 'sm'} variant="outline" className="flex-1 sm:flex-none min-h-[44px]">
+                            Decline
+                          </Button>
                         </div>
                       </div>
                     ))}

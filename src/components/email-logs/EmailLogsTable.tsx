@@ -5,6 +5,7 @@ import { EmailStatusBadge } from './EmailStatusBadge';
 import { Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface EmailLog {
   id: string;
@@ -27,6 +28,7 @@ interface EmailLogsTableProps {
 
 export function EmailLogsTable({ logs, onViewDetails }: EmailLogsTableProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return '-';
@@ -58,8 +60,53 @@ export function EmailLogsTable({ logs, onViewDetails }: EmailLogsTableProps) {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {logs.map((log) => (
+          <div
+            key={log.id}
+            className="border rounded-lg p-4 space-y-3 touch-manipulation active:bg-accent"
+            onClick={() => onViewDetails(log)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <EmailStatusBadge status={log.status} />
+                  <Badge variant="outline" className="text-xs">
+                    {getEmailTypeLabel(log.email_type)}
+                  </Badge>
+                </div>
+                <p className="font-medium text-sm">{log.recipient_name || log.recipient_email}</p>
+                {log.recipient_name && (
+                  <p className="text-xs text-muted-foreground">{log.recipient_email}</p>
+                )}
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-2">{log.subject}</p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Sent: {formatTimestamp(log.sent_at)}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetails(log);
+                }}
+                className="min-h-[44px]"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                View
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

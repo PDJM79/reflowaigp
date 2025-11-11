@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ export default function TasksList() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,79 +118,83 @@ export default function TasksList() {
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t('tasks.title')}</h1>
-          <p className="text-muted-foreground">{t('tasks.description')}</p>
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">{t('tasks.title')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('tasks.description')}</p>
         </div>
-        <Button onClick={() => setShowDialog(true)}>
+        <Button 
+          onClick={() => setShowDialog(true)}
+          size={isMobile ? 'lg' : 'default'}
+          className="w-full sm:w-auto min-h-[44px]"
+        >
           <Plus className="h-4 w-4 mr-2" />
           {t('tasks.create')}
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Open Tasks</CardTitle>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Open Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{openTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{openTasks.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">In Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{inProgressTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{inProgressTasks.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{completedTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{completedTasks.length}</div>
           </CardContent>
         </Card>
-        <Card className="border-destructive">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-destructive flex items-center gap-2">
+        <Card className="border-destructive touch-manipulation col-span-2 sm:col-span-1">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium text-destructive flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               Overdue
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{overdueTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-destructive">{overdueTasks.length}</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             {t('tasks.filters')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="flex-1 min-w-full sm:min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t('tasks.search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 min-h-[44px]"
                 />
               </div>
             </div>
 
             <Select value={selectedModule} onValueChange={setSelectedModule}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]">
                 <SelectValue placeholder="All Modules" />
               </SelectTrigger>
               <SelectContent>
@@ -208,7 +214,7 @@ export default function TasksList() {
             </Select>
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -220,7 +226,7 @@ export default function TasksList() {
             </Select>
 
             <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
                 <SelectValue placeholder="All Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -234,6 +240,8 @@ export default function TasksList() {
             <Button
               variant={showMyTasks ? "default" : "outline"}
               onClick={() => setShowMyTasks(!showMyTasks)}
+              size={isMobile ? 'lg' : 'default'}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               <User className="h-4 w-4 mr-2" />
               My Tasks
@@ -252,7 +260,7 @@ export default function TasksList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTasks.map((task) => (
             <TaskCard
               key={task.id}
