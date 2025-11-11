@@ -45,29 +45,30 @@ export function RoomManagementDialog({ open, onOpenChange }: RoomManagementDialo
     cleaning_frequency: 'daily',
   });
 
-  const { data: rooms = [], isLoading } = useQuery({
+  const { data: rawRooms, isLoading } = useQuery({
     queryKey: ['rooms-management', user?.id],
     queryFn: async () => {
-      const { data: userData } = await supabase
+      const userResult = await (supabase as any)
         .from('users')
         .select('practice_id')
         .eq('auth_user_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (!userData) return [] as any[];
+      if (!userResult?.data?.practice_id) return [];
 
-      const { data, error } = await supabase
+      const roomsResult = await (supabase as any)
         .from('rooms')
         .select('*')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_active' as any, true)
+        .eq('practice_id', userResult.data.practice_id)
+        .eq('is_active', true)
         .order('name');
 
-      if (error) throw error;
-      return (data || []) as any[];
+      return roomsResult?.data || [];
     },
     enabled: open && !!user?.id,
-  }) as { data: any[]; isLoading: boolean };
+  });
+
+  const rooms = (rawRooms || []) as any[];
 
   // Create/Update room mutation
   const saveRoomMutation = useMutation({
