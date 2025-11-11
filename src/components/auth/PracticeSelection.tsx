@@ -36,9 +36,10 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <AppHeader />
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+        <AppHeader useLoginStyles={true} />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
           <CardHeader className="space-y-4">
             <Skeleton className="h-12 w-12 rounded-full mx-auto" />
             <Skeleton className="h-8 w-3/4 mx-auto" />
@@ -49,15 +50,16 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
             <Skeleton className="h-10 w-full" />
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <AppHeader />
-      
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+      <AppHeader useLoginStyles={true} />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Building2 className="h-8 w-8 text-primary" />
@@ -121,6 +123,7 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
