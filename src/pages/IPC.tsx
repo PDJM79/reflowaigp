@@ -59,8 +59,8 @@ export default function IPC() {
       setAudits(auditsData || []);
       setStats({
         total: auditsData?.length || 0,
-        completed: auditsData?.filter(a => a.status === 'completed').length || 0,
-        pending: auditsData?.filter(a => a.status === 'pending').length || 0,
+        completed: auditsData?.filter(a => a.completed_at !== null).length || 0,
+        pending: auditsData?.filter(a => a.completed_at === null).length || 0,
         openActions: actionsData?.filter(a => a.status === 'open').length || 0
       });
     } catch (error: any) {
@@ -85,15 +85,14 @@ export default function IPC() {
       if (!userData) throw new Error('User data not found');
 
       const currentDate = new Date();
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('ipc_audits')
-        .insert({
+        .insert([{
           practice_id: userData.practice_id,
           period_month: currentDate.getMonth() + 1,
           period_year: currentDate.getFullYear(),
-          location_scope: 'whole_practice',
-          status: 'pending'
-        })
+          location_scope: 'whole_practice'
+        }])
         .select()
         .single();
 
