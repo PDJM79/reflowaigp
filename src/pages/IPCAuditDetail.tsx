@@ -204,10 +204,9 @@ export default function IPCAuditDetail() {
       </div>
 
       <IPCActionDialog
+        submissionId={id!}
         open={showActionDialog}
-        onClose={() => setShowActionDialog(false)}
-        auditId={id!}
-        onSuccess={fetchAuditData}
+        onOpenChange={setShowActionDialog}
       />
     </div>
   );
