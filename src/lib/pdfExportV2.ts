@@ -179,6 +179,164 @@ export class UpdatePackPDFExporter {
   }
 }
 
+// Fire Emergency Pack PDF Generator
+export async function generateFireEmergencyPackPDF(assessmentId: string, supabase: any) {
+  const exporter = new UpdatePackPDFExporter();
+
+  // Fetch assessment data
+  const { data: assessment } = await supabase
+    .from('fire_risk_assessments_v2')
+    .select('*, practices(name)')
+    .eq('id', assessmentId)
+    .single();
+
+  // Fetch actions
+  const { data: actions } = await supabase
+    .from('fire_actions')
+    .select('*')
+    .eq('assessment_id', assessmentId)
+    .order('severity', { ascending: false });
+
+  if (!assessment) {
+    throw new Error('Assessment not found');
+  }
+
+  exporter.addPracticeHeader(
+    assessment.practices?.name || 'Unknown Practice',
+    `Assessment Date: ${new Date(assessment.assessment_date).toLocaleDateString()}`
+  );
+
+  exporter.addSectionTitle('Fire Emergency Pack');
+
+  // FRA Summary
+  exporter.addSubsectionTitle('Fire Risk Assessment Summary');
+  exporter.addKeyValuePairs([
+    { key: 'Assessment Date', value: new Date(assessment.assessment_date).toLocaleDateString() },
+    { key: 'Next Review', value: assessment.next_review_date ? new Date(assessment.next_review_date).toLocaleDateString() : 'Not set' },
+    { key: 'Overall Risk', value: assessment.overall_risk_level || 'N/A' },
+  ]);
+
+  // Premises Information
+  if (assessment.premises) {
+    exporter.addSubsectionTitle('Premises Information');
+    const premises = typeof assessment.premises === 'string' ? JSON.parse(assessment.premises) : assessment.premises;
+    exporter.addParagraph(JSON.stringify(premises, null, 2));
+  }
+
+  // Emergency Plan
+  if (assessment.emergency_plan) {
+    exporter.addSubsectionTitle('Fire Emergency Plan');
+    const plan = typeof assessment.emergency_plan === 'string' ? JSON.parse(assessment.emergency_plan) : assessment.emergency_plan;
+    exporter.addParagraph(JSON.stringify(plan, null, 2));
+  }
+
+  // Actions Table
+  if (actions && actions.length > 0) {
+    exporter.addSubsectionTitle('Fire Safety Actions');
+    const actionRows = actions.map((action: any) => [
+      action.deficiency_description || '',
+      action.severity || '',
+      action.timeframe || '',
+      action.completed_at ? 'Complete' : 'Open',
+    ]);
+    exporter.addTable(
+      ['Description', 'Severity', 'Timeframe', 'Status'],
+      actionRows
+    );
+  }
+
+  exporter.addSignatureSection([
+    { role: 'Fire Safety Lead', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' }
+  ]);
+
+  return exporter.save(`Fire_Emergency_Pack_${new Date(assessment.assessment_date).toISOString().split('T')[0]}.pdf`);
+}
+
+// Claims Pack PDF Generator
+export async function generateClaimsPackPDF(claimRunId: string, supabase: any) {
+  const exporter = new UpdatePackPDFExporter();
+
+  // Fetch claim run data
+  const { data: claimRun } = await supabase
+    .from('script_claim_runs')
+    .select('*, practices(name)')
+    .eq('id', claimRunId)
+    .single();
+
+  // Fetch claims
+  const { data: claims } = await supabase
+    .from('script_claims')
+    .select('*')
+    .eq('claim_run_id', claimRunId)
+    .order('issue_date', { ascending: true });
+
+  // Fetch review checklist
+  const { data: reviewLogs } = await supabase
+    .from('claim_review_logs')
+    .select('*')
+    .eq('claim_run_id', claimRunId)
+    .order('reviewed_at', { ascending: false })
+    .limit(1);
+
+  if (!claimRun) {
+    throw new Error('Claim run not found');
+  }
+
+  const periodStart = new Date(claimRun.period_start);
+  const periodEnd = new Date(claimRun.period_end);
+
+  exporter.addPracticeHeader(
+    claimRun.practices?.name || 'Unknown Practice',
+    `Period: ${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`
+  );
+
+  exporter.addSectionTitle('Enhanced Service Claims Pack');
+
+  // Claim Summary
+  exporter.addSubsectionTitle('Claim Run Summary');
+  exporter.addKeyValuePairs([
+    { key: 'Run Date', value: new Date(claimRun.run_date).toLocaleDateString() },
+    { key: 'Review Status', value: claimRun.review_status || 'Pending' },
+    { key: 'FPPS Status', value: claimRun.fpps_submission_status || 'Not submitted' },
+    { key: 'Total Scripts', value: claims?.length.toString() || '0' },
+  ]);
+
+  // Review Checklist Status
+  if (reviewLogs && reviewLogs.length > 0) {
+    exporter.addSubsectionTitle('Manual Review Checklist');
+    const checklist = reviewLogs[0].checklist || {};
+    exporter.addBulletList([
+      `Patient notes reviewed: ${checklist.patient_notes_reviewed ? '✓' : '✗'}`,
+      `Blood results checked: ${checklist.blood_results_checked ? '✓' : '✗'}`,
+      `Clinical coding verified: ${checklist.clinical_coding_verified ? '✓' : '✗'}`,
+      `Claim form 1.3 completed: ${checklist.claim_form_completed ? '✓' : '✗'}`,
+    ]);
+  }
+
+  // Claims Table
+  if (claims && claims.length > 0) {
+    exporter.addSubsectionTitle('Script Claims - Form 1.3');
+    const claimRows = claims.map((claim: any) => [
+      new Date(claim.issue_date).toLocaleDateString(),
+      claim.emis_id || '',
+      claim.medication || '',
+      claim.amount || '1',
+    ]);
+    exporter.addTable(
+      ['Date', 'EMIS ID', 'Medication', 'Amount'],
+      claimRows
+    );
+  }
+
+  exporter.addSignatureSection([
+    { role: 'Practice Manager', name: '', date: '' },
+    { role: 'Administrator', name: '', date: '' }
+  ]);
+
+  return exporter.save(`Claims_Pack_${periodStart.toISOString().split('T')[0]}_to_${periodEnd.toISOString().split('T')[0]}.pdf`);
+}
+
 // IPC Statement PDF Generator
 export function generateIPCStatementPDF(data: {
   practiceName: string;
@@ -226,73 +384,25 @@ export function generateIPCStatementPDF(data: {
   return exporter;
 }
 
-// Fire Emergency Pack PDF Generator
-export function generateFireEmergencyPackPDF(data: {
+// HR Appraisal Report PDF Generator
+export function generateAppraisalReportPDF(data: {
   practiceName: string;
-  assessment: any;
-  actions: any[];
+  employee: any;
+  appraisal: any;
+  feedback360?: any[];
+  actions?: any[];
 }) {
   const exporter = new UpdatePackPDFExporter();
   
-  exporter.addPracticeHeader(data.practiceName);
-  exporter.addSectionTitle('Fire Emergency Pack (FEP)');
-  
-  exporter.addSubsectionTitle('Assessment Details');
-  exporter.addKeyValuePairs([
-    { key: 'Assessment Date', value: new Date(data.assessment.assessment_date).toLocaleDateString() },
-    { key: 'Next Review Due', value: data.assessment.next_review_date ? new Date(data.assessment.next_review_date).toLocaleDateString() : 'Not set' },
-    { key: 'Assessor', value: data.assessment.assessor_name || 'Unknown' }
-  ]);
-
-  if (data.assessment.emergency_plan) {
-    const plan = data.assessment.emergency_plan as any;
-    exporter.addSubsectionTitle('Emergency Plan');
-    if (plan.muster_point) {
-      exporter.addParagraph(`Muster Point: ${plan.muster_point}`);
-    }
-    if (plan.marshal_roles) {
-      exporter.addParagraph(`Fire Marshals: ${plan.marshal_roles}`);
-    }
-  }
-
-  if (data.actions.length > 0) {
-    exporter.addSubsectionTitle('Fire Safety Actions');
-    const actionRows = data.actions.map((action: any) => [
-      action.action_description,
-      action.severity || 'N/A',
-      action.timeframe || 'N/A',
-      action.status,
-      action.due_date ? new Date(action.due_date).toLocaleDateString() : 'N/A'
-    ]);
-    exporter.addTable(['Action', 'Severity', 'Timeframe', 'Status', 'Due Date'], actionRows);
-  }
-
-  exporter.addSignatureSection([
-    { role: 'Estates Lead', name: '', date: '' },
-    { role: 'Practice Manager', name: '', date: '' }
-  ]);
-
-  return exporter;
-}
-
-// Claims Pack PDF Generator
-export function generateClaimsPackPDF(data: {
-  practiceName: string;
-  claimRun: any;
-  claims: any[];
-  reviewChecklist: any[];
-}) {
-  const exporter = new UpdatePackPDFExporter();
-  
-  exporter.addPracticeHeader(data.practiceName, 
-    `${new Date(data.claimRun.period_start).toLocaleDateString()} - ${new Date(data.claimRun.period_end).toLocaleDateString()}`
-  );
-  exporter.addSectionTitle('Enhanced Service Claims Pack');
+  exporter.addPracticeHeader(data.practiceName, data.appraisal.period);
+  exporter.addSectionTitle('Annual Appraisal Report');
   
   exporter.addKeyValuePairs([
-    { key: 'Claim Period', value: `${new Date(data.claimRun.period_start).toLocaleDateString()} - ${new Date(data.claimRun.period_end).toLocaleDateString()}` },
-    { key: 'Total Scripts', value: data.claims.length.toString() },
-    { key: 'Run Date', value: new Date(data.claimRun.run_date).toLocaleDateString() }
+    { key: 'Employee', value: data.employee.name },
+    { key: 'Appraisal Period', value: data.appraisal.period },
+    { key: 'Scheduled Date', value: new Date(data.appraisal.scheduled_date).toLocaleDateString() },
+    { key: 'Completed Date', value: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : 'Pending' },
+    { key: 'Status', value: data.appraisal.status }
   ]);
 
   exporter.addSubsectionTitle('Claim Items');

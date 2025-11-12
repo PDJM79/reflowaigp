@@ -12,6 +12,9 @@ import { FireSafetyActionDialog } from '@/components/fire-safety/FireSafetyActio
 import { FireRiskWizard } from '@/components/fire-safety/FireRiskWizard';
 import { COSHHAssessmentDialog } from '@/components/coshh/COSHHAssessmentDialog';
 import { useQuery } from '@tanstack/react-query';
+import { generateFireEmergencyPackPDF } from '@/lib/pdfExportV2';
+import { toast } from 'sonner';
+import { FileDown } from 'lucide-react';
 
 export default function FireSafety() {
   const { user } = useAuth();
@@ -197,7 +200,7 @@ export default function FireSafety() {
                   <p className="text-muted-foreground text-center py-8">No assessments recorded</p>
                 ) : (
                   <div className="space-y-3">
-                    {assessments.map((assessment: any) => (
+                     {assessments.map((assessment: any) => (
                       <div key={assessment.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -217,14 +220,32 @@ export default function FireSafety() {
                             <p className="text-sm text-muted-foreground mt-1">{assessment.summary}</p>
                           )}
                         </div>
-                        {assessment.next_assessment_due && (
-                          <div className="text-sm text-right">
-                            <p className="font-medium">Next Due</p>
-                            <p className="text-muted-foreground">
-                              {new Date(assessment.next_assessment_due).toLocaleDateString()}
-                            </p>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {assessment.next_assessment_due && (
+                            <div className="text-sm text-right">
+                              <p className="font-medium">Next Due</p>
+                              <p className="text-muted-foreground">
+                                {new Date(assessment.next_assessment_due).toLocaleDateString()}
+                              </p>
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await generateFireEmergencyPackPDF(assessment.id, supabase);
+                                toast.success('Fire Emergency Pack PDF exported');
+                              } catch (error) {
+                                console.error('Export error:', error);
+                                toast.error('Failed to export PDF');
+                              }
+                            }}
+                          >
+                            <FileDown className="h-4 w-4 mr-1" />
+                            Export Pack
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

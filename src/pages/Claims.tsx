@@ -5,8 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PoundSterling, Plus, Calendar, FileText } from 'lucide-react';
+import { PoundSterling, Plus, Calendar, FileText, FileDown } from 'lucide-react';
 import { ScriptClaimRunDialog } from '@/components/scripts/ScriptClaimRunDialog';
+import { generateClaimsPackPDF } from '@/lib/pdfExportV2';
+import { toast } from 'sonner';
 
 export default function Claims() {
   const { user } = useAuth();
@@ -150,6 +152,22 @@ export default function Claims() {
                     <Button variant="outline" size="sm">
                       <FileText className="h-4 w-4 mr-1" />
                       View Details
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await generateClaimsPackPDF(run.id, supabase);
+                          toast.success('Claims Pack PDF exported');
+                        } catch (error) {
+                          console.error('Export error:', error);
+                          toast.error('Failed to export PDF');
+                        }
+                      }}
+                    >
+                      <FileDown className="h-4 w-4 mr-1" />
+                      Export Pack
                     </Button>
                   </div>
                 </div>

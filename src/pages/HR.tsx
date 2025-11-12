@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, FileText, GraduationCap, Calendar, Shield, Plus } from 'lucide-react';
+import { Users, FileText, GraduationCap, Calendar, Shield, Plus, FileDown } from 'lucide-react';
 import { DBSTrackingDialog } from '@/components/hr/DBSTrackingDialog';
 import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 import { AppraisalDialog } from '@/components/hr/AppraisalDialog';
 import { Feedback360Dialog } from '@/components/hr/Feedback360Dialog';
 import { TrainingCatalogueDialog } from '@/components/hr/TrainingCatalogueDialog';
+import { generateTrainingMatrixPDF, generateDBSRegisterPDF } from '@/lib/pdfExportV2';
+import { toast } from 'sonner';
 
 export default function HR() {
   const { user } = useAuth();
@@ -101,6 +103,25 @@ export default function HR() {
           >
             <GraduationCap className="h-4 w-4 mr-2" />
             Training Catalogue
+          </Button>
+        </div>
+      </div>
+          <Button
+            size={isMobile ? 'lg' : 'default'}
+            variant="outline"
+            className="flex-1 sm:flex-none min-h-[44px]"
+            onClick={async () => {
+              try {
+                await generateDBSRegisterPDF(practiceId, supabase);
+                toast.success('DBS Register PDF exported');
+              } catch (error) {
+                console.error('Export error:', error);
+                toast.error('Failed to export PDF');
+              }
+            }}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Export DBS Register
           </Button>
         </div>
       </div>

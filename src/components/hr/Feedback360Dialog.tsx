@@ -48,11 +48,13 @@ export function Feedback360Dialog({ appraisalId, employeeName, open, onOpenChang
     setSaving(true);
 
     try {
-      const feedbackEntries = QUESTIONS.map((question, index) => ({
-        appraisal_id: appraisalId,
-        question,
-        response: responses[index.toString()]
-      }));
+      const feedbackEntries = QUESTIONS
+        .filter((_, index) => responses[index.toString()]) // Only answered questions
+        .map((question, index) => ({
+          appraisal_id: appraisalId,
+          question,
+          response: responses[index.toString()]
+        }));
 
       const { error } = await supabase
         .from('hr_360_feedback')

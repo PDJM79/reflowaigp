@@ -64,14 +64,16 @@ export function ScriptClaimRunDialog({ open, onOpenChange, onSuccess }: ScriptCl
       if (scriptsError) throw scriptsError;
 
       if (scripts && scripts.length > 0) {
-        const claims = scripts.map(script => ({
-          claim_run_id: run.id,
-          script_id: script.id,
-          issue_date: script.issue_date,
-          emis_id: script.emis_id,
-          medication: script.drug_name,
-          amount: '1' // Default amount
-        }));
+        const claims = scripts
+          .filter(script => script.emis_id) // Only include scripts with emis_id
+          .map(script => ({
+            claim_run_id: run.id,
+            script_id: script.id,
+            issue_date: script.issue_date,
+            emis_id: script.emis_id!,
+            medication: script.drug_name,
+            amount: '1' // Default amount
+          }));
 
         const { error: claimsError } = await supabase
           .from('script_claims')
