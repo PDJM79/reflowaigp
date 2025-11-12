@@ -93,7 +93,7 @@ export default function RoomAssessments() {
   if (loading) return <AppLayout><p>Loading room assessments...</p></AppLayout>;
 
   return (
-    <AppLayout>
+    <AppLayout title="Room Assessments">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -143,7 +143,9 @@ export default function RoomAssessments() {
                         ) : '-'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={status.variant}>{status.label}</Badge>
+                        <Badge variant={status.variant === 'success' ? 'default' : status.variant === 'warning' ? 'secondary' : status.variant}>
+                          {status.label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" onClick={() => handleAssess(room.id)}>

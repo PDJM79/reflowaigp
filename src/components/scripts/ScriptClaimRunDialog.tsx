@@ -45,7 +45,7 @@ export function ScriptClaimRunDialog({ open, onOpenChange, onSuccess }: ScriptCl
           created_by: userData.id,
           period_start: periodStart.toISOString(),
           period_end: periodEnd.toISOString(),
-          review_status: 'pending'
+          run_date: new Date().toISOString()
         }])
         .select()
         .single();
@@ -69,8 +69,8 @@ export function ScriptClaimRunDialog({ open, onOpenChange, onSuccess }: ScriptCl
           script_id: script.id,
           issue_date: script.issue_date,
           emis_id: script.emis_id,
-          medication: script.medication,
-          amount: script.amount
+          medication: script.drug_name,
+          amount: '1' // Default amount
         }));
 
         const { error: claimsError } = await supabase

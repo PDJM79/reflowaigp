@@ -77,24 +77,23 @@ export function RoomAssessmentDialog({ roomId, open, onOpenChange, onSuccess }: 
           room_id: roomId,
           assessment_date: assessmentDate.toISOString().split('T')[0],
           assessor_id: userData.id,
-          findings: findings
+          findings: JSON.parse(JSON.stringify(findings))
         }]);
 
       if (error) throw error;
 
-      // Create actions for any "action_required" findings
+      // Create fire safety actions for any "action_required" findings
       const actionFindings = findings.filter(f => f.status === 'action_required');
       if (actionFindings.length > 0) {
         const actions = actionFindings.map(f => ({
           practice_id: userData.practice_id,
           action_description: `Room Assessment: ${f.item}`,
-          source: 'room_assessment',
-          source_id: roomId,
-          status: 'open' as const,
+          severity: 'moderate',
+          timeframe: 'one_month',
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         }));
 
-        await supabase.from('fire_actions').insert(actions);
+        await supabase.from('fire_safety_actions').insert(actions);
       }
 
       toast.success('Room assessment saved successfully');
@@ -189,11 +188,12 @@ export function RoomAssessmentDialog({ roomId, open, onOpenChange, onSuccess }: 
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Photo Evidence</Label>
-                    <FileUpload
-                      onUploadComplete={(url) => updateFinding(finding.id, { photo_url: url })}
-                      accept="image/*"
-                      maxSize={5 * 1024 * 1024}
+                    <Label>Photo URL</Label>
+                    <Input
+                      type="url"
+                      value={finding.photo_url}
+                      onChange={(e) => updateFinding(finding.id, { photo_url: e.target.value })}
+                      placeholder="Photo URL"
                     />
                   </div>
 

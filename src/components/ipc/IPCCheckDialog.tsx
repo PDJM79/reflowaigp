@@ -158,14 +158,12 @@ export function IPCCheckDialog({ auditId, open, onOpenChange, onSuccess }: IPCCh
 
           <div className="space-y-2">
             <Label>Photo Evidence (optional)</Label>
-            <FileUpload
-              onUploadComplete={(url) => setFormData({ ...formData, photo_url: url })}
-              accept="image/*"
-              maxSize={5 * 1024 * 1024}
+            <Input
+              type="url"
+              value={formData.photo_url}
+              onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+              placeholder="Photo URL (upload via evidence module)"
             />
-            {formData.photo_url && (
-              <p className="text-sm text-muted-foreground">Photo uploaded</p>
-            )}
           </div>
 
           <div className="flex justify-end gap-2">
