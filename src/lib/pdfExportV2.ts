@@ -318,3 +318,189 @@ export function generateClaimsPackPDF(data: {
 
   return exporter;
 }
+
+// HR Appraisal Report PDF Generator
+export function generateAppraisalReportPDF(data: {
+  practiceName: string;
+  employee: any;
+  appraisal: any;
+  feedback360?: any[];
+  actions?: any[];
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName, data.appraisal.period);
+  exporter.addSectionTitle('Annual Appraisal Report');
+  
+  exporter.addKeyValuePairs([
+    { key: 'Employee', value: data.employee.name },
+    { key: 'Appraisal Period', value: data.appraisal.period },
+    { key: 'Scheduled Date', value: new Date(data.appraisal.scheduled_date).toLocaleDateString() },
+    { key: 'Completed Date', value: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : 'Pending' },
+    { key: 'Status', value: data.appraisal.status }
+  ]);
+
+  if (data.appraisal.ratings) {
+    exporter.addSubsectionTitle('Performance Ratings');
+    const ratings = data.appraisal.ratings as Record<string, number>;
+    const ratingPairs = Object.entries(ratings).map(([key, value]) => ({
+      key: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      value: `${value}/5`
+    }));
+    exporter.addKeyValuePairs(ratingPairs);
+  }
+
+  if (data.appraisal.achievements) {
+    exporter.addSubsectionTitle('Key Achievements');
+    exporter.addParagraph(data.appraisal.achievements);
+  }
+
+  if (data.appraisal.challenges) {
+    exporter.addSubsectionTitle('Challenges & Areas for Improvement');
+    exporter.addParagraph(data.appraisal.challenges);
+  }
+
+  if (data.appraisal.support_needs) {
+    exporter.addSubsectionTitle('Support & Development Needs');
+    exporter.addParagraph(data.appraisal.support_needs);
+  }
+
+  if (data.appraisal.next_year_targets) {
+    exporter.addSubsectionTitle('Next Year Objectives');
+    const targets = data.appraisal.next_year_targets as string[];
+    exporter.addBulletList(targets);
+  }
+
+  if (data.feedback360 && data.feedback360.length > 0) {
+    exporter.addSubsectionTitle('360° Feedback Summary');
+    exporter.addParagraph(`Received ${data.feedback360.length} anonymous feedback responses.`);
+  }
+
+  if (data.actions && data.actions.length > 0) {
+    exporter.addSubsectionTitle('Staff Action Plan');
+    const actionRows = data.actions.map((action: any) => [
+      action.action_description,
+      action.action_type || 'Development',
+      action.status,
+      action.target_date ? new Date(action.target_date).toLocaleDateString() : 'N/A'
+    ]);
+    exporter.addTable(['Action', 'Type', 'Status', 'Target Date'], actionRows);
+  }
+
+  exporter.addSignatureSection([
+    { role: 'Employee', name: data.employee.name, date: data.appraisal.employee_acknowledged_at ? new Date(data.appraisal.employee_acknowledged_at).toLocaleDateString() : '' },
+    { role: 'Reviewer', name: '', date: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : '' }
+  ]);
+
+  return exporter;
+}
+
+// Training Matrix PDF Generator
+export function generateTrainingMatrixPDF(data: {
+  practiceName: string;
+  employees: any[];
+  trainingTypes: any[];
+  trainingRecords: any[];
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName);
+  exporter.addSectionTitle('Training Compliance Matrix');
+  
+  exporter.addParagraph(`This matrix shows training compliance status for ${data.employees.length} employees across ${data.trainingTypes.length} training types.`);
+  
+  // Create matrix table
+  const headers = ['Employee', ...data.trainingTypes.map((t: any) => t.title)];
+  const rows = data.employees.map((emp: any) => {
+    const row = [emp.name];
+    
+    data.trainingTypes.forEach((type: any) => {
+      const record = data.trainingRecords.find((r: any) => 
+        r.employee_id === emp.id && r.training_type_id === type.id
+      );
+      
+      if (record && record.expiry_date) {
+        const expiryDate = new Date(record.expiry_date);
+        const today = new Date();
+        const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry < 0) {
+          row.push('EXPIRED');
+        } else if (daysUntilExpiry < 90) {
+          row.push(`${daysUntilExpiry}d`);
+        } else {
+          row.push('✓');
+        }
+      } else {
+        row.push('-');
+      }
+    });
+    
+    return row;
+  });
+  
+  exporter.addTable(headers, rows, {
+    0: { cellWidth: 40 },
+    ...Object.fromEntries(data.trainingTypes.map((_, i) => [i + 1, { cellWidth: 'auto' }]))
+  });
+  
+  exporter.addSubsectionTitle('Legend');
+  exporter.addBulletList([
+    '✓ - Training current',
+    'XXd - Expiring in XX days (less than 90 days)',
+    'EXPIRED - Training has expired',
+    '- - No record'
+  ]);
+
+  return exporter;
+}
+
+// DBS Register PDF Generator
+export function generateDBSRegisterPDF(data: {
+  practiceName: string;
+  employees: any[];
+  dbsChecks: any[];
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName);
+  exporter.addSectionTitle('DBS Tracking Register');
+  
+  exporter.addParagraph(`This register tracks DBS check status for ${data.employees.length} employees.`);
+  
+  const rows = data.employees.map((emp: any) => {
+    const dbs = data.dbsChecks.find((d: any) => d.employee_id === emp.id);
+    
+    if (dbs) {
+      const nextReview = new Date(dbs.next_review_due);
+      const today = new Date();
+      const daysUntilReview = Math.floor((nextReview.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return [
+        emp.name,
+        emp.role || 'N/A',
+        new Date(dbs.check_date).toLocaleDateString(),
+        dbs.certificate_number || 'N/A',
+        dbs.is_clear ? 'Clear' : 'Issues',
+        new Date(dbs.next_review_due).toLocaleDateString(),
+        daysUntilReview < 0 ? 'OVERDUE' : daysUntilReview < 90 ? 'Due Soon' : 'Current'
+      ];
+    } else {
+      return [emp.name, emp.role || 'N/A', '-', '-', '-', '-', 'NO RECORD'];
+    }
+  });
+  
+  exporter.addTable(
+    ['Employee', 'Role', 'Check Date', 'Certificate No.', 'Status', 'Next Review', 'Review Status'],
+    rows
+  );
+  
+  exporter.addSubsectionTitle('Notes');
+  exporter.addBulletList([
+    'DBS checks should be reviewed every 3 years',
+    'All reviews should be completed before the 5-year inspection cycle',
+    'Any "Issues" status requires immediate follow-up with HR'
+  ]);
+
+  return exporter;
+}
