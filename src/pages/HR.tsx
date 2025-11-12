@@ -168,14 +168,15 @@ export default function HR() {
                   .eq('id', practiceId)
                   .single();
                 
-                const { data: dbsChecks } = await supabase
-                  .from('dbs_checks')
-                  .select('*, employees(name)')
+                const { data: employeesData } = await supabase
+                  .from('employees')
+                  .select('*')
                   .eq('practice_id', practiceId);
 
-                if (dbsChecks) {
+                if (dbsChecks && employeesData) {
                   generateDBSRegisterPDF({
                     practiceName: practice?.name || 'Unknown Practice',
+                    employees: employeesData,
                     dbsChecks
                   });
                   toast.success('DBS Register PDF exported');
