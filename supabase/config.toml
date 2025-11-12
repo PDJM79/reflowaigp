@@ -1,5 +1,20 @@
 project_id = "eeqfqklcdstbziedsnxc"
 
+[functions.ipc-schedule-may-dec]
+verify_jwt = false
+
+[functions.annual-reviews-hs]
+verify_jwt = false
+
+[functions.training-expiry-scan]
+verify_jwt = false
+
+[functions.claims-reminders]
+verify_jwt = false
+
+[functions.complaints-sla-scan]
+verify_jwt = false
+
 [functions.auto-provision-practice]
 verify_jwt = true
 
