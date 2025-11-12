@@ -85,12 +85,18 @@ export default function IPC() {
       if (!userData) throw new Error('User data not found');
 
       const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      
+      // IPC audits are May (5) or December (12) only
+      const nextAuditMonth = currentMonth <= 5 ? 5 : 12;
+      const nextAuditYear = currentMonth > 12 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
+      
       const { data, error} = await supabase
         .from('ipc_audits')
         .insert([{
           practice_id: userData.practice_id,
-          period_month: currentDate.getMonth() + 1,
-          period_year: currentDate.getFullYear(),
+          period_month: nextAuditMonth,
+          period_year: nextAuditYear,
           location_scope: 'whole_practice'
         }])
         .select()
@@ -99,7 +105,7 @@ export default function IPC() {
       if (error) throw error;
 
       toast.success('IPC audit created successfully');
-      navigate(`/ipc/audits/${data.id}`);
+      navigate(`/ipc/audit/${data.id}`);
     } catch (error: any) {
       console.error('Error creating audit:', error);
       toast.error(error.message || 'Failed to create audit');

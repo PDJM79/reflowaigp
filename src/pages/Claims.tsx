@@ -6,12 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PoundSterling, Plus, Calendar, FileText } from 'lucide-react';
+import { ScriptClaimRunDialog } from '@/components/scripts/ScriptClaimRunDialog';
 
 export default function Claims() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [claimRuns, setClaimRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isClaimRunDialogOpen, setIsClaimRunDialogOpen] = useState(false);
+  const [practiceId, setPracticeId] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -31,11 +34,13 @@ export default function Claims() {
 
       if (!userData) return;
 
+      setPracticeId(userData.practice_id);
+
       const { data, error } = await supabase
-        .from('claim_runs')
-        .select('*, claim_items(count)')
+        .from('script_claim_runs')
+        .select('*')
         .eq('practice_id', userData.practice_id)
-        .order('period_start', { ascending: false })
+        .order('run_date', { ascending: false })
         .limit(50);
 
       if (error) throw error;
@@ -60,7 +65,7 @@ export default function Claims() {
           </h1>
           <p className="text-muted-foreground">Manage NHS enhanced service claims and submissions</p>
         </div>
-        <Button>
+        <Button onClick={() => setIsClaimRunDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Claim Run
         </Button>
@@ -113,7 +118,7 @@ export default function Claims() {
           <CardContent className="py-12 text-center">
             <PoundSterling className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground mb-4">No claim runs created yet</p>
-            <Button>
+            <Button onClick={() => setIsClaimRunDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create First Claim Run
             </Button>
@@ -130,15 +135,15 @@ export default function Claims() {
                 <div key={run.id} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={run.status === 'submitted' ? 'default' : 'secondary'}>
-                        {run.status}
+                      <Badge variant={run.review_status === 'reviewed' ? 'default' : 'secondary'}>
+                        {run.review_status || 'pending review'}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(run.period_start).toLocaleDateString()} - {new Date(run.period_end).toLocaleDateString()}
+                        {new Date(run.run_date).toLocaleDateString()}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {run.generated_at ? `Generated ${new Date(run.generated_at).toLocaleDateString()}` : 'Not generated yet'}
+                      {run.fpps_submitted_at ? `Submitted to FPPS ${new Date(run.fpps_submitted_at).toLocaleDateString()}` : 'Not yet submitted'}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -153,6 +158,13 @@ export default function Claims() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialogs */}
+      <ScriptClaimRunDialog
+        open={isClaimRunDialogOpen}
+        onOpenChange={setIsClaimRunDialogOpen}
+        onSuccess={fetchClaims}
+      />
     </div>
   );
 }
