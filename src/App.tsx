@@ -47,6 +47,12 @@ import EnvironmentalDashboard from "./pages/dashboards/EnvironmentalDashboard";
 import ComplaintsPatientExperience from "./pages/dashboards/ComplaintsPatientExperience";
 import DashboardsHub from "./pages/DashboardsHub";
 
+// Update Pack v2.0 Pages
+import IPC from "./pages/IPC";
+import IPCAuditDetail from "./pages/IPCAuditDetail";
+import RoomAssessments from "./pages/RoomAssessments";
+import IncidentsList from "./pages/IncidentsList";
+
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
 import StepExecution from "./pages/StepExecution";
@@ -105,6 +111,12 @@ const App = () => (
                 <Route path="/dashboards/workforce" element={<WorkforceDashboard />} />
                 <Route path="/dashboards/environmental" element={<EnvironmentalDashboard />} />
                 <Route path="/dashboards/patient-experience" element={<ComplaintsPatientExperience />} />
+                
+                {/* Update Pack v2.0 Routes */}
+                <Route path="/ipc" element={<IPC />} />
+                <Route path="/ipc/audit/:auditId" element={<IPCAuditDetail />} />
+                <Route path="/room-assessments" element={<RoomAssessments />} />
+                <Route path="/incidents-list" element={<IncidentsList />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplet, Calendar, ListChecks, Loader2, RefreshCw } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
+import { CleaningDashboard } from '@/components/cleaning/CleaningDashboard';
 
 export default function Cleaning() {
   const { user } = useAuth();
@@ -129,17 +130,21 @@ export default function Cleaning() {
 
       {loading ? (
         <div className="text-center py-8">Loading cleaning data...</div>
-      ) : tasks.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Droplet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground mb-4">No cleaning tasks yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create cleaning tasks from the Task Templates page or Tasks module
-            </p>
-          </CardContent>
-        </Card>
       ) : (
+        <>
+          <CleaningDashboard />
+          
+          {tasks.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Droplet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">No cleaning tasks yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Use the dashboard above to set up zones, tasks, and rooms
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
         <div className="grid gap-3 sm:gap-4">
           {tasks.slice(0, 10).map((task) => (
             <Card 
@@ -162,6 +167,8 @@ export default function Cleaning() {
             </Card>
           ))}
         </div>
+          )}
+        </>
       )}
     </div>
   );
