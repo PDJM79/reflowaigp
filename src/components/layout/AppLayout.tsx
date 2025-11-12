@@ -58,6 +58,7 @@ export function AppLayout() {
     { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
     { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
     { icon: PoundSterling, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
+    { icon: Shield, label: 'IPC Audits', path: '/ipc', roles: ['nurse_lead', 'practice_manager'] },
     { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },
     { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', roles: ['estates_lead', 'practice_manager'] },
     { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
