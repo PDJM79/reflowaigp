@@ -90,10 +90,14 @@ export default function RoomAssessments() {
     setDialogOpen(true);
   };
 
-  if (loading) return <AppLayout><p>Loading room assessments...</p></AppLayout>;
+  if (loading) return (
+    <AppLayout>
+      <p>Loading room assessments...</p>
+    </AppLayout>
+  );
 
   return (
-    <AppLayout title="Room Assessments">
+    <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
