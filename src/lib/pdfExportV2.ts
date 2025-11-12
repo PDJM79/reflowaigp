@@ -142,13 +142,14 @@ export class UpdatePackPDFExporter {
   addRAGIndicator(status: 'red' | 'amber' | 'green', label: string) {
     this.checkPageBreak(10);
     
-    const colors = {
+    const colors: Record<string, [number, number, number]> = {
       red: [220, 38, 38],
       amber: [245, 158, 11],
       green: [34, 197, 94]
     };
     
-    this.doc.setFillColor(...colors[status]);
+    const [r, g, b] = colors[status];
+    this.doc.setFillColor(r, g, b);
     this.doc.circle(this.margin + 2, this.yPosition - 1, 2, 'F');
     
     this.doc.setFont('helvetica', 'normal');

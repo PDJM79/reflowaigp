@@ -143,8 +143,10 @@ export function CleaningDashboard() {
 
       <RoomManagementDialog
         open={roomDialogOpen}
-        onOpenChange={setRoomDialogOpen}
-        onSuccess={fetchData}
+        onOpenChange={(open) => {
+          setRoomDialogOpen(open);
+          if (!open) fetchData();
+        }}
       />
     </div>
   );
