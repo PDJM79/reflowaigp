@@ -309,21 +309,20 @@ export default function IPCAuditDetail() {
       {/* Dialogs */}
       <IPCCheckDialog
         open={isCheckDialogOpen}
-        onClose={() => {
-          setIsCheckDialogOpen(false);
-          fetchAuditDetails();
+        onOpenChange={(open) => {
+          setIsCheckDialogOpen(open);
+          if (!open) fetchAuditDetails();
         }}
         auditId={auditId!}
-        practiceId={practiceId}
+        onSuccess={fetchAuditDetails}
       />
       <IPCActionDialog
         open={isActionDialogOpen}
-        onClose={() => {
-          setIsActionDialogOpen(false);
-          fetchAuditDetails();
+        onOpenChange={(open) => {
+          setIsActionDialogOpen(open);
+          if (!open) fetchAuditDetails();
         }}
-        auditId={auditId!}
-        practiceId={practiceId}
+        submissionId={auditId!}
       />
     </div>
   );
