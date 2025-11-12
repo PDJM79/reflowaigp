@@ -405,50 +405,61 @@ export function generateAppraisalReportPDF(data: {
     { key: 'Status', value: data.appraisal.status }
   ]);
 
-  exporter.addSubsectionTitle('Claim Items');
-  const claimRows = data.claims.map((claim: any) => [
-    new Date(claim.issue_date).toLocaleDateString(),
-    claim.emis_id || 'N/A',
-    claim.medication,
-    claim.amount
-  ]);
-  exporter.addTable(['Date', 'EMIS ID', 'Medication', 'Amount'], claimRows);
+  if (data.appraisal.ratings) {
+    exporter.addSubsectionTitle('Performance Ratings');
+    const ratings = data.appraisal.ratings as Record<string, number>;
+    const ratingPairs = Object.entries(ratings).map(([key, value]) => ({
+      key: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      value: `${value}/5`
+    }));
+    exporter.addKeyValuePairs(ratingPairs);
+  }
 
-  if (data.reviewChecklist && data.reviewChecklist.length > 0) {
-    exporter.addSubsectionTitle('PM Review Checklist');
-    const checklistItems = data.reviewChecklist.map((item: any) => 
-      `${item.checked ? '✓' : '☐'} ${item.item_description}`
-    );
-    exporter.addBulletList(checklistItems);
+  if (data.appraisal.achievements) {
+    exporter.addSubsectionTitle('Key Achievements');
+    exporter.addParagraph(data.appraisal.achievements);
+  }
+
+  if (data.appraisal.challenges) {
+    exporter.addSubsectionTitle('Challenges & Areas for Improvement');
+    exporter.addParagraph(data.appraisal.challenges);
+  }
+
+  if (data.appraisal.support_needs) {
+    exporter.addSubsectionTitle('Support & Development Needs');
+    exporter.addParagraph(data.appraisal.support_needs);
+  }
+
+  if (data.appraisal.next_year_targets) {
+    exporter.addSubsectionTitle('Next Year Objectives');
+    const targets = data.appraisal.next_year_targets as string[];
+    exporter.addBulletList(targets);
+  }
+
+  if (data.feedback360 && data.feedback360.length > 0) {
+    exporter.addSubsectionTitle('360° Feedback Summary');
+    exporter.addParagraph(`Received ${data.feedback360.length} anonymous feedback responses.`);
+  }
+
+  if (data.actions && data.actions.length > 0) {
+    exporter.addSubsectionTitle('Development Action Plan');
+    const actionRows = data.actions.map((action: any) => [
+      action.action_description,
+      action.priority || 'N/A',
+      action.due_date ? new Date(action.due_date).toLocaleDateString() : 'Not set'
+    ]);
+    exporter.addTable(['Action', 'Priority', 'Due Date'], actionRows);
   }
 
   exporter.addSignatureSection([
-    { role: 'Practice Manager', name: '', date: '' }
+    { role: 'Employee', name: '', date: '' },
+    { role: 'Reviewer', name: '', date: '' }
   ]);
 
   return exporter;
 }
 
-// HR Appraisal Report PDF Generator
-export function generateAppraisalReportPDF(data: {
-  practiceName: string;
-  employee: any;
-  appraisal: any;
-  feedback360?: any[];
-  actions?: any[];
-}) {
-  const exporter = new UpdatePackPDFExporter();
-  
-  exporter.addPracticeHeader(data.practiceName, data.appraisal.period);
-  exporter.addSectionTitle('Annual Appraisal Report');
-  
-  exporter.addKeyValuePairs([
-    { key: 'Employee', value: data.employee.name },
-    { key: 'Appraisal Period', value: data.appraisal.period },
-    { key: 'Scheduled Date', value: new Date(data.appraisal.scheduled_date).toLocaleDateString() },
-    { key: 'Completed Date', value: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : 'Pending' },
-    { key: 'Status', value: data.appraisal.status }
-  ]);
+// Training Matrix PDF Generator
 
   if (data.appraisal.ratings) {
     exporter.addSubsectionTitle('Performance Ratings');
