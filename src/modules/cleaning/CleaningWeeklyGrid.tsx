@@ -109,14 +109,14 @@ export function CleaningWeeklyGrid() {
 
         await supabase
           .from('cleaning_logs')
-          .insert({
+          .insert([{
             practice_id: userData.practice_id,
+            room_id: taskId, // Using taskId as room_id for now - needs proper room management
             task_id: taskId,
             log_date: format(date, 'yyyy-MM-dd'),
             initials: value,
-            completed_by: userData.id,
             retained_until: retainedUntil.toISOString()
-          });
+          }]);
       }
 
       fetchData(); // Refresh to get updated logs
