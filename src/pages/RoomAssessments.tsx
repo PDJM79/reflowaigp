@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -90,15 +89,10 @@ export default function RoomAssessments() {
     setDialogOpen(true);
   };
 
-  if (loading) return (
-    <AppLayout>
-      <p>Loading room assessments...</p>
-    </AppLayout>
-  );
+  if (loading) return <p>Loading room assessments...</p>;
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Annual Room Assessments</h1>
@@ -181,6 +175,6 @@ export default function RoomAssessments() {
           />
         )}
       </div>
-    </AppLayout>
+    </div>
   );
 }
