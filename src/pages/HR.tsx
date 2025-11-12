@@ -86,7 +86,7 @@ export default function HR() {
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button 
             size={isMobile ? 'lg' : 'default'}
             className="flex-1 sm:flex-none min-h-[44px]"
@@ -104,16 +104,82 @@ export default function HR() {
             <GraduationCap className="h-4 w-4 mr-2" />
             Training Catalogue
           </Button>
-        </div>
-      </div>
           <Button
             size={isMobile ? 'lg' : 'default'}
             variant="outline"
             className="flex-1 sm:flex-none min-h-[44px]"
             onClick={async () => {
               try {
-                await generateDBSRegisterPDF(practiceId, supabase);
-                toast.success('DBS Register PDF exported');
+                const { data: userData } = await supabase
+                  .from('users')
+                  .select('practice_id')
+                  .eq('auth_user_id', user?.id)
+                  .single();
+                
+                if (!userData) throw new Error('User data not found');
+                
+                const { data: practice } = await supabase
+                  .from('practices')
+                  .select('name')
+                  .eq('id', userData.practice_id)
+                  .single();
+                
+                const { data: employeesData } = await supabase
+                  .from('employees')
+                  .select('*')
+                  .eq('practice_id', userData.practice_id);
+                
+                const { data: trainingTypesData } = await supabase
+                  .from('training_types')
+                  .select('*')
+                  .eq('practice_id', userData.practice_id);
+                
+                const { data: trainingRecordsData } = await supabase
+                  .from('training_records')
+                  .select('*');
+
+                if (employeesData && trainingTypesData && trainingRecordsData) {
+                  generateTrainingMatrixPDF({
+                    practiceName: practice?.name || 'Unknown Practice',
+                    employees: employeesData,
+                    trainingTypes: trainingTypesData,
+                    trainingRecords: trainingRecordsData
+                  });
+                  toast.success('Training Matrix PDF exported');
+                }
+              } catch (error) {
+                console.error('Export error:', error);
+                toast.error('Failed to export PDF');
+              }
+            }}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Export Training Matrix
+          </Button>
+          <Button
+            size={isMobile ? 'lg' : 'default'}
+            variant="outline"
+            className="flex-1 sm:flex-none min-h-[44px]"
+            onClick={async () => {
+              try {
+                const { data: practice } = await supabase
+                  .from('practices')
+                  .select('name')
+                  .eq('id', practiceId)
+                  .single();
+                
+                const { data: dbsChecks } = await supabase
+                  .from('dbs_checks')
+                  .select('*, employees(name)')
+                  .eq('practice_id', practiceId);
+
+                if (dbsChecks) {
+                  generateDBSRegisterPDF({
+                    practiceName: practice?.name || 'Unknown Practice',
+                    dbsChecks
+                  });
+                  toast.success('DBS Register PDF exported');
+                }
               } catch (error) {
                 console.error('Export error:', error);
                 toast.error('Failed to export PDF');
