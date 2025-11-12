@@ -18,7 +18,7 @@ export function CleaningTaskLibrary() {
   const [formData, setFormData] = useState({
     task_name: '',
     description: '',
-    frequency: 'daily' as 'full' | 'spot' | 'check' | 'periodic' | 'touch',
+    frequency: 'full' as 'full' | 'spot' | 'check' | 'periodic' | 'touch',
     periodic_rule: ''
   });
 
@@ -98,7 +98,7 @@ export function CleaningTaskLibrary() {
         toast.success('Task created successfully');
       }
 
-      setFormData({ task_name: '', description: '', frequency: 'daily', periodic_rule: '' });
+      setFormData({ task_name: '', description: '', frequency: 'full', periodic_rule: '' });
       setEditingTask(null);
       fetchTasks();
     } catch (error: any) {
@@ -202,7 +202,7 @@ export function CleaningTaskLibrary() {
               {editingTask && (
                 <Button type="button" variant="outline" onClick={() => {
                   setEditingTask(null);
-                  setFormData({ task_name: '', description: '', frequency: 'daily', periodic_rule: '' });
+                  setFormData({ task_name: '', description: '', frequency: 'full', periodic_rule: '' });
                 }}>
                   Cancel
                 </Button>
