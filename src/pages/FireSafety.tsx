@@ -316,13 +316,19 @@ export default function FireSafety() {
       {/* Dialogs */}
       <FireRiskWizard
         open={isFRAWizardOpen}
-        onClose={() => setIsFRAWizardOpen(false)}
-        practiceId={practiceId}
+        onOpenChange={setIsFRAWizardOpen}
+        onSuccess={() => {
+          setIsFRAWizardOpen(false);
+          // Refresh data
+        }}
       />
       <COSHHAssessmentDialog
         open={isCOSHHDialogOpen}
-        onClose={() => setIsCOSHHDialogOpen(false)}
-        practiceId={practiceId}
+        onOpenChange={setIsCOSHHDialogOpen}
+        onSuccess={() => {
+          setIsCOSHHDialogOpen(false);
+          // Refresh data
+        }}
       />
       <FireSafetyActionDialog
         open={isActionDialogOpen}

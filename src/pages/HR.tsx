@@ -30,6 +30,7 @@ export default function HR() {
   const [isTrainingCatalogueOpen, setIsTrainingCatalogueOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
+  const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const [practiceId, setPracticeId] = useState<string>('');
 
   useEffect(() => {
@@ -49,6 +50,8 @@ export default function HR() {
         .single();
 
       if (!userData) return;
+
+      setPracticeId(userData.practice_id);
 
       const [employeesData, appraisalsData, trainingData, leaveData] = await Promise.all([
         supabase.from('employees').select('*').eq('practice_id', userData.practice_id),
@@ -302,7 +305,7 @@ export default function HR() {
           </TabsContent>
 
           <TabsContent value="alerts">
-            <TrainingExpiryAlerts practiceId={practiceId} />
+            <TrainingExpiryAlerts />
           </TabsContent>
         </Tabs>
       )}
@@ -320,14 +323,20 @@ export default function HR() {
         />
       )}
 
-      <AppraisalDialog
-        open={isAppraisalDialogOpen}
-        onClose={() => {
-          setIsAppraisalDialogOpen(false);
-          fetchHRData();
-        }}
-        practiceId={practiceId}
-      />
+      {selectedEmployeeForAppraisal && (
+        <AppraisalDialog
+          employeeId={selectedEmployeeForAppraisal}
+          open={isAppraisalDialogOpen}
+          onOpenChange={(open) => {
+            setIsAppraisalDialogOpen(open);
+            if (!open) {
+              setSelectedEmployeeForAppraisal('');
+              fetchHRData();
+            }
+          }}
+          onSuccess={fetchHRData}
+        />
+      )}
 
       {selectedAppraisal && (
         <Feedback360Dialog
@@ -341,8 +350,11 @@ export default function HR() {
 
       <TrainingCatalogueDialog
         open={isTrainingCatalogueOpen}
-        onClose={() => setIsTrainingCatalogueOpen(false)}
-        practiceId={practiceId}
+        onOpenChange={(open) => {
+          setIsTrainingCatalogueOpen(open);
+          if (!open) fetchHRData();
+        }}
+        onSuccess={fetchHRData}
       />
     </div>
   );
