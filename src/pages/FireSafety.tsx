@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Flame, ListChecks, AlertTriangle, CheckCircle, Plus, Shield } from 'lucide-react';
 import { FireSafetyAssessmentDialog } from '@/components/fire-safety/FireSafetyAssessmentDialog';
 import { FireSafetyActionDialog } from '@/components/fire-safety/FireSafetyActionDialog';
+import { FireRiskWizard } from '@/components/fire-safety/FireRiskWizard';
+import { COSHHAssessmentDialog } from '@/components/coshh/COSHHAssessmentDialog';
 import { useQuery } from '@tanstack/react-query';
 
 export default function FireSafety() {
@@ -16,6 +18,8 @@ export default function FireSafety() {
   const navigate = useNavigate();
   const [isAssessmentDialogOpen, setIsAssessmentDialogOpen] = useState(false);
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
+  const [isFRAWizardOpen, setIsFRAWizardOpen] = useState(false);
+  const [isCOSHHDialogOpen, setIsCOSHHDialogOpen] = useState(false);
   const [practiceId, setPracticeId] = useState<string>('');
 
   useEffect(() => {
@@ -105,9 +109,13 @@ export default function FireSafety() {
           <p className="text-muted-foreground">Manage fire drills, risk assessments, and H&S compliance</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsAssessmentDialogOpen(true)}>
+          <Button onClick={() => setIsFRAWizardOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Assessment
+            Fire Risk Assessment
+          </Button>
+          <Button variant="outline" onClick={() => setIsCOSHHDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            COSHH Assessment
           </Button>
           <Button variant="outline" onClick={() => setIsActionDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -306,10 +314,21 @@ export default function FireSafety() {
       )}
 
       {/* Dialogs */}
-      <FireSafetyAssessmentDialog
-        open={isAssessmentDialogOpen}
-        onClose={() => setIsAssessmentDialogOpen(false)}
-        practiceId={practiceId}
+      <FireRiskWizard
+        open={isFRAWizardOpen}
+        onOpenChange={setIsFRAWizardOpen}
+        onSuccess={() => {
+          setIsFRAWizardOpen(false);
+          // Refresh data
+        }}
+      />
+      <COSHHAssessmentDialog
+        open={isCOSHHDialogOpen}
+        onOpenChange={setIsCOSHHDialogOpen}
+        onSuccess={() => {
+          setIsCOSHHDialogOpen(false);
+          // Refresh data
+        }}
       />
       <FireSafetyActionDialog
         open={isActionDialogOpen}
