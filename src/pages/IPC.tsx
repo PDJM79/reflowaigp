@@ -85,13 +85,13 @@ export default function IPC() {
       if (!userData) throw new Error('User data not found');
 
       const currentDate = new Date();
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('ipc_audits')
-        .insert({
+        .insert([{
           period_month: currentDate.getMonth() + 1,
           period_year: currentDate.getFullYear(),
           location_scope: 'whole_practice'
-        })
+        }])
         .select()
         .single();
 

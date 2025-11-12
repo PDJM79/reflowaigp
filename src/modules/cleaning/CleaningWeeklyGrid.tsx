@@ -109,12 +109,12 @@ export function CleaningWeeklyGrid() {
 
         await supabase
           .from('cleaning_logs')
-          .insert({
+          .insert([{
             task_id: taskId,
             log_date: format(date, 'yyyy-MM-dd'),
             initials: value,
             retained_until: retainedUntil.toISOString()
-          });
+          }]);
       }
 
       fetchData(); // Refresh to get updated logs
