@@ -460,63 +460,6 @@ export function generateAppraisalReportPDF(data: {
 }
 
 // Training Matrix PDF Generator
-
-  if (data.appraisal.ratings) {
-    exporter.addSubsectionTitle('Performance Ratings');
-    const ratings = data.appraisal.ratings as Record<string, number>;
-    const ratingPairs = Object.entries(ratings).map(([key, value]) => ({
-      key: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-      value: `${value}/5`
-    }));
-    exporter.addKeyValuePairs(ratingPairs);
-  }
-
-  if (data.appraisal.achievements) {
-    exporter.addSubsectionTitle('Key Achievements');
-    exporter.addParagraph(data.appraisal.achievements);
-  }
-
-  if (data.appraisal.challenges) {
-    exporter.addSubsectionTitle('Challenges & Areas for Improvement');
-    exporter.addParagraph(data.appraisal.challenges);
-  }
-
-  if (data.appraisal.support_needs) {
-    exporter.addSubsectionTitle('Support & Development Needs');
-    exporter.addParagraph(data.appraisal.support_needs);
-  }
-
-  if (data.appraisal.next_year_targets) {
-    exporter.addSubsectionTitle('Next Year Objectives');
-    const targets = data.appraisal.next_year_targets as string[];
-    exporter.addBulletList(targets);
-  }
-
-  if (data.feedback360 && data.feedback360.length > 0) {
-    exporter.addSubsectionTitle('360° Feedback Summary');
-    exporter.addParagraph(`Received ${data.feedback360.length} anonymous feedback responses.`);
-  }
-
-  if (data.actions && data.actions.length > 0) {
-    exporter.addSubsectionTitle('Staff Action Plan');
-    const actionRows = data.actions.map((action: any) => [
-      action.action_description,
-      action.action_type || 'Development',
-      action.status,
-      action.target_date ? new Date(action.target_date).toLocaleDateString() : 'N/A'
-    ]);
-    exporter.addTable(['Action', 'Type', 'Status', 'Target Date'], actionRows);
-  }
-
-  exporter.addSignatureSection([
-    { role: 'Employee', name: data.employee.name, date: data.appraisal.employee_acknowledged_at ? new Date(data.appraisal.employee_acknowledged_at).toLocaleDateString() : '' },
-    { role: 'Reviewer', name: '', date: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : '' }
-  ]);
-
-  return exporter;
-}
-
-// Training Matrix PDF Generator
 export function generateTrainingMatrixPDF(data: {
   practiceName: string;
   employees: any[];
