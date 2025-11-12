@@ -59,3 +59,6 @@ verify_jwt = true
 
 [functions.calculate-compliance-scores]
 verify_jwt = true
+
+[functions.seed-training-catalogue]
+verify_jwt = true
