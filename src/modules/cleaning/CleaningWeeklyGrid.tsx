@@ -110,6 +110,8 @@ export function CleaningWeeklyGrid() {
         await supabase
           .from('cleaning_logs')
           .insert([{
+            practice_id: userData.practice_id,
+            room_id: taskId, // Using taskId as room_id for now - needs proper room management
             task_id: taskId,
             log_date: format(date, 'yyyy-MM-dd'),
             initials: value,

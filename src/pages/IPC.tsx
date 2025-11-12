@@ -88,6 +88,7 @@ export default function IPC() {
       const { data, error} = await supabase
         .from('ipc_audits')
         .insert([{
+          practice_id: userData.practice_id,
           period_month: currentDate.getMonth() + 1,
           period_year: currentDate.getFullYear(),
           location_scope: 'whole_practice'
