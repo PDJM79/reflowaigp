@@ -321,15 +321,63 @@ export type Database = {
           },
         ];
       };
+      claim_review_logs: {
+        Row: {
+          checklist: Json;
+          claim_run_id: string;
+          id: string;
+          notes: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string;
+        };
+        Insert: {
+          checklist: Json;
+          claim_run_id: string;
+          id?: string;
+          notes?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by: string;
+        };
+        Update: {
+          checklist?: Json;
+          claim_run_id?: string;
+          id?: string;
+          notes?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "claim_review_logs_claim_run_id_fkey";
+            columns: ["claim_run_id"];
+            isOneToOne: false;
+            referencedRelation: "script_claim_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "claim_review_logs_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       claim_runs: {
         Row: {
           claim_type: string | null;
           created_at: string | null;
+          fpps_reference: string | null;
+          fpps_submission_status: string | null;
+          fpps_submitted_at: string | null;
           generated_at: string | null;
           id: string;
           pdf_storage_path: string | null;
           period_end: string;
           period_start: string;
+          ppv_audit_date: string | null;
+          ppv_audit_notes: string | null;
+          ppv_audit_status: string | null;
           practice_id: string;
           status: string | null;
           submitted_at: string | null;
@@ -341,11 +389,17 @@ export type Database = {
         Insert: {
           claim_type?: string | null;
           created_at?: string | null;
+          fpps_reference?: string | null;
+          fpps_submission_status?: string | null;
+          fpps_submitted_at?: string | null;
           generated_at?: string | null;
           id?: string;
           pdf_storage_path?: string | null;
           period_end: string;
           period_start: string;
+          ppv_audit_date?: string | null;
+          ppv_audit_notes?: string | null;
+          ppv_audit_status?: string | null;
           practice_id: string;
           status?: string | null;
           submitted_at?: string | null;
@@ -357,11 +411,17 @@ export type Database = {
         Update: {
           claim_type?: string | null;
           created_at?: string | null;
+          fpps_reference?: string | null;
+          fpps_submission_status?: string | null;
+          fpps_submitted_at?: string | null;
           generated_at?: string | null;
           id?: string;
           pdf_storage_path?: string | null;
           period_end?: string;
           period_start?: string;
+          ppv_audit_date?: string | null;
+          ppv_audit_notes?: string | null;
+          ppv_audit_status?: string | null;
           practice_id?: string;
           status?: string | null;
           submitted_at?: string | null;
@@ -393,33 +453,39 @@ export type Database = {
           completed_by: string | null;
           created_at: string | null;
           id: string;
+          initials: string | null;
           issues: Json | null;
           log_date: string;
           practice_id: string;
+          retained_until: string | null;
           room_id: string;
           task_id: string | null;
-          initials: string | null;
-          retained_until: string | null;
         };
         Insert: {
           completed_at?: string | null;
           completed_by?: string | null;
           created_at?: string | null;
           id?: string;
+          initials?: string | null;
           issues?: Json | null;
           log_date: string;
           practice_id: string;
+          retained_until?: string | null;
           room_id: string;
+          task_id?: string | null;
         };
         Update: {
           completed_at?: string | null;
           completed_by?: string | null;
           created_at?: string | null;
           id?: string;
+          initials?: string | null;
           issues?: Json | null;
           log_date?: string;
           practice_id?: string;
+          retained_until?: string | null;
           room_id?: string;
+          task_id?: string | null;
         };
         Relationships: [
           {
@@ -441,6 +507,108 @@ export type Database = {
             columns: ["room_id"];
             isOneToOne: false;
             referencedRelation: "rooms";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cleaning_logs_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "cleaning_tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cleaning_tasks: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          frequency: Database["public"]["Enums"]["clean_frequency"];
+          id: string;
+          is_active: boolean | null;
+          periodic_rule: string | null;
+          practice_id: string;
+          task_name: string;
+          updated_at: string | null;
+          zone_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          frequency: Database["public"]["Enums"]["clean_frequency"];
+          id?: string;
+          is_active?: boolean | null;
+          periodic_rule?: string | null;
+          practice_id: string;
+          task_name: string;
+          updated_at?: string | null;
+          zone_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          frequency?: Database["public"]["Enums"]["clean_frequency"];
+          id?: string;
+          is_active?: boolean | null;
+          periodic_rule?: string | null;
+          practice_id?: string;
+          task_name?: string;
+          updated_at?: string | null;
+          zone_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_tasks_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cleaning_tasks_zone_id_fkey";
+            columns: ["zone_id"];
+            isOneToOne: false;
+            referencedRelation: "cleaning_zones";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cleaning_zones: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          is_active: boolean | null;
+          practice_id: string;
+          updated_at: string | null;
+          zone_name: string;
+          zone_type: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          practice_id: string;
+          updated_at?: string | null;
+          zone_name: string;
+          zone_type?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          practice_id?: string;
+          updated_at?: string | null;
+          zone_name?: string;
+          zone_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_zones_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
             referencedColumns: ["id"];
           },
         ];
@@ -590,6 +758,62 @@ export type Database = {
             columns: ["standard_id"];
             isOneToOne: false;
             referencedRelation: "regulatory_standards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      coshh_assessments: {
+        Row: {
+          created_at: string | null;
+          emergency_controls: Json | null;
+          hazard_flags: Json | null;
+          hazard_sheet_url: string | null;
+          id: string;
+          manufacturer: string | null;
+          next_review_date: string | null;
+          ppe: Json | null;
+          practice_id: string;
+          risk_level: string | null;
+          routes: Json | null;
+          substance_name: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          emergency_controls?: Json | null;
+          hazard_flags?: Json | null;
+          hazard_sheet_url?: string | null;
+          id?: string;
+          manufacturer?: string | null;
+          next_review_date?: string | null;
+          ppe?: Json | null;
+          practice_id: string;
+          risk_level?: string | null;
+          routes?: Json | null;
+          substance_name: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          emergency_controls?: Json | null;
+          hazard_flags?: Json | null;
+          hazard_sheet_url?: string | null;
+          id?: string;
+          manufacturer?: string | null;
+          next_review_date?: string | null;
+          ppe?: Json | null;
+          practice_id?: string;
+          risk_level?: string | null;
+          routes?: Json | null;
+          substance_name?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "coshh_assessments_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
             referencedColumns: ["id"];
           },
         ];
@@ -1032,6 +1256,129 @@ export type Database = {
           },
         ];
       };
+      fire_actions: {
+        Row: {
+          assessment_id: string | null;
+          assigned_to: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          deficiency: string;
+          due_date: string | null;
+          id: string;
+          practice_id: string;
+          severity: Database["public"]["Enums"]["act_severity"];
+          status: Database["public"]["Enums"]["act_status"] | null;
+          timeframe: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          assessment_id?: string | null;
+          assigned_to?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          deficiency: string;
+          due_date?: string | null;
+          id?: string;
+          practice_id: string;
+          severity?: Database["public"]["Enums"]["act_severity"];
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          timeframe?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          assessment_id?: string | null;
+          assigned_to?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          deficiency?: string;
+          due_date?: string | null;
+          id?: string;
+          practice_id?: string;
+          severity?: Database["public"]["Enums"]["act_severity"];
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          timeframe?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fire_actions_assessment_id_fkey";
+            columns: ["assessment_id"];
+            isOneToOne: false;
+            referencedRelation: "fire_risk_assessments_v2";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fire_actions_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fire_actions_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fire_risk_assessments_v2: {
+        Row: {
+          assessment_date: string;
+          assessor_name: string | null;
+          assessor_role: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          emergency_plan: Json | null;
+          hazards: Json | null;
+          id: string;
+          maintenance: Json | null;
+          next_review_date: string | null;
+          practice_id: string;
+          premises: Json | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          assessment_date: string;
+          assessor_name?: string | null;
+          assessor_role?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          emergency_plan?: Json | null;
+          hazards?: Json | null;
+          id?: string;
+          maintenance?: Json | null;
+          next_review_date?: string | null;
+          practice_id: string;
+          premises?: Json | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          assessment_date?: string;
+          assessor_name?: string | null;
+          assessor_role?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          emergency_plan?: Json | null;
+          hazards?: Json | null;
+          id?: string;
+          maintenance?: Json | null;
+          next_review_date?: string | null;
+          practice_id?: string;
+          premises?: Json | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fire_risk_assessments_v2_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       fire_safety_actions: {
         Row: {
           action_description: string;
@@ -1357,9 +1704,9 @@ export type Database = {
           "Step 4": string | null;
           "Step 5": string | null;
           "Step 6": string | null;
-          "Where evidence is stored – Folder/Path or URL": string | null;
-          "Where evidence is stored – Physical location (if any)": string | null;
-          "Where evidence is stored – System/Source": string | null;
+          "Where evidence is stored ÔÇô Folder/Path or URL": string | null;
+          "Where evidence is stored ÔÇô Physical location (if any)": string | null;
+          "Where evidence is stored ÔÇô System/Source": string | null;
         };
         Insert: {
           "Evidence required"?: string | null;
@@ -1373,9 +1720,9 @@ export type Database = {
           "Step 4"?: string | null;
           "Step 5"?: string | null;
           "Step 6"?: string | null;
-          "Where evidence is stored – Folder/Path or URL"?: string | null;
-          "Where evidence is stored – Physical location (if any)"?: string | null;
-          "Where evidence is stored – System/Source"?: string | null;
+          "Where evidence is stored ÔÇô Folder/Path or URL"?: string | null;
+          "Where evidence is stored ÔÇô Physical location (if any)"?: string | null;
+          "Where evidence is stored ÔÇô System/Source"?: string | null;
         };
         Update: {
           "Evidence required"?: string | null;
@@ -1389,9 +1736,9 @@ export type Database = {
           "Step 4"?: string | null;
           "Step 5"?: string | null;
           "Step 6"?: string | null;
-          "Where evidence is stored – Folder/Path or URL"?: string | null;
-          "Where evidence is stored – Physical location (if any)"?: string | null;
-          "Where evidence is stored – System/Source"?: string | null;
+          "Where evidence is stored ÔÇô Folder/Path or URL"?: string | null;
+          "Where evidence is stored ÔÇô Physical location (if any)"?: string | null;
+          "Where evidence is stored ÔÇô System/Source"?: string | null;
         };
         Relationships: [];
       };
@@ -1430,6 +1777,188 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [];
+      };
+      hr_360_feedback: {
+        Row: {
+          appraisal_id: string;
+          created_at: string | null;
+          id: string;
+          question: string;
+          response: string | null;
+        };
+        Insert: {
+          appraisal_id: string;
+          created_at?: string | null;
+          id?: string;
+          question: string;
+          response?: string | null;
+        };
+        Update: {
+          appraisal_id?: string;
+          created_at?: string | null;
+          id?: string;
+          question?: string;
+          response?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hr_360_feedback_appraisal_id_fkey";
+            columns: ["appraisal_id"];
+            isOneToOne: false;
+            referencedRelation: "hr_appraisals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hr_actions: {
+        Row: {
+          action_description: string;
+          completed_at: string | null;
+          created_at: string | null;
+          due_date: string | null;
+          employee_id: string;
+          id: string;
+          practice_id: string;
+          source: string | null;
+          source_id: string | null;
+          status: Database["public"]["Enums"]["act_status"] | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          action_description: string;
+          completed_at?: string | null;
+          created_at?: string | null;
+          due_date?: string | null;
+          employee_id: string;
+          id?: string;
+          practice_id: string;
+          source?: string | null;
+          source_id?: string | null;
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          action_description?: string;
+          completed_at?: string | null;
+          created_at?: string | null;
+          due_date?: string | null;
+          employee_id?: string;
+          id?: string;
+          practice_id?: string;
+          source?: string | null;
+          source_id?: string | null;
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hr_actions_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employee_self_service_data";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hr_actions_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hr_actions_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hr_appraisals: {
+        Row: {
+          achievements: string | null;
+          challenges: string | null;
+          created_at: string | null;
+          employee_id: string;
+          employee_signature_date: string | null;
+          id: string;
+          jd_changes: string | null;
+          next_year_targets: Json | null;
+          period_end: string;
+          period_start: string;
+          practice_id: string;
+          ratings: Json | null;
+          reviewer_id: string | null;
+          reviewer_signature_date: string | null;
+          support_needs: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          achievements?: string | null;
+          challenges?: string | null;
+          created_at?: string | null;
+          employee_id: string;
+          employee_signature_date?: string | null;
+          id?: string;
+          jd_changes?: string | null;
+          next_year_targets?: Json | null;
+          period_end: string;
+          period_start: string;
+          practice_id: string;
+          ratings?: Json | null;
+          reviewer_id?: string | null;
+          reviewer_signature_date?: string | null;
+          support_needs?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          achievements?: string | null;
+          challenges?: string | null;
+          created_at?: string | null;
+          employee_id?: string;
+          employee_signature_date?: string | null;
+          id?: string;
+          jd_changes?: string | null;
+          next_year_targets?: Json | null;
+          period_end?: string;
+          period_start?: string;
+          practice_id?: string;
+          ratings?: Json | null;
+          reviewer_id?: string | null;
+          reviewer_signature_date?: string | null;
+          support_needs?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hr_appraisals_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employee_self_service_data";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hr_appraisals_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hr_appraisals_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hr_appraisals_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       ic_responses: {
         Row: {
@@ -1613,6 +2142,181 @@ export type Database = {
             columns: ["reported_by"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ipc_actions: {
+        Row: {
+          assigned_to: string | null;
+          audit_id: string | null;
+          check_id: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          description: string;
+          due_date: string | null;
+          id: string;
+          practice_id: string;
+          severity: Database["public"]["Enums"]["act_severity"];
+          status: Database["public"]["Enums"]["act_status"] | null;
+          timeframe: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          assigned_to?: string | null;
+          audit_id?: string | null;
+          check_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          description: string;
+          due_date?: string | null;
+          id?: string;
+          practice_id: string;
+          severity?: Database["public"]["Enums"]["act_severity"];
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          timeframe?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          assigned_to?: string | null;
+          audit_id?: string | null;
+          check_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          description?: string;
+          due_date?: string | null;
+          id?: string;
+          practice_id?: string;
+          severity?: Database["public"]["Enums"]["act_severity"];
+          status?: Database["public"]["Enums"]["act_status"] | null;
+          timeframe?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ipc_actions_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ipc_actions_audit_id_fkey";
+            columns: ["audit_id"];
+            isOneToOne: false;
+            referencedRelation: "ipc_audits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ipc_actions_check_id_fkey";
+            columns: ["check_id"];
+            isOneToOne: false;
+            referencedRelation: "ipc_checks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ipc_actions_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ipc_audits: {
+        Row: {
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string | null;
+          id: string;
+          location_scope: string | null;
+          period_month: number;
+          period_year: number;
+          practice_id: string;
+          retained_until: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          location_scope?: string | null;
+          period_month: number;
+          period_year: number;
+          practice_id: string;
+          retained_until?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          location_scope?: string | null;
+          period_month?: number;
+          period_year?: number;
+          practice_id?: string;
+          retained_until?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ipc_audits_completed_by_fkey";
+            columns: ["completed_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ipc_audits_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ipc_checks: {
+        Row: {
+          area: string | null;
+          audit_id: string;
+          comments: string | null;
+          created_at: string | null;
+          id: string;
+          item: string;
+          photo_url: string | null;
+          response: Database["public"]["Enums"]["ynna"];
+          section: string;
+        };
+        Insert: {
+          area?: string | null;
+          audit_id: string;
+          comments?: string | null;
+          created_at?: string | null;
+          id?: string;
+          item: string;
+          photo_url?: string | null;
+          response: Database["public"]["Enums"]["ynna"];
+          section: string;
+        };
+        Update: {
+          area?: string | null;
+          audit_id?: string;
+          comments?: string | null;
+          created_at?: string | null;
+          id?: string;
+          item?: string;
+          photo_url?: string | null;
+          response?: Database["public"]["Enums"]["ynna"];
+          section?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ipc_checks_audit_id_fkey";
+            columns: ["audit_id"];
+            isOneToOne: false;
+            referencedRelation: "ipc_audits";
             referencedColumns: ["id"];
           },
         ];
@@ -1869,6 +2573,7 @@ export type Database = {
           drug_code: string;
           drug_name: string;
           emis_hash: string;
+          emis_id: string | null;
           id: string;
           issue_date: string;
           month: string;
@@ -1888,6 +2593,7 @@ export type Database = {
           drug_code: string;
           drug_name: string;
           emis_hash: string;
+          emis_id?: string | null;
           id?: string;
           issue_date: string;
           month: string;
@@ -1907,6 +2613,7 @@ export type Database = {
           drug_code?: string;
           drug_name?: string;
           emis_hash?: string;
+          emis_id?: string | null;
           id?: string;
           issue_date?: string;
           month?: string;
@@ -2679,6 +3386,63 @@ export type Database = {
           },
         ];
       };
+      risk_assessments: {
+        Row: {
+          action_owner: string | null;
+          created_at: string | null;
+          existing_controls: string | null;
+          further_actions: string | null;
+          hazard_description: string;
+          id: string;
+          next_review_date: string | null;
+          practice_id: string;
+          risk_level: string | null;
+          updated_at: string | null;
+          who_might_be_harmed: string | null;
+        };
+        Insert: {
+          action_owner?: string | null;
+          created_at?: string | null;
+          existing_controls?: string | null;
+          further_actions?: string | null;
+          hazard_description: string;
+          id?: string;
+          next_review_date?: string | null;
+          practice_id: string;
+          risk_level?: string | null;
+          updated_at?: string | null;
+          who_might_be_harmed?: string | null;
+        };
+        Update: {
+          action_owner?: string | null;
+          created_at?: string | null;
+          existing_controls?: string | null;
+          further_actions?: string | null;
+          hazard_description?: string;
+          id?: string;
+          next_review_date?: string | null;
+          practice_id?: string;
+          risk_level?: string | null;
+          updated_at?: string | null;
+          who_might_be_harmed?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessments_action_owner_fkey";
+            columns: ["action_owner"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "risk_assessments_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       role_assignment_contacts: {
         Row: {
           assigned_email: string;
@@ -2746,28 +3510,92 @@ export type Database = {
           },
         ];
       };
+      room_assessments: {
+        Row: {
+          assessment_date: string;
+          assessor_id: string | null;
+          created_at: string | null;
+          findings: Json;
+          id: string;
+          next_due_date: string | null;
+          practice_id: string;
+          room_id: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          assessment_date: string;
+          assessor_id?: string | null;
+          created_at?: string | null;
+          findings: Json;
+          id?: string;
+          next_due_date?: string | null;
+          practice_id: string;
+          room_id: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          assessment_date?: string;
+          assessor_id?: string | null;
+          created_at?: string | null;
+          findings?: Json;
+          id?: string;
+          next_due_date?: string | null;
+          practice_id?: string;
+          room_id?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "room_assessments_assessor_id_fkey";
+            columns: ["assessor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "room_assessments_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "room_assessments_room_id_fkey";
+            columns: ["room_id"];
+            isOneToOne: false;
+            referencedRelation: "rooms";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rooms: {
         Row: {
           created_at: string | null;
+          floor: string | null;
           id: string;
           name: string;
           practice_id: string;
+          room_type: string | null;
           schedule_rule: string | null;
           updated_at: string | null;
         };
         Insert: {
           created_at?: string | null;
+          floor?: string | null;
           id?: string;
           name: string;
           practice_id: string;
+          room_type?: string | null;
           schedule_rule?: string | null;
           updated_at?: string | null;
         };
         Update: {
           created_at?: string | null;
+          floor?: string | null;
           id?: string;
           name?: string;
           practice_id?: string;
+          room_type?: string | null;
           schedule_rule?: string | null;
           updated_at?: string | null;
         };
@@ -2897,6 +3725,99 @@ export type Database = {
             columns: ["practice_id"];
             isOneToOne: false;
             referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      script_claim_runs: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          id: string;
+          period_end: string;
+          period_start: string;
+          practice_id: string;
+          run_date: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          period_end: string;
+          period_start: string;
+          practice_id: string;
+          run_date: string;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          period_end?: string;
+          period_start?: string;
+          practice_id?: string;
+          run_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "script_claim_runs_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "script_claim_runs_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      script_claims: {
+        Row: {
+          amount: string;
+          claim_run_id: string;
+          created_at: string | null;
+          emis_id: string;
+          id: string;
+          issue_date: string;
+          medication: string;
+          script_id: string | null;
+        };
+        Insert: {
+          amount: string;
+          claim_run_id: string;
+          created_at?: string | null;
+          emis_id: string;
+          id?: string;
+          issue_date: string;
+          medication: string;
+          script_id?: string | null;
+        };
+        Update: {
+          amount?: string;
+          claim_run_id?: string;
+          created_at?: string | null;
+          emis_id?: string;
+          id?: string;
+          issue_date?: string;
+          medication?: string;
+          script_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "script_claims_claim_run_id_fkey";
+            columns: ["claim_run_id"];
+            isOneToOne: false;
+            referencedRelation: "script_claim_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "script_claims_script_id_fkey";
+            columns: ["script_id"];
+            isOneToOne: false;
+            referencedRelation: "month_end_scripts";
             referencedColumns: ["id"];
           },
         ];
@@ -3199,6 +4120,7 @@ export type Database = {
           is_mandatory: boolean | null;
           reminder_sent_at: string | null;
           training_provider: string | null;
+          training_type_id: string | null;
         };
         Insert: {
           certificate_evidence_id?: string | null;
@@ -3211,6 +4133,7 @@ export type Database = {
           is_mandatory?: boolean | null;
           reminder_sent_at?: string | null;
           training_provider?: string | null;
+          training_type_id?: string | null;
         };
         Update: {
           certificate_evidence_id?: string | null;
@@ -3223,6 +4146,7 @@ export type Database = {
           is_mandatory?: boolean | null;
           reminder_sent_at?: string | null;
           training_provider?: string | null;
+          training_type_id?: string | null;
         };
         Relationships: [
           {
@@ -3244,6 +4168,63 @@ export type Database = {
             columns: ["employee_id"];
             isOneToOne: false;
             referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "training_records_training_type_id_fkey";
+            columns: ["training_type_id"];
+            isOneToOne: false;
+            referencedRelation: "training_types";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      training_types: {
+        Row: {
+          audience_roles: string[] | null;
+          certificate_required: boolean | null;
+          created_at: string | null;
+          id: string;
+          key: string;
+          level: string | null;
+          practice_id: string;
+          recurrence_months: number | null;
+          tags: Json | null;
+          title: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          audience_roles?: string[] | null;
+          certificate_required?: boolean | null;
+          created_at?: string | null;
+          id?: string;
+          key: string;
+          level?: string | null;
+          practice_id: string;
+          recurrence_months?: number | null;
+          tags?: Json | null;
+          title: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          audience_roles?: string[] | null;
+          certificate_required?: boolean | null;
+          created_at?: string | null;
+          id?: string;
+          key?: string;
+          level?: string | null;
+          practice_id?: string;
+          recurrence_months?: number | null;
+          tags?: Json | null;
+          title?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "training_types_practice_id_fkey";
+            columns: ["practice_id"];
+            isOneToOne: false;
+            referencedRelation: "practices";
             referencedColumns: ["id"];
           },
         ];
@@ -3447,6 +4428,10 @@ export type Database = {
       };
     };
     Functions: {
+      add_working_days: {
+        Args: { days_to_add: number; start_date: string };
+        Returns: string;
+      };
       calculate_next_due_date: {
         Args: {
           _frequency: Database["public"]["Enums"]["process_frequency"];
@@ -3454,6 +4439,10 @@ export type Database = {
           _start_date: string;
         };
         Returns: string;
+      };
+      calculate_working_days: {
+        Args: { end_date: string; start_date: string };
+        Returns: number;
       };
       can_access_sensitive_user_field: {
         Args: { _target_user_id: string };
@@ -3569,6 +4558,8 @@ export type Database = {
       };
     };
     Enums: {
+      act_severity: "urgent" | "moderate" | "low";
+      act_status: "open" | "in_progress" | "done";
       app_role:
         | "practice_manager"
         | "gp"
@@ -3583,6 +4574,7 @@ export type Database = {
         | "reception"
         | "auditor"
         | "group_manager";
+      clean_frequency: "full" | "spot" | "check" | "periodic" | "touch";
       country_code: "Wales" | "England" | "Scotland";
       evidence_type: "photo" | "note" | "signature";
       frequency: "daily" | "weekly" | "monthly" | "quarterly" | "annually" | "as_needed";
@@ -3625,6 +4617,7 @@ export type Database = {
         | "auditor"
         | "administrator"
         | "group_manager";
+      ynna: "yes" | "no" | "na";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -3744,6 +4737,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      act_severity: ["urgent", "moderate", "low"],
+      act_status: ["open", "in_progress", "done"],
       app_role: [
         "practice_manager",
         "gp",
@@ -3759,6 +4754,7 @@ export const Constants = {
         "auditor",
         "group_manager",
       ],
+      clean_frequency: ["full", "spot", "check", "periodic", "touch"],
       country_code: ["Wales", "England", "Scotland"],
       evidence_type: ["photo", "note", "signature"],
       frequency: ["daily", "weekly", "monthly", "quarterly", "annually", "as_needed"],
@@ -3803,6 +4799,7 @@ export const Constants = {
         "administrator",
         "group_manager",
       ],
+      ynna: ["yes", "no", "na"],
     },
   },
 } as const;
