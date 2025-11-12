@@ -10,6 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, FileText, GraduationCap, Calendar, Shield, Plus } from 'lucide-react';
 import { DBSTrackingDialog } from '@/components/hr/DBSTrackingDialog';
 import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
+import { AppraisalDialog } from '@/components/hr/AppraisalDialog';
+import { Feedback360Dialog } from '@/components/hr/Feedback360Dialog';
+import { TrainingCatalogueDialog } from '@/components/hr/TrainingCatalogueDialog';
 
 export default function HR() {
   const { user } = useAuth();
@@ -22,7 +25,12 @@ export default function HR() {
   const [dbsChecks, setDbsChecks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDBSDialogOpen, setIsDBSDialogOpen] = useState(false);
+  const [isAppraisalDialogOpen, setIsAppraisalDialogOpen] = useState(false);
+  const [is360FeedbackOpen, setIs360FeedbackOpen] = useState(false);
+  const [isTrainingCatalogueOpen, setIsTrainingCatalogueOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
+  const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const [practiceId, setPracticeId] = useState<string>('');
 
   useEffect(() => {
@@ -42,6 +50,8 @@ export default function HR() {
         .single();
 
       if (!userData) return;
+
+      setPracticeId(userData.practice_id);
 
       const [employeesData, appraisalsData, trainingData, leaveData] = await Promise.all([
         supabase.from('employees').select('*').eq('practice_id', userData.practice_id),
@@ -74,13 +84,25 @@ export default function HR() {
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
-        <Button 
-          size={isMobile ? 'lg' : 'default'}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Employee
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button 
+            size={isMobile ? 'lg' : 'default'}
+            className="flex-1 sm:flex-none min-h-[44px]"
+            onClick={() => setIsAppraisalDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Appraisal
+          </Button>
+          <Button 
+            size={isMobile ? 'lg' : 'default'}
+            variant="outline"
+            className="flex-1 sm:flex-none min-h-[44px]"
+            onClick={() => setIsTrainingCatalogueOpen(true)}
+          >
+            <GraduationCap className="h-4 w-4 mr-2" />
+            Training Catalogue
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
@@ -125,12 +147,13 @@ export default function HR() {
         <div className="text-center py-8">Loading HR data...</div>
       ) : (
         <Tabs defaultValue="employees" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
             <TabsTrigger value="employees" className="text-xs sm:text-sm">Employees</TabsTrigger>
             <TabsTrigger value="dbs" className="text-xs sm:text-sm">DBS</TabsTrigger>
             <TabsTrigger value="appraisals" className="text-xs sm:text-sm">Appraisals</TabsTrigger>
             <TabsTrigger value="training" className="text-xs sm:text-sm">Training</TabsTrigger>
             <TabsTrigger value="leave" className="text-xs sm:text-sm">Leave</TabsTrigger>
+            <TabsTrigger value="alerts" className="text-xs sm:text-sm">Alerts</TabsTrigger>
           </TabsList>
 
           <TabsContent value="employees">
@@ -280,10 +303,14 @@ export default function HR() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="alerts">
+            <TrainingExpiryAlerts />
+          </TabsContent>
         </Tabs>
       )}
 
-      {/* DBS Dialog */}
+      {/* Dialogs */}
       {selectedEmployee && (
         <DBSTrackingDialog
           open={isDBSDialogOpen}
@@ -295,6 +322,40 @@ export default function HR() {
           practiceId={practiceId}
         />
       )}
+
+      {selectedEmployeeForAppraisal && (
+        <AppraisalDialog
+          employeeId={selectedEmployeeForAppraisal}
+          open={isAppraisalDialogOpen}
+          onOpenChange={(open) => {
+            setIsAppraisalDialogOpen(open);
+            if (!open) {
+              setSelectedEmployeeForAppraisal('');
+              fetchHRData();
+            }
+          }}
+          onSuccess={fetchHRData}
+        />
+      )}
+
+      {selectedAppraisal && (
+        <Feedback360Dialog
+          open={is360FeedbackOpen}
+          onOpenChange={setIs360FeedbackOpen}
+          appraisalId={selectedAppraisal.id}
+          employeeName={selectedAppraisal.employees?.name || 'Employee'}
+          onSuccess={fetchHRData}
+        />
+      )}
+
+      <TrainingCatalogueDialog
+        open={isTrainingCatalogueOpen}
+        onOpenChange={(open) => {
+          setIsTrainingCatalogueOpen(open);
+          if (!open) fetchHRData();
+        }}
+        onSuccess={fetchHRData}
+      />
     </div>
   );
 }
