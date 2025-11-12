@@ -174,7 +174,6 @@ export default function RoomAssessments() {
             onSuccess={fetchData}
           />
         )}
-      </div>
     </div>
   );
 }
