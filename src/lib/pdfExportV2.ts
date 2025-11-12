@@ -405,51 +405,6 @@ export function generateAppraisalReportPDF(data: {
     { key: 'Status', value: data.appraisal.status }
   ]);
 
-  exporter.addSubsectionTitle('Claim Items');
-  const claimRows = data.claims.map((claim: any) => [
-    new Date(claim.issue_date).toLocaleDateString(),
-    claim.emis_id || 'N/A',
-    claim.medication,
-    claim.amount
-  ]);
-  exporter.addTable(['Date', 'EMIS ID', 'Medication', 'Amount'], claimRows);
-
-  if (data.reviewChecklist && data.reviewChecklist.length > 0) {
-    exporter.addSubsectionTitle('PM Review Checklist');
-    const checklistItems = data.reviewChecklist.map((item: any) => 
-      `${item.checked ? '✓' : '☐'} ${item.item_description}`
-    );
-    exporter.addBulletList(checklistItems);
-  }
-
-  exporter.addSignatureSection([
-    { role: 'Practice Manager', name: '', date: '' }
-  ]);
-
-  return exporter;
-}
-
-// HR Appraisal Report PDF Generator
-export function generateAppraisalReportPDF(data: {
-  practiceName: string;
-  employee: any;
-  appraisal: any;
-  feedback360?: any[];
-  actions?: any[];
-}) {
-  const exporter = new UpdatePackPDFExporter();
-  
-  exporter.addPracticeHeader(data.practiceName, data.appraisal.period);
-  exporter.addSectionTitle('Annual Appraisal Report');
-  
-  exporter.addKeyValuePairs([
-    { key: 'Employee', value: data.employee.name },
-    { key: 'Appraisal Period', value: data.appraisal.period },
-    { key: 'Scheduled Date', value: new Date(data.appraisal.scheduled_date).toLocaleDateString() },
-    { key: 'Completed Date', value: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : 'Pending' },
-    { key: 'Status', value: data.appraisal.status }
-  ]);
-
   if (data.appraisal.ratings) {
     exporter.addSubsectionTitle('Performance Ratings');
     const ratings = data.appraisal.ratings as Record<string, number>;
@@ -487,19 +442,18 @@ export function generateAppraisalReportPDF(data: {
   }
 
   if (data.actions && data.actions.length > 0) {
-    exporter.addSubsectionTitle('Staff Action Plan');
+    exporter.addSubsectionTitle('Development Action Plan');
     const actionRows = data.actions.map((action: any) => [
       action.action_description,
-      action.action_type || 'Development',
-      action.status,
-      action.target_date ? new Date(action.target_date).toLocaleDateString() : 'N/A'
+      action.priority || 'N/A',
+      action.due_date ? new Date(action.due_date).toLocaleDateString() : 'Not set'
     ]);
-    exporter.addTable(['Action', 'Type', 'Status', 'Target Date'], actionRows);
+    exporter.addTable(['Action', 'Priority', 'Due Date'], actionRows);
   }
 
   exporter.addSignatureSection([
-    { role: 'Employee', name: data.employee.name, date: data.appraisal.employee_acknowledged_at ? new Date(data.appraisal.employee_acknowledged_at).toLocaleDateString() : '' },
-    { role: 'Reviewer', name: '', date: data.appraisal.completed_date ? new Date(data.appraisal.completed_date).toLocaleDateString() : '' }
+    { role: 'Employee', name: '', date: '' },
+    { role: 'Reviewer', name: '', date: '' }
   ]);
 
   return exporter;
