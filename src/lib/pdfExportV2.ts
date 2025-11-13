@@ -568,3 +568,120 @@ export function generateDBSRegisterPDF(data: {
 
   return exporter;
 }
+
+// Cleaning Logs PDF Generator
+export function generateCleaningLogsPDF(data: {
+  practiceName: string;
+  period: string;
+  zones: any[];
+  tasks: any[];
+  logs: any[];
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName, data.period);
+  exporter.addSectionTitle('NHS Cleanliness 2025 - Cleaning Logs');
+  
+  exporter.addKeyValuePairs([
+    { key: 'Report Period', value: data.period },
+    { key: 'Total Zones', value: data.zones.length.toString() },
+    { key: 'Total Tasks', value: data.tasks.length.toString() },
+    { key: 'Logs Recorded', value: data.logs.length.toString() }
+  ]);
+
+  exporter.addSubsectionTitle('Cleaning Completion Summary by Zone');
+  const zoneRows = data.zones.map((zone: any) => {
+    const zoneLogs = data.logs.filter((l: any) => l.zone_id === zone.id);
+    return [
+      zone.name,
+      zone.zone_type || 'N/A',
+      zoneLogs.length.toString(),
+      zoneLogs.filter((l: any) => l.completed_at !== null).length.toString()
+    ];
+  });
+  exporter.addTable(['Zone Name', 'Type', 'Logs', 'Completed'], zoneRows);
+
+  if (data.logs.length > 0) {
+    exporter.addSubsectionTitle('Detailed Cleaning Records');
+    const logRows = data.logs.slice(0, 50).map((log: any) => [
+      new Date(log.log_date).toLocaleDateString(),
+      data.zones.find((z: any) => z.id === log.zone_id)?.name || 'Unknown',
+      log.frequency || 'N/A',
+      log.completed_by || 'Not recorded',
+      log.completed_at ? 'Complete' : 'Incomplete'
+    ]);
+    exporter.addTable(['Date', 'Zone', 'Frequency', 'Completed By', 'Status'], logRows);
+    
+    if (data.logs.length > 50) {
+      exporter.addParagraph(`Note: Showing first 50 of ${data.logs.length} total logs.`);
+    }
+  }
+
+  exporter.addSubsectionTitle('Retention Notice');
+  exporter.addParagraph('Cleaning logs are retained for 5 years in accordance with NHS compliance requirements.');
+
+  exporter.addSignatureSection([
+    { role: 'Cleaning Supervisor', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' }
+  ]);
+
+  return exporter;
+}
+
+// Room Assessment PDF Generator
+export function generateRoomAssessmentPDF(data: {
+  practiceName: string;
+  room: any;
+  assessment: any;
+  findings: any[];
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName);
+  exporter.addSectionTitle('Annual Room Safety Assessment');
+  
+  exporter.addKeyValuePairs([
+    { key: 'Room Name', value: data.room.name },
+    { key: 'Room Type', value: data.room.room_type || 'N/A' },
+    { key: 'Floor', value: data.room.floor || 'N/A' },
+    { key: 'Assessment Date', value: new Date(data.assessment.assessment_date).toLocaleDateString() },
+    { key: 'Next Due Date', value: data.assessment.next_due_date ? new Date(data.assessment.next_due_date).toLocaleDateString() : 'Not set' }
+  ]);
+
+  if (data.findings && data.findings.length > 0) {
+    exporter.addSubsectionTitle('Assessment Findings');
+    const findingRows = data.findings.map((finding: any) => [
+      finding.item || 'N/A',
+      finding.status === 'pass' ? 'Pass' : finding.status === 'fail' ? 'Fail' : 'Action Required',
+      finding.notes || '-'
+    ]);
+    exporter.addTable(['Item', 'Status', 'Notes'], findingRows, {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 'auto' }
+    });
+
+    const actionRequired = data.findings.filter((f: any) => f.status === 'action_required');
+    if (actionRequired.length > 0) {
+      exporter.addSubsectionTitle('Actions Required');
+      exporter.addParagraph(`${actionRequired.length} items require follow-up action. These have been automatically added to the Fire Safety action register.`);
+    }
+  } else {
+    exporter.addParagraph('No detailed findings recorded for this assessment.');
+  }
+
+  exporter.addSubsectionTitle('Compliance Notes');
+  exporter.addBulletList([
+    'Room assessments must be completed annually',
+    'All "Action Required" items are tracked in the Fire Safety action register',
+    'Assessment records are retained for audit purposes',
+    'Next assessment due: ' + (data.assessment.next_due_date ? new Date(data.assessment.next_due_date).toLocaleDateString() : 'Not set')
+  ]);
+
+  exporter.addSignatureSection([
+    { role: 'Assessor', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' }
+  ]);
+
+  return exporter;
+}

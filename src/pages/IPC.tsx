@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { IPCAuditCard } from "@/components/ipc/IPCAuditCard";
+import { generateIPCStatementPDF } from "@/lib/pdfExportV2";
 
 export default function IPC() {
   const navigate = useNavigate();
@@ -112,6 +113,51 @@ export default function IPC() {
     }
   };
 
+  const handleExportIPCStatement = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      const { data: practiceData } = await supabase
+        .from('practices')
+        .select('name')
+        .eq('id', userData.practice_id)
+        .single();
+
+      const completedAudits = audits.filter(a => a.completed_at !== null);
+      const { data: actionsData } = await supabase
+        .from('ipc_actions')
+        .select('*')
+        .eq('practice_id', userData.practice_id);
+
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const period = `${oneYearAgo.toLocaleDateString()} to ${new Date().toLocaleDateString()}`;
+
+      const exporter = generateIPCStatementPDF({
+        practiceName: practiceData?.name || 'Practice',
+        period,
+        audits: completedAudits,
+        actions: actionsData || [],
+        completionRate: completedAudits.length > 0 ? Math.round((completedAudits.length / audits.length) * 100) : 0
+      });
+
+      exporter.save(`IPC_Statement_12_Month_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('IPC Statement PDF exported successfully');
+    } catch (error: any) {
+      console.error('Error exporting IPC statement:', error);
+      toast.error('Failed to export IPC statement');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -129,10 +175,16 @@ export default function IPC() {
             Six-monthly IPC audits with 12-month retention (May & December)
           </p>
         </div>
-        <Button onClick={handleCreateAudit}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Audit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportIPCStatement}>
+            <Download className="h-4 w-4 mr-2" />
+            Export IPC Statement
+          </Button>
+          <Button onClick={handleCreateAudit}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Audit
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

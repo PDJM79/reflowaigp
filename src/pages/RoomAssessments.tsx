@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, AlertCircle } from "lucide-react";
+import { Plus, Calendar, AlertCircle, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RoomAssessmentDialog } from "@/components/rooms/RoomAssessmentDialog";
 import { format, parseISO, isPast, differenceInDays } from "date-fns";
+import { generateRoomAssessmentPDF } from "@/lib/pdfExportV2";
 
 export default function RoomAssessments() {
   const [rooms, setRooms] = useState<any[]>([]);
@@ -89,6 +90,50 @@ export default function RoomAssessments() {
     setDialogOpen(true);
   };
 
+  const handleExportAssessment = async (roomId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      const { data: practiceData } = await supabase
+        .from('practices')
+        .select('name')
+        .eq('id', userData.practice_id)
+        .single();
+
+      const room = rooms.find(r => r.id === roomId);
+      const assessment = getLastAssessment(roomId);
+
+      if (!room || !assessment) {
+        toast.error('No assessment found for this room');
+        return;
+      }
+
+      const findings = assessment.findings || [];
+
+      const exporter = generateRoomAssessmentPDF({
+        practiceName: practiceData?.name || 'Practice',
+        room,
+        assessment,
+        findings
+      });
+
+      exporter.save(`Room_Assessment_${room.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('Room assessment PDF exported successfully');
+    } catch (error: any) {
+      console.error('Error exporting room assessment:', error);
+      toast.error('Failed to export room assessment');
+    }
+  };
+
   if (loading) return <p>Loading room assessments...</p>;
 
   return (
@@ -146,10 +191,21 @@ export default function RoomAssessments() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" onClick={() => handleAssess(room.id)}>
-                          <Plus className="h-4 w-4 mr-1" />
-                          Assess
-                        </Button>
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" onClick={() => handleAssess(room.id)}>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Assess
+                          </Button>
+                          {lastAssessment && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleExportAssessment(room.id)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

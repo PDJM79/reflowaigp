@@ -6,10 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplet, Calendar, ListChecks, Loader2, RefreshCw } from 'lucide-react';
+import { Droplet, Calendar, ListChecks, Loader2, RefreshCw, Download } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
 import { CleaningDashboard } from '@/components/cleaning/CleaningDashboard';
+import { toast } from 'sonner';
+import { generateCleaningLogsPDF } from '@/lib/pdfExportV2';
 
 export default function Cleaning() {
   const { user } = useAuth();
@@ -64,6 +66,48 @@ export default function Cleaning() {
   const openTasks = tasks.filter(t => t.status === 'open');
   const completedTasks = tasks.filter(t => t.status === 'complete');
 
+  const handleExportCleaningLogs = async () => {
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      const { data: practiceData } = await supabase
+        .from('practices')
+        .select('name')
+        .eq('id', userData.practice_id)
+        .single();
+
+      const [zonesRes, tasksRes, logsRes] = await Promise.all([
+        supabase.from('cleaning_zones').select('*').eq('practice_id', userData.practice_id),
+        supabase.from('cleaning_tasks').select('*').eq('practice_id', userData.practice_id),
+        supabase.from('cleaning_logs').select('*').eq('practice_id', userData.practice_id).order('log_date', { ascending: false }).limit(100)
+      ]);
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const period = `${thirtyDaysAgo.toLocaleDateString()} to ${new Date().toLocaleDateString()}`;
+
+      const exporter = generateCleaningLogsPDF({
+        practiceName: practiceData?.name || 'Practice',
+        period,
+        zones: zonesRes.data || [],
+        tasks: tasksRes.data || [],
+        logs: logsRes.data || []
+      });
+
+      exporter.save(`Cleaning_Logs_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('Cleaning logs PDF exported successfully');
+    } catch (error: any) {
+      console.error('Error exporting cleaning logs:', error);
+      toast.error('Failed to export cleaning logs');
+    }
+  };
+
   return (
     <div ref={scrollableRef} className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
       {isMobile && (isPulling || isRefreshing) && (
@@ -89,14 +133,25 @@ export default function Cleaning() {
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">Daily cleaning schedules and room checks</p>
         </div>
-        <Button 
-          onClick={() => navigate('/tasks?module=cleaning')}
-          size={isMobile ? 'lg' : 'default'}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
-          <ListChecks className="h-4 w-4 mr-2" />
-          {isMobile ? 'View Tasks' : 'View All Cleaning Tasks'}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            variant="outline"
+            onClick={handleExportCleaningLogs}
+            size={isMobile ? 'lg' : 'default'}
+            className="min-h-[44px]"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export Logs
+          </Button>
+          <Button 
+            onClick={() => navigate('/tasks?module=cleaning')}
+            size={isMobile ? 'lg' : 'default'}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            <ListChecks className="h-4 w-4 mr-2" />
+            {isMobile ? 'View Tasks' : 'View All Cleaning Tasks'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 grid-cols-3 sm:gap-4">
