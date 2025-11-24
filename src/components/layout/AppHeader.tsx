@@ -1,3 +1,4 @@
+import React from 'react';
 import { ThemeToggle } from '@/components/settings/ThemeToggle';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { useIsMobile } from '@/hooks/use-mobile';
