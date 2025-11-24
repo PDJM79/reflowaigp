@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Practice {
   id: string;
@@ -7,16 +7,16 @@ interface Practice {
   created_at: string;
 }
 
-const SELECTED_PRACTICE_KEY = 'selected_practice_id';
-const SELECTED_PRACTICE_NAME_KEY = 'selected_practice_name';
+const SELECTED_PRACTICE_KEY = "selected_practice_id";
+const SELECTED_PRACTICE_NAME_KEY = "selected_practice_name";
 
 export const usePracticeSelection = () => {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(
-    sessionStorage.getItem(SELECTED_PRACTICE_KEY)
+    sessionStorage.getItem(SELECTED_PRACTICE_KEY),
   );
   const [selectedPracticeName, setSelectedPracticeName] = useState<string | null>(
-    sessionStorage.getItem(SELECTED_PRACTICE_NAME_KEY)
+    sessionStorage.getItem(SELECTED_PRACTICE_NAME_KEY),
   );
   const [loading, setLoading] = useState(true);
 
@@ -27,19 +27,19 @@ export const usePracticeSelection = () => {
   const fetchPractices = async () => {
     try {
       const { data, error } = await supabase
-        .from('practices')
-        .select('id, name, created_at')
-        .order('name');
+        .from("practices")
+        .select("id, name") // Only fetch non-sensitive fields
+        .order("name");
 
       if (error) {
-        console.error('Error fetching practices:', error);
+        console.error("Error fetching practices:", error);
         throw error;
       }
-      
-      console.log('Fetched practices:', data);
+
+      console.log("Fetched practices:", data);
       setPractices(data || []);
     } catch (error) {
-      console.error('Error fetching practices:', error);
+      console.error("Error fetching practices:", error);
     } finally {
       setLoading(false);
     }
