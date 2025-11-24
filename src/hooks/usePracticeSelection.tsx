@@ -31,7 +31,12 @@ export const usePracticeSelection = () => {
         .select('id, name, created_at')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching practices:', error);
+        throw error;
+      }
+      
+      console.log('Fetched practices:', data);
       setPractices(data || []);
     } catch (error) {
       console.error('Error fetching practices:', error);
