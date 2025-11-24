@@ -32,7 +32,7 @@ const Index = () => {
 
   if (!user) {
     // Show practice selection first, then auth form
-    if (!preAuthPracticeId || !showAuthForm) {
+    if (!showAuthForm) {
       return <PracticeSelection onPracticeSelected={() => setShowAuthForm(true)} />;
     }
     
