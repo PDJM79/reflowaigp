@@ -1,7 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import React from 'react';
 import App from './App.tsx';
 import './index.css';
+import { REBUILD_TRIGGER } from './temp-rebuild-trigger';
+
+// Force single React instance globally to prevent bundling issues
+(window as any).React = React;
+(window as any).REBUILD_TRIGGER = REBUILD_TRIGGER;
 
 // Register service worker for offline support
 if ('serviceWorker' in navigator) {
