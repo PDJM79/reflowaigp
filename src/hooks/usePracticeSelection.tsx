@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface Practice {
   id: string;
   name: string;
-  created_at: string;
+  created_at?: string;
 }
 
 const SELECTED_PRACTICE_KEY = "selected_practice_id";
