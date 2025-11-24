@@ -17,9 +17,11 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
 
   // Clear old practice selection and auto-select if only one practice
   useEffect(() => {
+    console.log('PracticeSelection useEffect', { loading, practicesLength: practices.length });
     clearPracticeSelection();
     if (!loading && practices.length === 1) {
       const practice = practices[0];
+      console.log('Auto-selecting single practice:', practice);
       setSelectedId(practice.id);
       selectPractice(practice.id, practice.name);
       setTimeout(() => onPracticeSelected(), 100);
@@ -27,10 +29,14 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
   }, [practices, loading]);
 
   const handleContinue = () => {
+    console.log('handleContinue clicked', { selectedId, practices });
     const practice = practices.find(p => p.id === selectedId);
     if (practice) {
+      console.log('Selecting practice:', practice);
       selectPractice(practice.id, practice.name);
       onPracticeSelected();
+    } else {
+      console.log('No practice found for selectedId:', selectedId);
     }
   };
 
