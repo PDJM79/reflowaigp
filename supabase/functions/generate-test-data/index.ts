@@ -69,10 +69,11 @@ serve(async (req) => {
         await supabaseAdmin.from('user_roles').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('role_assignments').delete().eq('practice_id', practice.id);
         
-        // Delete user_auth_sensitive for users in this practice
+        // Delete user_auth_sensitive and user_contact_details for users in this practice
         const practiceUserIds = (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || [];
         if (practiceUserIds.length > 0) {
           await supabaseAdmin.from('user_auth_sensitive').delete().in('user_id', practiceUserIds);
+          await supabaseAdmin.from('user_contact_details').delete().in('user_id', practiceUserIds);
         }
         
         await supabaseAdmin.from('users').delete().eq('practice_id', practice.id);
@@ -148,14 +149,13 @@ serve(async (req) => {
         continue;
       }
 
-      // Create users table record (without role - roles go in user_roles table)
+      // Create users table record (without email - emails go in user_contact_details table)
       const { data: dbUser, error: dbError } = await supabaseAdmin
         .from('users')
         .insert({
           auth_user_id: authUser.user.id,
           practice_id: practice.id,
           name: user.name,
-          email: user.email,
           is_practice_manager: user.role === 'practice_manager',
           is_active: true
         })
@@ -165,6 +165,19 @@ serve(async (req) => {
       if (dbError) {
         console.error('DB error for', user.email, dbError);
         continue;
+      }
+
+      // Create user_contact_details entry with email
+      const { error: contactError } = await supabaseAdmin
+        .from('user_contact_details')
+        .insert({
+          user_id: dbUser.id,
+          email: user.email,
+          practice_id: practice.id
+        });
+
+      if (contactError) {
+        console.error('Contact details error for', user.email, contactError);
       }
 
       // Create user_roles entry
