@@ -271,10 +271,10 @@ export default function StepExecution() {
     if (!stepInstance || !user) return;
 
     try {
-      // Get user ID from users table
+      // Get user ID and practice ID from users table
       const { data: userData } = await supabase
         .from('users')
-        .select('id')
+        .select('id, practice_id')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -283,9 +283,9 @@ export default function StepExecution() {
         return;
       }
 
-      // Generate unique filename
+      // Generate unique filename with practice_id prefix
       const timestamp = Date.now();
-      const filename = `evidence/${stepInstance.id}/${timestamp}_photo.jpg`;
+      const filename = `${userData.practice_id}/${stepInstance.id}/${timestamp}_photo.jpg`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -334,10 +334,10 @@ export default function StepExecution() {
     if (!stepInstance || !user) return;
 
     try {
-      // Get user ID from users table
+      // Get user ID and practice ID from users table
       const { data: userData } = await supabase
         .from('users')
-        .select('id')
+        .select('id, practice_id')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -346,10 +346,10 @@ export default function StepExecution() {
         return;
       }
 
-      // Generate unique filename
+      // Generate unique filename with practice_id prefix
       const timestamp = Date.now();
       const fileExtension = file.name.split('.').pop() || 'bin';
-      const filename = `evidence/${stepInstance.id}/${timestamp}_${file.name}`;
+      const filename = `${userData.practice_id}/${stepInstance.id}/${timestamp}_${file.name}`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
