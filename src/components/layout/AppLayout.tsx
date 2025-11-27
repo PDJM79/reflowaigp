@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,11 +20,11 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string>('');
+  const [sidebarOpen, setSidebarOpen] = React.useState(!isMobile);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [userRole, setUserRole] = React.useState<string>('');
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user) {
       navigate('/login');
       return;

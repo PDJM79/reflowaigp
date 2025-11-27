@@ -23,12 +23,15 @@ export default defineConfig(({ mode }) => ({
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', '@tanstack/react-query'],
+    include: ['react', 'react-dom', 'react/jsx-runtime', '@tanstack/react-query', '@supabase/supabase-js', 'sonner', 'react-i18next'],
     exclude: [],
     force: true,
     esbuildOptions: {
       resolveExtensions: ['.js', '.jsx', '.ts', '.tsx'],
     },
+  },
+  ssr: {
+    noExternal: ['react', 'react-dom'],
   },
   build: {
     commonjsOptions: {
@@ -40,5 +43,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  cacheDir: '.vite-cache-v2',
+  cacheDir: '.vite-cache-v3',
 }));
