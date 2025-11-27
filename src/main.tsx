@@ -1,6 +1,6 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import MinimalApp from './MinimalApp.tsx';
+import * as React from 'react';
+import * as ReactDOM from 'react-dom/client';
+import App from './App.tsx';
 import './index.css';
 
 // Register service worker for offline support
@@ -22,8 +22,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <MinimalApp />
-  </StrictMode>
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
