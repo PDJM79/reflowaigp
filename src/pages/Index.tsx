@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { AuthForm } from '@/components/auth/AuthForm';
@@ -17,7 +17,7 @@ const Index = () => {
   const { isMasterUser, selectedPracticeId, setSelectedPractice, clearSelectedPractice, loading: masterLoading } = useMasterUser();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
   const { selectedPracticeId: preAuthPracticeId, loading: practiceLoading, selectPractice } = usePracticeSelection();
-  const [showAuthForm, setShowAuthForm] = React.useState(false);
+  const [showAuthForm, setShowAuthForm] = useState(false);
   
   // Check if user needs to change password
   const needsPasswordChange = user?.user_metadata?.force_password_change === true;

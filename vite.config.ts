@@ -17,22 +17,14 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      'react': path.resolve(__dirname, './node_modules/react'),
-      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
-      'react/jsx-runtime': path.resolve(__dirname, './node_modules/react/jsx-runtime'),
     },
-    dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', '@tanstack/react-query', '@supabase/supabase-js', 'sonner', 'react-i18next'],
+    include: ['react', 'react-dom', 'react/jsx-runtime'],
     exclude: [],
-    force: true,
     esbuildOptions: {
       resolveExtensions: ['.js', '.jsx', '.ts', '.tsx'],
     },
-  },
-  ssr: {
-    noExternal: ['react', 'react-dom'],
   },
   build: {
     commonjsOptions: {
@@ -40,9 +32,14 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => {
+          // Force React and ReactDOM into a single vendor chunk
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor-react';
+          }
+        },
       },
     },
   },
-  cacheDir: '.vite-cache-v4',
+  cacheDir: '.vite-cache-v5',
 }));
