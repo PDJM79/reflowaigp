@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, createContext } from '@/lib/react-singleton';
+import React, { useState, useEffect, useContext, createContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';

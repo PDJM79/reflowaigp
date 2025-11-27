@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,11 +27,11 @@ type Task = {
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [userRole, setUserRole] = React.useState<string>('');
-  const [tasks, setTasks] = React.useState<Task[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [userRole, setUserRole] = useState<string>('');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
 
     const fetchUserAndTasks = async () => {
