@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -11,16 +11,16 @@ interface MasterUserContextType {
   loading: boolean;
 }
 
-const MasterUserContext = createContext<MasterUserContextType | undefined>(undefined);
+const MasterUserContext = React.createContext<MasterUserContextType | undefined>(undefined);
 
 export function MasterUserProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [isMasterUser, setIsMasterUser] = useState(false);
-  const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
-  const [selectedPracticeName, setSelectedPracticeName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isMasterUser, setIsMasterUser] = React.useState(false);
+  const [selectedPracticeId, setSelectedPracticeId] = React.useState<string | null>(null);
+  const [selectedPracticeName, setSelectedPracticeName] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
@@ -87,7 +87,7 @@ export function MasterUserProvider({ children }: { children: React.ReactNode }) 
 }
 
 export function useMasterUser() {
-  const context = useContext(MasterUserContext);
+  const context = React.useContext(MasterUserContext);
   if (context === undefined) {
     throw new Error('useMasterUser must be used within a MasterUserProvider');
   }
