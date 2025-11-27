@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React from '@/lib/react-singleton';
 import * as ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';

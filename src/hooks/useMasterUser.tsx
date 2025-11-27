@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState, useEffect, useContext, createContext } from '@/lib/react-singleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
