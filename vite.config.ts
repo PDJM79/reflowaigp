@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
       'react': path.resolve(__dirname, './node_modules/react'),
       'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
+      'react/jsx-runtime': path.resolve(__dirname, './node_modules/react/jsx-runtime'),
     },
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
@@ -43,5 +44,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  cacheDir: '.vite-cache-v3',
+  cacheDir: '.vite-cache-v4',
 }));
