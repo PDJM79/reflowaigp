@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Sun, Moon, Monitor, Bell, Lock, User, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,7 +44,10 @@ export default function Settings() {
   return (
     <div className="container mx-auto p-6 max-w-4xl space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Settings</h1>
+        <div className="flex items-center gap-2 mb-2">
+          <BackButton />
+          <h1 className="text-3xl font-bold">Settings</h1>
+        </div>
         <p className="text-muted-foreground">
           Manage your application preferences and account settings
         </p>

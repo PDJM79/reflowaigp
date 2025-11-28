@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText, Loader2, RefreshCw } from 'lucide-react';
@@ -111,10 +112,13 @@ export default function Complaints() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <MessageSquare className="h-8 w-8" />
-            Complaints Management (PTR)
-          </h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <MessageSquare className="h-8 w-8" />
+              Complaints Management (PTR)
+            </h1>
+          </div>
           <p className="text-muted-foreground">Track and manage patient complaints with SLA monitoring</p>
         </div>
         <Button>
