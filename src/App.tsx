@@ -31,6 +31,7 @@ import Incidents from "./pages/Incidents";
 import Claims from "./pages/Claims";
 import FireSafety from "./pages/FireSafety";
 import HR from "./pages/HR";
+import UserManagement from "./pages/UserManagement";
 import StaffSelfService from "./pages/StaffSelfService";
 import Complaints from "./pages/Complaints";
 import MedicalRequests from "./pages/MedicalRequests";
@@ -95,6 +96,7 @@ const App = () => (
                 <Route path="/incidents" element={<Incidents />} />
                 <Route path="/fire-safety" element={<FireSafety />} />
                 <Route path="/hr" element={<HR />} />
+                <Route path="/user-management" element={<UserManagement />} />
                 <Route path="/staff-self-service" element={<StaffSelfService />} />
                 <Route path="/complaints" element={<Complaints />} />
                 <Route path="/medical-requests" element={<MedicalRequests />} />

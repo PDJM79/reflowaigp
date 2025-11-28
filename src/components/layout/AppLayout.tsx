@@ -115,6 +115,7 @@ export function AppLayout() {
     {
       title: 'People',
       items: [
+        { icon: Users, label: 'User Management', path: '/user-management', roles: ['practice_manager', 'administrator'] },
         { icon: Users, label: t('nav.hr'), path: '/hr', roles: ['practice_manager', 'administrator'] },
         { icon: Users, label: 'My Information', path: '/staff-self-service', roles: 'all' },
         { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
