@@ -58,9 +58,23 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
     if (!user) return;
 
     try {
+      // Get user's practice ID first
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData?.practice_id) {
+        console.error('User practice not found');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('role_assignments')
         .select('*')
+        .eq('practice_id', userData.practice_id)
         .order('assigned_name');
 
       if (error) throw error;
