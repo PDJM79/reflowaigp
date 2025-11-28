@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -80,10 +81,13 @@ export default function HR() {
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6 sm:h-8 sm:w-8" />
-            Human Resources
-          </h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6 sm:h-8 sm:w-8" />
+              Human Resources
+            </h1>
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">

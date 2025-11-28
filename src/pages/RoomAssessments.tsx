@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, AlertCircle, Download } from "lucide-react";
@@ -140,7 +141,10 @@ export default function RoomAssessments() {
     <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Annual Room Assessments</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <BackButton />
+              <h1 className="text-3xl font-bold">Annual Room Assessments</h1>
+            </div>
             <p className="text-muted-foreground mt-1">
               Track annual safety assessments for all practice rooms
             </p>

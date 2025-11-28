@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -97,10 +98,13 @@ export default function MonthEndScripts() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Pill className="h-8 w-8" />
-            Month-End Scripts
-          </h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Pill className="h-8 w-8" />
+              Month-End Scripts
+            </h1>
+          </div>
           <p className="text-muted-foreground">Track prescriptions and controlled drugs</p>
         </div>
         {canAdd && (

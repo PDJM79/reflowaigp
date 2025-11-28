@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -157,10 +158,13 @@ export default function FridgeTemps() {
       )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Thermometer className="h-6 w-6 sm:h-8 sm:w-8" />
-            Fridge Temperature Monitoring
-          </h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Thermometer className="h-6 w-6 sm:h-8 sm:w-8" />
+              Fridge Temperature Monitoring
+            </h1>
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">Track vaccine and medication storage temperatures</p>
         </div>
         <Button 

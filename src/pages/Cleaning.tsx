@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplet, Calendar, ListChecks, Loader2, RefreshCw, Download } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -127,10 +128,13 @@ export default function Cleaning() {
       )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Droplet className="h-6 w-6 sm:h-8 sm:w-8" />
-            {t('cleaning.title')}
-          </h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Droplet className="h-6 w-6 sm:h-8 sm:w-8" />
+              {t('cleaning.title')}
+            </h1>
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">Daily cleaning schedules and room checks</p>
         </div>
         <div className="flex gap-2 flex-wrap">

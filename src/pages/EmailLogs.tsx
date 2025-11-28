@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { useEmailLogs } from '@/hooks/useEmailLogs';
 import { EmailLogFilters } from '@/components/email-logs/EmailLogFilters';
 import { EmailLogsTable } from '@/components/email-logs/EmailLogsTable';
@@ -140,9 +141,12 @@ export default function EmailLogs() {
         </div>
       )}
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:items-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{t('email_logs.title')}</h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-3xl font-bold">{t('email_logs.title')}</h1>
+          </div>
           <p className="text-muted-foreground mt-2">{t('email_logs.description')}</p>
         </div>
         <Button onClick={handleExport} disabled={exporting || loading}>

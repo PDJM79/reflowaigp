@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,7 +171,10 @@ export default function IPC() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Infection Prevention & Control</h1>
+          <div className="flex items-center gap-2 mb-2">
+            <BackButton />
+            <h1 className="text-3xl font-bold">Infection Prevention & Control</h1>
+          </div>
           <p className="text-muted-foreground mt-1">
             Six-monthly IPC audits with 12-month retention (May & December)
           </p>

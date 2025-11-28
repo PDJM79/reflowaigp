@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/ui/back-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, ChevronLeft, ChevronRight, Clock, User } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
@@ -305,10 +306,13 @@ export default function Schedule() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Calendar className="h-8 w-8" />
-          Task Schedule
-        </h1>
+        <div className="flex items-center gap-2 mb-2">
+          <BackButton />
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Calendar className="h-8 w-8" />
+            Task Schedule
+          </h1>
+        </div>
         <p className="text-muted-foreground">12-month overview of all scheduled tasks</p>
       </div>
 
