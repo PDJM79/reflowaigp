@@ -5,12 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Home, Calendar, ListTodo, FileText, FolderOpen, BarChart3,
   Pill, PoundSterling, Shield, Droplet, AlertTriangle, Flame,
   Users, MessageSquare, FileCheck, BookOpen, Thermometer, Mail,
-  Settings, LogOut, Menu, X
+  Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { OfflineIndicator } from '@/components/ui/offline-indicator';
 
@@ -22,7 +23,8 @@ export function AppLayout() {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string>('');
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Overview', 'Tasks & Schedule']);
 
   useEffect(() => {
     if (!user) {
@@ -30,19 +32,29 @@ export function AppLayout() {
       return;
     }
 
-    // Fetch user roles
-    const fetchUserRole = async () => {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
+    // Fetch user roles - FIXED: properly join through users table
+    const fetchUserRoles = async () => {
+      // First get internal user ID from auth_user_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
         .single();
       
-      if (data) setUserRole(data.role);
+      if (userData) {
+        // Then fetch all roles for this user
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userData.id);
+        
+        if (rolesData) {
+          setUserRoles(rolesData.map((r) => r.role));
+        }
+      }
     };
     
-    fetchUserRole();
+    fetchUserRoles();
   }, [user, navigate]);
 
   const handleLogout = async () => {
@@ -50,51 +62,127 @@ export function AppLayout() {
     navigate('/login');
   };
 
-  const navItems = [
-    { icon: Home, label: t('nav.home'), path: '/dashboard', roles: 'all' },
-    { icon: BarChart3, label: 'Dashboards', path: '/dashboards', roles: ['practice_manager', 'group_manager'] },
-    { icon: Calendar, label: t('nav.schedule'), path: '/schedule', roles: ['practice_manager', 'administrator'] },
-    { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
-    { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
-    { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
-    { icon: PoundSterling, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
-    { icon: Shield, label: 'IPC Audits', path: '/ipc', roles: ['nurse_lead', 'practice_manager'] },
-    { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },
-    { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', roles: ['estates_lead', 'practice_manager'] },
-    { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
-    { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', roles: ['estates_lead', 'practice_manager'] },
-    { icon: Users, label: t('nav.hr'), path: '/hr', roles: ['practice_manager', 'administrator'] },
-    { icon: Users, label: 'My Information', path: '/staff-self-service', roles: 'all' },
-    { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', roles: ['ig_lead', 'practice_manager', 'reception_lead'] },
-    { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', roles: ['administrator', 'practice_manager'] },
-    { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
-    { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', roles: 'all' },
-    { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', roles: ['practice_manager', 'ig_lead'] },
+  const toggleGroup = (groupTitle: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupTitle) 
+        ? prev.filter(g => g !== groupTitle)
+        : [...prev, groupTitle]
+    );
+  };
+
+  const navGroups = [
+    {
+      title: 'Overview',
+      items: [
+        { icon: Home, label: t('nav.home'), path: '/dashboard', roles: 'all' },
+        { icon: BarChart3, label: 'Dashboards', path: '/dashboards', roles: ['practice_manager'] },
+      ]
+    },
+    {
+      title: 'Tasks & Schedule',
+      items: [
+        { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
+        { icon: Calendar, label: t('nav.schedule'), path: '/schedule', roles: ['practice_manager', 'administrator'] },
+        { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
+      ]
+    },
+    {
+      title: 'Clinical',
+      items: [
+        { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
+        { icon: PoundSterling, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
+        { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', roles: 'all' },
+        { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', roles: ['administrator', 'practice_manager'] },
+      ]
+    },
+    {
+      title: 'Compliance',
+      items: [
+        { icon: Shield, label: 'IPC Audits', path: '/ipc', roles: ['nurse_lead', 'practice_manager'] },
+        { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },
+        { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
+        { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', roles: ['practice_manager', 'ig_lead'] },
+      ]
+    },
+    {
+      title: 'Facilities',
+      items: [
+        { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', roles: ['estates_lead', 'practice_manager'] },
+        { icon: Building, label: 'Room Assessments', path: '/room-assessments', roles: ['estates_lead', 'practice_manager'] },
+        { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', roles: ['estates_lead', 'practice_manager'] },
+      ]
+    },
+    {
+      title: 'People',
+      items: [
+        { icon: Users, label: t('nav.hr'), path: '/hr', roles: ['practice_manager', 'administrator'] },
+        { icon: Users, label: 'My Information', path: '/staff-self-service', roles: 'all' },
+        { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
+        { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', roles: ['ig_lead', 'practice_manager', 'reception_lead'] },
+      ]
+    },
+    {
+      title: 'Reports & Admin',
+      items: [
+        { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', roles: ['practice_manager', 'ig_lead'] },
+      ]
+    }
   ];
 
-  const visibleNavItems = navItems.filter(item => 
-    item.roles === 'all' || 
-    (Array.isArray(item.roles) && item.roles.includes(userRole))
-  );
+  // Filter groups based on user roles - support multi-role
+  const visibleNavGroups = navGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => 
+      item.roles === 'all' || 
+      (Array.isArray(item.roles) && item.roles.some(r => userRoles.includes(r)))
+    )
+  })).filter(group => group.items.length > 0);
 
   const isActive = (path: string) => location.pathname === path;
 
   const renderNavItems = () => (
-    <div className="space-y-1">
-      {visibleNavItems.map((item) => {
-        const Icon = item.icon;
-        const active = isActive(item.path);
+    <div className="space-y-2">
+      {visibleNavGroups.map((group) => {
+        const isExpanded = expandedGroups.includes(group.title);
         
         return (
-          <Link key={item.path} to={item.path} onClick={() => setMobileMenuOpen(false)}>
-            <Button
-              variant={active ? 'secondary' : 'ghost'}
-              className={`w-full justify-start ${!sidebarOpen && !isMobile && 'px-2'}`}
-            >
-              <Icon className={`h-5 w-5 ${(sidebarOpen || isMobile) ? 'mr-2' : ''}`} />
-              {(sidebarOpen || isMobile) && <span>{item.label}</span>}
-            </Button>
-          </Link>
+          <Collapsible 
+            key={group.title}
+            open={isExpanded}
+            onOpenChange={() => toggleGroup(group.title)}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <span className="text-xs uppercase tracking-wider">{group.title}</span>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1 pl-2">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                
+                return (
+                  <Link key={item.path} to={item.path} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant={active ? 'secondary' : 'ghost'}
+                      className={`w-full justify-start ${!sidebarOpen && !isMobile && 'px-2'}`}
+                    >
+                      <Icon className={`h-4 w-4 ${(sidebarOpen || isMobile) ? 'mr-2' : ''}`} />
+                      {(sidebarOpen || isMobile) && <span className="text-sm">{item.label}</span>}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </CollapsibleContent>
+          </Collapsible>
         );
       })}
     </div>
