@@ -1,25 +1,39 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// supabase/functions/generate-test-data/index.ts
+// CRON job: Generates test data for development/testing
+// Requires X-Job-Token header AND ALLOW_TEST_DATA=true environment variable
+// This function is BLOCKED in production
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  // No CORS for CRON jobs - not called from browser
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Require CRON secret
+    requireCronSecret(req);
+
+    // Environment gate: block in production
+    const allowTestData = Deno.env.get('ALLOW_TEST_DATA');
+    if (allowTestData !== 'true') {
+      console.error('❌ ALLOW_TEST_DATA is not enabled - test data generation blocked');
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Test data generation is disabled in this environment' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    const supabaseAdmin = createServiceClient();
 
     // Clean up any existing test data
-    console.log('Cleaning up existing test data...');
+    console.log('🧹 Cleaning up existing test data...');
     
     // Find and delete ALL existing test practices (there might be duplicates)
     const { data: existingPractices } = await supabaseAdmin
@@ -699,14 +713,14 @@ serve(async (req) => {
         })),
         message: 'Test data generated successfully'
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error generating test data:', error);
+    console.error('❌ Error generating test data:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

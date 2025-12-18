@@ -41,6 +41,8 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.55.0",
     "@tanstack/react-query": "^5.83.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -49,6 +51,7 @@
     "embla-carousel-react": "^8.6.0",
     "i18next": "^25.5.3",
     "input-otp": "^1.4.2",
+    "jsdom": "^27.3.0",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.462.0",
@@ -67,6 +70,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
+    "vitest": "^4.0.16",
     "zod": "^3.25.76"
   },
   "devDependencies": {

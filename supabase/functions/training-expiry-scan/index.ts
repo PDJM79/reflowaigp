@@ -1,28 +1,30 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/training-expiry-scan/index.ts
+// CRON job: Scans for expiring training records and sends notifications
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+serve(async (req) => {
+  // No CORS for CRON jobs - not called from browser
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('Training Expiry Scan CRON: Starting daily scan');
+    // Require CRON secret
+    requireCronSecret(req);
+
+    const supabase = createServiceClient();
+    console.log('📚 Training Expiry Scan CRON: Starting daily scan');
 
     const currentDate = new Date();
     const thirtyDaysFromNow = new Date(currentDate);
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    const sixtyDaysFromNow = new Date(currentDate);
-    sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
 
     const ninetyDaysFromNow = new Date(currentDate);
     ninetyDaysFromNow.setDate(ninetyDaysFromNow.getDate() + 90);
@@ -48,6 +50,8 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const record of expiringRecords || []) {
+      if (!record.employee || !record.training_type) continue;
+      
       const expiryDate = new Date(record.expiry_date);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
       
@@ -101,17 +105,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log('Training Expiry Scan CRON: Completed', results);
+    console.log('✅ Training Expiry Scan CRON: Completed', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ ok: true, results }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
-    console.error('Training Expiry Scan CRON Error:', error);
+    console.error('❌ Training Expiry Scan CRON Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });
