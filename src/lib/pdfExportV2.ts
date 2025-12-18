@@ -830,3 +830,120 @@ export function generateFridgeTempReportPDF(data: {
 
   return exporter;
 }
+
+// ============= MEDICAL REQUESTS REPORT =============
+interface MedicalRequestReportData {
+  practiceName: string;
+  dateRange: { from: string; to: string };
+  requests: Array<{
+    id: string;
+    request_type: string;
+    status: string;
+    received_at: string;
+    sent_at: string | null;
+    notes: string | null;
+    assigned_gp_name?: string | null;
+  }>;
+  metrics: {
+    totalReceived: number;
+    totalCompleted: number;
+    averageTurnaround: number;
+    pendingOver7Days: number;
+    byType: Record<string, number>;
+  };
+}
+
+export function generateMedicalRequestsReportPDF(data: MedicalRequestReportData): UpdatePackPDFExporter {
+  const exporter = new UpdatePackPDFExporter();
+
+  exporter.addPracticeHeader(data.practiceName, `${data.dateRange.from} to ${data.dateRange.to}`);
+  exporter.addSectionTitle('Medical & Insurance Requests Report');
+
+  // Summary Section
+  exporter.addSubsectionTitle('Summary Statistics');
+  exporter.addKeyValuePairs([
+    { key: 'Total Requests', value: data.metrics.totalReceived.toString() },
+    { key: 'Completed', value: data.metrics.totalCompleted.toString() },
+    { key: 'Avg Turnaround', value: `${data.metrics.averageTurnaround} days` },
+    { key: 'Overdue (>7 days)', value: data.metrics.pendingOver7Days.toString() },
+  ]);
+
+  // By Type Breakdown
+  if (Object.keys(data.metrics.byType).length > 0) {
+    exporter.addSubsectionTitle('Requests by Type');
+    const typeRows = Object.entries(data.metrics.byType).map(([type, count]) => [
+      type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      count.toString(),
+    ]);
+    exporter.addTable(['Request Type', 'Count'], typeRows);
+  }
+
+  // Outstanding Requests
+  const pendingRequests = data.requests.filter(r => r.status !== 'sent');
+  if (pendingRequests.length > 0) {
+    exporter.addSubsectionTitle('Outstanding Requests');
+    const pendingRows = pendingRequests.map(r => {
+      const daysPending = Math.ceil(
+        (new Date().getTime() - new Date(r.received_at).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return [
+        new Date(r.received_at).toLocaleDateString(),
+        r.request_type.replace(/_/g, ' '),
+        r.status.replace(/_/g, ' '),
+        r.requester_organization || r.requester_name || '-',
+        `${daysPending} days`,
+        r.assigned_gp_name || 'Unassigned',
+      ];
+    });
+    exporter.addTable(
+      ['Received', 'Type', 'Status', 'Requester', 'Pending', 'Assigned To'],
+      pendingRows
+    );
+  }
+
+  // Completed Requests
+  const completedRequests = data.requests.filter(r => r.status === 'sent' && r.sent_at);
+  if (completedRequests.length > 0) {
+    exporter.addSubsectionTitle('Completed Requests');
+    const completedRows = completedRequests.slice(0, 30).map(r => {
+      const turnaround = r.sent_at
+        ? Math.ceil(
+            (new Date(r.sent_at).getTime() - new Date(r.received_at).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : '-';
+      return [
+        new Date(r.received_at).toLocaleDateString(),
+        r.request_type.replace(/_/g, ' '),
+        r.requester_organization || r.requester_name || '-',
+        r.sent_at ? new Date(r.sent_at).toLocaleDateString() : '-',
+        `${turnaround} days`,
+      ];
+    });
+    exporter.addTable(
+      ['Received', 'Type', 'Requester', 'Sent', 'Turnaround'],
+      completedRows
+    );
+
+    if (completedRequests.length > 30) {
+      exporter.addParagraph(`Note: Showing first 30 of ${completedRequests.length} completed requests.`);
+    }
+  }
+
+  // Compliance Notes
+  exporter.addSubsectionTitle('Processing Guidelines');
+  exporter.addBulletList([
+    'All medical requests should be acknowledged within 2 working days',
+    'Target turnaround time is 14 working days for standard requests',
+    'Urgent insurance requests should be prioritized (7 days)',
+    'Solicitor requests may require additional time for legal review',
+    'All requests must be logged with patient identifier and requester details',
+  ]);
+
+  exporter.addSignatureSection([
+    { role: 'GP/Clinical Lead', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' },
+  ]);
+
+  return exporter;
+}
