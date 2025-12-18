@@ -1,40 +1,41 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/complaints-sla-scan/index.ts
+// CRON job: Scans complaints for SLA breaches on weekdays
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+serve(async (req) => {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('Complaints SLA Scan CRON: Starting weekday scan');
+    requireCronSecret(req);
+
+    const supabase = createServiceClient();
+    console.log('📋 Complaints SLA Scan CRON: Starting weekday scan');
 
     const currentDate = new Date();
     const dayOfWeek = currentDate.getDay();
 
-    // Only run Monday-Friday (1-5)
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       console.log('Weekend - skipping SLA scan');
       return new Response(
-        JSON.stringify({ message: 'Weekend, no scan needed' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        JSON.stringify({ ok: true, message: 'Weekend, no scan needed' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // Get all open complaints
     const { data: complaints, error: complaintsError } = await supabase
       .from('complaints')
       .select('*')
-      .neq('sla_status', 'completed')
-      .not('acknowledgment_due_date', 'is', null);
+      .neq('status', 'resolved')
+      .not('ack_due', 'is', null);
 
     if (complaintsError) {
       console.error('Error fetching complaints:', complaintsError);
@@ -46,14 +47,14 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const complaint of complaints || []) {
-      const ackDue = complaint.acknowledgment_due_date ? new Date(complaint.acknowledgment_due_date) : null;
-      const finalDue = complaint.final_response_due_date ? new Date(complaint.final_response_due_date) : null;
+      const ackDue = complaint.ack_due ? new Date(complaint.ack_due) : null;
+      const finalDue = complaint.final_due ? new Date(complaint.final_due) : null;
       
-      let newStatus = complaint.sla_status;
+      let newStatus = complaint.status;
       let needsNotification = false;
 
       // Check acknowledgment SLA
-      if (ackDue && !complaint.acknowledged_at) {
+      if (ackDue && !complaint.ack_sent_at) {
         const hoursUntilAckDue = (ackDue.getTime() - currentDate.getTime()) / (1000 * 60 * 60);
         
         if (currentDate > ackDue) {
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
       }
 
       // Check final response SLA
-      if (finalDue && complaint.acknowledged_at && !complaint.resolved_at) {
+      if (finalDue && complaint.ack_sent_at && !complaint.final_sent_at) {
         const daysUntilFinalDue = (finalDue.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
         
         if (currentDate > finalDue) {
@@ -78,37 +79,32 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update complaint SLA status if changed
-      if (newStatus !== complaint.sla_status) {
+      // Update complaint status if changed
+      if (newStatus !== complaint.status) {
         await supabase
           .from('complaints')
-          .update({ sla_status: newStatus })
+          .update({ status: newStatus })
           .eq('id', complaint.id);
       }
 
       // Send notification if needed
       if (needsNotification) {
         const { data: managers } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'practice_manager')
-          .in('user_id', 
-            supabase
-              .from('users')
-              .select('id')
-              .eq('practice_id', complaint.practice_id)
-              .eq('is_active', true)
-          );
+          .from('users')
+          .select('id')
+          .eq('practice_id', complaint.practice_id)
+          .eq('is_practice_manager', true)
+          .eq('is_active', true);
 
         if (managers && managers.length > 0) {
-          const notifications = managers.map((manager: { user_id: string }) => ({
+          const notifications = managers.map((manager: { id: string }) => ({
             practice_id: complaint.practice_id,
-            user_id: manager.user_id,
+            user_id: manager.id,
             notification_type: 'complaint_sla_alert',
             priority: newStatus === 'overdue' ? 'urgent' : 'high',
             title: `Complaint SLA ${newStatus === 'overdue' ? 'Overdue' : 'At Risk'}`,
             message: `Complaint #${complaint.id.substring(0, 8)} is ${newStatus}. Action required.`,
-            action_url: `/complaints/${complaint.id}`
+            action_url: `/complaints`
           }));
 
           await supabase.from('notifications').insert(notifications);
@@ -122,17 +118,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('Complaints SLA Scan CRON: Completed', results);
+    console.log('✅ Complaints SLA Scan CRON: Completed', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ ok: true, results }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
-    console.error('Complaints SLA Scan CRON Error:', error);
+    console.error('❌ Complaints SLA Scan CRON Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

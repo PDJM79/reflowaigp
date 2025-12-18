@@ -1,27 +1,29 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/annual-reviews-hs/index.ts
+// CRON job: Sends notifications for annual H&S reviews (Fire, COSHH)
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+serve(async (req) => {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('Annual H&S Reviews CRON: Starting');
+    requireCronSecret(req);
+
+    const supabase = createServiceClient();
+    console.log('🔥 Annual H&S Reviews CRON: Starting');
 
     const currentDate = new Date();
     const oneMonthFromNow = new Date(currentDate);
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
 
-    // Get all active practices
     const { data: practices, error: practicesError } = await supabase
       .from('practices')
       .select('id, name')
@@ -36,17 +38,16 @@ Deno.serve(async (req) => {
 
     const results = [];
 
-    for (const practice of practices) {
+    for (const practice of practices || []) {
       // Check Fire Risk Assessments due within 1 month
       const { data: fraData } = await supabase
         .from('fire_risk_assessments_v2')
         .select('id, assessment_date')
         .eq('practice_id', practice.id)
-        .lte('next_review_due', oneMonthFromNow.toISOString())
+        .lte('next_review_date', oneMonthFromNow.toISOString())
         .is('completed_at', null);
 
       if (fraData && fraData.length > 0) {
-        // Send notifications to estates leads and practice managers
         const { data: targetUsers } = await supabase
           .from('users')
           .select('id')
@@ -100,17 +101,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('Annual H&S Reviews CRON: Completed', results);
+    console.log('✅ Annual H&S Reviews CRON: Completed', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ ok: true, results }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
-    console.error('Annual H&S Reviews CRON Error:', error);
+    console.error('❌ Annual H&S Reviews CRON Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

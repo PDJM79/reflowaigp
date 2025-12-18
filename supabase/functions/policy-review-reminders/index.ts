@@ -1,10 +1,10 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/policy-review-reminders/index.ts
+// CRON job: Sends notifications for policies needing review
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 interface PolicyReviewAlert {
   practice_id: string;
@@ -20,24 +20,20 @@ interface PolicyReviewAlert {
   }[];
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  console.log('🔔 Starting policy review reminders check...');
-
+serve(async (req) => {
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    requireCronSecret(req);
+
+    console.log('🔔 Starting policy review reminders check...');
+
+    const supabaseAdmin = createServiceClient();
 
     // Get all active policies that need review attention (30 days or less)
     const { data: policies, error: policiesError } = await supabaseAdmin
@@ -66,10 +62,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (!policies || policies.length === 0) {
       return new Response(
         JSON.stringify({ 
+          ok: true,
           message: 'No policies requiring review attention',
           policies_checked: 0
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
@@ -78,7 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     for (const policy of policies) {
       const practiceId = policy.practice_id;
-      const practiceName = policy.practices?.name || 'Unknown Practice';
+      const practiceName = (policy.practices as any)?.name || 'Unknown Practice';
       const reviewDue = new Date(policy.review_due);
       const today = new Date();
       const daysUntilDue = Math.floor((reviewDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -113,14 +110,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Grouped into ${practiceAlerts.size} practices`);
 
-    // For each practice, notify all Practice Managers
     let notificationsCreated = 0;
     
     for (const [practiceId, alert] of practiceAlerts) {
-      // Get all practice managers for this practice
       const { data: practiceManagers, error: pmError } = await supabaseAdmin
         .from('users')
-        .select('id, name, email')
+        .select('id, name')
         .eq('practice_id', practiceId)
         .eq('is_practice_manager', true)
         .eq('is_active', true);
@@ -137,9 +132,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log(`Found ${practiceManagers.length} PM(s) for ${alert.practice_name}`);
 
-      // Create notification for each PM
       for (const pm of practiceManagers) {
-        // Determine priority and message
         let priority = 'normal';
         let title = 'Policy Reviews Due';
         let message = '';
@@ -181,13 +174,13 @@ const handler = async (req: Request): Promise<Response> => {
           console.error(`Error creating notification for PM ${pm.id}:`, notificationError);
         } else {
           notificationsCreated++;
-          console.log(`✅ Notification created for ${pm.name} (${pm.email})`);
+          console.log(`✅ Notification created for ${pm.name}`);
         }
       }
     }
 
     const summary = {
-      success: true,
+      ok: true,
       timestamp: new Date().toISOString(),
       policies_checked: policies.length,
       practices_affected: practiceAlerts.size,
@@ -204,20 +197,18 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(
       JSON.stringify(summary),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error in policy-review-reminders:', error);
     return new Response(
       JSON.stringify({ 
-        success: false,
-        error: error.message,
+        ok: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
     );
   }
-};
-
-serve(handler);
+});
