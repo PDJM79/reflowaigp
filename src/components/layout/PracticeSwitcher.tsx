@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+// PracticeSwitcher - clean rewrite without usePracticeSelection dependency
+import { useEffect, useState } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { useMasterUser } from '@/hooks/useMasterUser';
-import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -13,53 +13,63 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+interface Practice {
+  id: string;
+  name: string;
+}
+
 export function PracticeSwitcher() {
   const { user } = useAuth();
   const { isMasterUser, selectedPracticeId, selectedPracticeName, setSelectedPractice, loading: masterLoading } = useMasterUser();
-  const { practices, loading: practicesLoading } = usePracticeSelection();
+  const [practices, setPractices] = useState<Practice[]>([]);
   const [userPracticeName, setUserPracticeName] = useState<string | null>(null);
-  const [loadingUserPractice, setLoadingUserPractice] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch user's practice name for non-master users
+  // Fetch practices for master users, or user's practice name for regular users
   useEffect(() => {
-    const fetchUserPractice = async () => {
-      if (!user || isMasterUser) {
-        setLoadingUserPractice(false);
+    async function fetchData() {
+      if (!user) {
+        setLoading(false);
         return;
       }
 
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (userData?.practice_id) {
-          const { data: practiceData } = await supabase
+        if (isMasterUser) {
+          // Master user: fetch all practices for dropdown
+          const { data } = await supabase
             .from('practices')
-            .select('name')
-            .eq('id', userData.practice_id)
+            .select('id, name')
+            .order('name');
+          setPractices(data || []);
+        } else {
+          // Regular user: fetch their practice name
+          const { data: userData } = await supabase
+            .from('users')
+            .select('practice_id')
+            .eq('auth_user_id', user.id)
             .single();
 
-          setUserPracticeName(practiceData?.name || null);
+          if (userData?.practice_id) {
+            const { data: practiceData } = await supabase
+              .from('practices')
+              .select('name')
+              .eq('id', userData.practice_id)
+              .single();
+            setUserPracticeName(practiceData?.name || null);
+          }
         }
       } catch (error) {
-        console.error('Error fetching user practice:', error);
+        console.error('Error fetching practice data:', error);
       } finally {
-        setLoadingUserPractice(false);
+        setLoading(false);
       }
-    };
+    }
 
-    fetchUserPractice();
+    fetchData();
   }, [user, isMasterUser]);
 
-  const isLoading = masterLoading || practicesLoading || loadingUserPractice;
-
-  // Determine current practice name to display
-  const currentPracticeName = isMasterUser 
-    ? selectedPracticeName 
-    : userPracticeName;
+  const isLoading = masterLoading || loading;
+  const currentPracticeName = isMasterUser ? selectedPracticeName : userPracticeName;
 
   if (isLoading) {
     return (
@@ -70,12 +80,11 @@ export function PracticeSwitcher() {
     );
   }
 
-  // If no practice selected/found, don't show anything
   if (!currentPracticeName) {
     return null;
   }
 
-  // For master users, show dropdown to switch practices
+  // Master users get a dropdown to switch practices
   if (isMasterUser) {
     return (
       <DropdownMenu>
@@ -112,7 +121,7 @@ export function PracticeSwitcher() {
     );
   }
 
-  // For regular users, show practice name as informational (non-interactive)
+  // Regular users see practice name as informational only
   return (
     <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-sm">
       <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
