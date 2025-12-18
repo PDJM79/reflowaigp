@@ -78,7 +78,7 @@ export function AppLayout() {
     {
       title: 'Overview',
       items: [
-        { icon: Home, label: t('nav.home'), path: '/dashboard', roles: 'all' },
+        { icon: Home, label: t('nav.home'), path: '/', roles: 'all' },
         { icon: BarChart3, label: 'Dashboards', path: '/dashboards', roles: ['practice_manager'] },
       ]
     },
@@ -279,9 +279,9 @@ export function AppLayout() {
       {isMobile && (
         <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom">
           <div className="flex justify-around items-center h-16 px-2">
-            <Link to="/dashboard">
+            <Link to="/">
               <Button
-                variant={isActive('/dashboard') ? 'secondary' : 'ghost'}
+                variant={isActive('/') ? 'secondary' : 'ghost'}
                 size="icon"
                 className="flex flex-col h-14 w-14 gap-1"
               >
