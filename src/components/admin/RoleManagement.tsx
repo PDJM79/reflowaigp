@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Save, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { BackButton } from '@/components/ui/back-button';
 
 type UserRole = 'practice_manager' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'nurse' | 'hca' | 'gp' | 'reception' | 'auditor' | 'group_manager';
 
@@ -22,7 +21,8 @@ interface RoleAssignment {
 }
 
 interface RoleManagementProps {
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const roleOptions = [
@@ -41,7 +41,7 @@ const roleOptions = [
   { value: 'auditor' as const, label: 'Auditor' }
 ];
 
-export function RoleManagement({ onClose }: RoleManagementProps) {
+export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
   const { user } = useAuth();
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([]);
   const [newAssignment, setNewAssignment] = useState({
@@ -53,13 +53,16 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchRoleAssignments();
-  }, [user]);
+    if (open) {
+      fetchRoleAssignments();
+    }
+  }, [user, open]);
 
   const fetchRoleAssignments = async () => {
     if (!user) return;
 
     try {
+      setLoading(true);
       // Get user's practice ID first
       const { data: userData } = await supabase
         .from('users')
@@ -158,134 +161,119 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-        <Card className="w-full max-w-2xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <CardHeader className="flex-shrink-0 sticky top-0 bg-card z-10 border-b">
-          <div className="flex items-center gap-4">
-            <BackButton fallbackPath="/dashboard" />
-            <div className="flex-1">
-              <CardTitle>Role Management</CardTitle>
-              <CardDescription>
-                Manage roles and designations for your practice
-              </CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Role Management</DialogTitle>
+          <DialogDescription>
+            Manage roles and designations for your practice
+          </DialogDescription>
+        </DialogHeader>
+        
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
-        </CardHeader>
-        <ScrollArea className="flex-1">
-          <CardContent className="space-y-6 p-6">
-          {/* Add New Assignment */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-medium">Add New Role Assignment</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={newAssignment.name}
-                  onChange={(e) => setNewAssignment(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter full name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newAssignment.email}
-                  onChange={(e) => setNewAssignment(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Role</Label>
-                <Select value={newAssignment.role} onValueChange={(value) => setNewAssignment(prev => ({ ...prev, role: value as UserRole }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button onClick={addRoleAssignment} disabled={saving} className="w-full">
-              {saving ? (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Adding...
-                </div>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Assignment
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Current Assignments */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium">Current Role Assignments ({roleAssignments.length})</h3>
-            {roleAssignments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No role assignments found</p>
-                <p className="text-sm">Add assignments using the form above</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {roleAssignments.map((assignment) => (
-                  <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{assignment.assigned_name}</p>
-                        </div>
-                        <Badge variant="outline">
-                          {roleOptions.find(r => r.value === assignment.role)?.label || assignment.role}
-                        </Badge>
-                        {assignment.user_id && (
-                          <Badge variant="secondary">Active User</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteRoleAssignment(assignment.id)}
-                      className="text-destructive hover:text-destructive flex-shrink-0 ml-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+        ) : (
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6">
+              {/* Add New Assignment */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="text-sm font-medium">Add New Role Assignment</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={newAssignment.name}
+                      onChange={(e) => setNewAssignment(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter full name"
+                    />
                   </div>
-                ))}
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newAssignment.email}
+                      onChange={(e) => setNewAssignment(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={newAssignment.role} onValueChange={(value) => setNewAssignment(prev => ({ ...prev, role: value as UserRole }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button onClick={addRoleAssignment} disabled={saving} className="w-full">
+                  {saving ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Adding...
+                    </div>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Assignment
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-          </div>
-        </CardContent>
-        </ScrollArea>
-      </Card>
-    </div>
+
+              {/* Current Assignments */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Current Role Assignments ({roleAssignments.length})</h3>
+                {roleAssignments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No role assignments found</p>
+                    <p className="text-sm">Add assignments using the form above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {roleAssignments.map((assignment) => (
+                      <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{assignment.assigned_name}</p>
+                            </div>
+                            <Badge variant="outline">
+                              {roleOptions.find(r => r.value === assignment.role)?.label || assignment.role}
+                            </Badge>
+                            {assignment.user_id && (
+                              <Badge variant="secondary">Active User</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteRoleAssignment(assignment.id)}
+                          className="text-destructive hover:text-destructive flex-shrink-0 ml-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
