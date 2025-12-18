@@ -4,11 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +29,11 @@ interface Task {
   assigned_to_role: string;
   requires_photo: boolean;
   created_at: string;
+  completed_at?: string;
+  is_auditable?: boolean;
+  evidence_min_count?: number;
+  evidence_count?: number;
+  rank?: number;
   assignedUser?: {
     name: string;
   } | null;
@@ -51,11 +58,15 @@ export default function TasksList() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [useServerSearch, setUseServerSearch] = useState(false);
   
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Debounce search query for server-side search
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -70,17 +81,41 @@ export default function TasksList() {
       navigate('/');
       return;
     }
-    fetchTasks();
-  }, [user, navigate, selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize]);
+    fetchCurrentUser();
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchTasks();
+    }
+  }, [currentUserId, selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize, debouncedSearchQuery]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, searchQuery]);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, debouncedSearchQuery]);
+
+  // Enable server search when query is non-empty
+  useEffect(() => {
+    setUseServerSearch(debouncedSearchQuery.length > 0);
+  }, [debouncedSearchQuery]);
+
+  const fetchCurrentUser = async () => {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, practice_id')
+      .eq('auth_user_id', user?.id)
+      .single();
+
+    if (userData) {
+      setCurrentUserId(userData.id);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
+      
       const { data: userData } = await supabase
         .from('users')
         .select('id, practice_id')
@@ -88,15 +123,44 @@ export default function TasksList() {
         .single();
 
       if (!userData) return;
-      setCurrentUserId(userData.id);
 
-      // Build base query for count
+      // Use server-side search RPC when searching
+      if (debouncedSearchQuery.length > 0) {
+        const { data, error } = await supabase.rpc('search_tasks_secure', {
+          p_query: debouncedSearchQuery,
+          p_module: selectedModule === 'all' ? null : selectedModule,
+          p_status: selectedStatus === 'all' ? null : selectedStatus,
+          p_priority: selectedPriority === 'all' ? null : selectedPriority,
+          p_only_my_tasks: showMyTasks,
+          p_limit: pageSize,
+          p_offset: (page - 1) * pageSize,
+        });
+
+        if (error) {
+          console.error('Search error:', error);
+          throw error;
+        }
+
+        // Map RPC results to Task interface
+        const mappedTasks: Task[] = (data || []).map((t: any) => ({
+          ...t,
+          requires_photo: false,
+          created_at: '',
+          assignedUser: null,
+          task_templates: null,
+        }));
+
+        setTasks(mappedTasks);
+        setTotalCount(mappedTasks.length < pageSize ? (page - 1) * pageSize + mappedTasks.length : (page + 1) * pageSize);
+        return;
+      }
+
+      // Standard query when not searching
       let countQuery = supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('practice_id', userData.practice_id);
 
-      // Build data query with pagination
       let dataQuery = supabase
         .from('tasks')
         .select(`
@@ -107,7 +171,6 @@ export default function TasksList() {
         .eq('practice_id', userData.practice_id)
         .order('due_at', { ascending: true });
 
-      // Apply filters to both queries
       if (selectedModule !== 'all') {
         countQuery = countQuery.eq('module', selectedModule);
         dataQuery = dataQuery.eq('module', selectedModule);
@@ -128,16 +191,11 @@ export default function TasksList() {
         dataQuery = dataQuery.eq('assigned_to_user_id', userData.id);
       }
 
-      // Apply pagination range
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       dataQuery = dataQuery.range(from, to);
 
-      // Execute both queries
-      const [countResult, dataResult] = await Promise.all([
-        countQuery,
-        dataQuery
-      ]);
+      const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
 
       if (countResult.error) throw countResult.error;
       if (dataResult.error) throw dataResult.error;
@@ -151,18 +209,12 @@ export default function TasksList() {
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
-  // Stats from current page (for display purposes, actual counts would need separate queries)
-  const openTasks = filteredTasks.filter(t => t.status === 'open');
-  const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
-  const completedTasks = filteredTasks.filter(t => t.status === 'complete');
-  const overdueTasks = filteredTasks.filter(t => 
-    t.status !== 'complete' && new Date(t.due_at) < new Date()
+  // Stats from current page
+  const openTasks = tasks.filter(t => t.status === 'open');
+  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const completedTasks = tasks.filter(t => t.status === 'complete' || t.status === 'closed');
+  const overdueTasks = tasks.filter(t => 
+    t.status !== 'complete' && t.status !== 'closed' && new Date(t.due_at) < new Date()
   );
 
   // Pagination calculations
@@ -253,6 +305,12 @@ export default function TasksList() {
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             {t('tasks.filters')}
+            {useServerSearch && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                <Search className="h-3 w-3 mr-1" />
+                Full-text search
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
@@ -298,6 +356,7 @@ export default function TasksList() {
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="complete">Complete</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -327,8 +386,11 @@ export default function TasksList() {
       </Card>
 
       {loading ? (
-        <div className="text-center py-8">Loading tasks...</div>
-      ) : filteredTasks.length === 0 ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <span>Loading tasks...</span>
+        </div>
+      ) : tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -338,13 +400,23 @@ export default function TasksList() {
       ) : (
         <>
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                isMyTask={task.assigned_to_user_id === currentUserId}
-                onRefresh={fetchTasks}
-              />
+            {tasks.map((task) => (
+              <div key={task.id} className="relative">
+                {task.is_auditable && (
+                  <Badge 
+                    variant="outline" 
+                    className="absolute -top-2 -right-2 z-10 bg-background text-xs"
+                  >
+                    <Shield className="h-3 w-3 mr-1" />
+                    Auditable
+                  </Badge>
+                )}
+                <TaskCard
+                  task={task}
+                  isMyTask={task.assigned_to_user_id === currentUserId}
+                  onRefresh={fetchTasks}
+                />
+              </div>
             ))}
           </div>
 
