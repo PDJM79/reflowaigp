@@ -115,6 +115,11 @@ export default function FridgeTemps() {
       return;
     }
 
+    if (!practiceId) {
+      toast.error('Unable to determine practice. Please refresh and try again.');
+      return;
+    }
+
     const minTemp = parseFloat(newFridge.min_temp);
     const maxTemp = parseFloat(newFridge.max_temp);
 
@@ -132,22 +137,29 @@ export default function FridgeTemps() {
       const { error } = await supabase
         .from('fridges')
         .insert({
-          practice_id: practiceId!,
+          practice_id: practiceId,
           name: newFridge.name.trim(),
           location: newFridge.location.trim() || null,
           min_temp: minTemp,
           max_temp: maxTemp
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast.success('Fridge added successfully');
       setIsAddDialogOpen(false);
       setNewFridge({ name: '', location: '', min_temp: '2', max_temp: '8' });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding fridge:', error);
-      toast.error('Failed to add fridge');
+      if (error?.code === '42501' || error?.message?.includes('policy')) {
+        toast.error('You don\'t have permission to add fridges. Contact your practice manager.');
+      } else {
+        toast.error(error?.message || 'Failed to add fridge');
+      }
     }
   };
 
