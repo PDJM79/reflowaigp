@@ -1,7 +1,9 @@
 import React from 'react';
 import { ThemeToggle } from '@/components/settings/ThemeToggle';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { PracticeSwitcher } from '@/components/layout/PracticeSwitcher';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AppHeaderProps {
   children?: React.ReactNode;
@@ -10,6 +12,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ children, useLoginStyles = false }: AppHeaderProps) {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
   return (
     <header className={`${
@@ -36,8 +39,16 @@ export function AppHeader({ children, useLoginStyles = false }: AppHeaderProps) 
               <p className="text-xs text-muted-foreground font-medium hidden sm:block">Professional Healthcare Compliance Management</p>
             </div>
           )}
+          {/* Practice Switcher - only show when logged in */}
+          {user && (
+            <div className="hidden sm:block border-l border-border pl-3 ml-2">
+              <PracticeSwitcher />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          {/* Mobile Practice Switcher */}
+          {user && isMobile && <PracticeSwitcher />}
           <NotificationCenter />
           <ThemeToggle />
           {children}
