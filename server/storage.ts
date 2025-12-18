@@ -22,10 +22,11 @@ export interface IStorage {
   updatePractice(id: string, data: Partial<InsertPractice>): Promise<Practice | undefined>;
 
   getUser(id: string, practiceId: string): Promise<User | undefined>;
-  getUserByEmail(email: string, practiceId: string): Promise<User | undefined>;
+  getUserByEmail(email: string, practiceId?: string): Promise<User | undefined>;
   getUsersByPractice(practiceId: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, practiceId: string, data: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserLastLogin(id: string): Promise<void>;
 
   getEmployee(id: string, practiceId: string): Promise<Employee | undefined>;
   getEmployeesByPractice(practiceId: string): Promise<Employee[]>;
@@ -139,9 +140,17 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUserByEmail(email: string, practiceId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(schema.users).where(and(eq(schema.users.email, email), eq(schema.users.practiceId, practiceId)));
+  async getUserByEmail(email: string, practiceId?: string): Promise<User | undefined> {
+    if (practiceId) {
+      const [user] = await db.select().from(schema.users).where(and(eq(schema.users.email, email), eq(schema.users.practiceId, practiceId)));
+      return user;
+    }
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email));
     return user;
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db.update(schema.users).set({ lastLoginAt: new Date() }).where(eq(schema.users.id, id));
   }
 
   async getUsersByPractice(practiceId: string): Promise<User[]> {

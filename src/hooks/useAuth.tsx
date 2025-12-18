@@ -1,34 +1,25 @@
-import { useState, useEffect, useContext, createContext } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from '@/components/ui/use-toast';
+import { useContext, createContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface AuthUser {
   id: string;
-  email: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  profileImageUrl: string | null;
-  practiceUsers: Array<{
+  name: string;
+  email: string;
+  role: string;
+  practiceId: string;
+  isPracticeManager: boolean;
+  practice: {
     id: string;
-    practiceId: string;
     name: string;
-    email: string;
-    role: string;
-    isPracticeManager: boolean;
-    practice: {
-      id: string;
-      name: string;
-      country: string;
-    };
-  }>;
+    country: string;
+  } | null;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signIn: () => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,20 +40,27 @@ async function fetchAuthUser(): Promise<AuthUser | null> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const { data: user, isLoading, error } = useQuery<AuthUser | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchAuthUser,
     retry: false,
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  const signIn = () => {
-    window.location.href = '/api/login';
-  };
-
-  const signOut = () => {
-    window.location.href = '/api/logout';
+  const signOut = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/';
+    }
   };
 
   return (
@@ -70,7 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: user || null,
       loading: isLoading,
       isAuthenticated: !!user && !error,
-      signIn,
       signOut,
     }}>
       {children}

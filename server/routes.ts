@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { 
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
@@ -17,21 +17,6 @@ function stripPracticeId<T extends Record<string, any>>(data: T): Omit<T, 'pract
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
-
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
-    try {
-      const authUserId = req.user.claims.sub;
-      const authUser = await storage.getAuthUser(authUserId);
-      if (!authUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const practiceUsers = await storage.getUsersWithPracticesByAuthId(authUserId);
-      res.json({ ...authUser, practiceUsers });
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
-    }
-  });
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

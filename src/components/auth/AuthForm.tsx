@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,138 +6,83 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Mail, ArrowLeft, Building2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePracticeSelection } from '@/hooks/usePracticeSelection';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function AuthForm() {
-  const { signIn, signUp, loading } = useAuth();
+  const { loading } = useAuth();
+  const queryClient = useQueryClient();
   const { selectedPracticeId, selectedPracticeName, clearPracticeSelection } = usePracticeSelection();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
+  const [name, setName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    const result = await signIn(email, password);
-    if (result.error) return;
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, practiceId: selectedPracticeId }),
+      });
 
-    // If practice is selected, verify user belongs to it
-    if (selectedPracticeId) {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('auth_user_id', session.user.id)
-            .single();
+      const data = await response.json();
 
-          if (userError || userData?.practice_id !== selectedPracticeId) {
-            await supabase.auth.signOut();
-            toast.error('You do not have access to this practice.');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Practice verification error:', error);
-        await supabase.auth.signOut();
-        toast.error('Unable to verify practice access.');
+      if (!response.ok) {
+        toast.error(data.error || 'Sign in failed');
+        return;
       }
-    }
-  };
 
-  const handleAdminSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await signIn(email, password, true);
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Sign in error:', error);
+      toast.error('Sign in failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signUp(email, password);
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+    setIsSubmitting(true);
     
-    if (!email.trim()) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    setResetLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`;
-      console.log('Sending reset email with redirect:', redirectUrl);
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, name, practiceId: selectedPracticeId }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      toast.success('Password reset email sent! Check your inbox and click the link.');
-      setShowForgotPassword(false);
-    } catch (error: any) {
-      console.error('Password reset error:', error);
-      toast.error(error.message || 'Failed to send reset email');
+      if (!response.ok) {
+        toast.error(data.error || 'Sign up failed');
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast.success('Account created successfully!');
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Sign up error:', error);
+      toast.error('Sign up failed. Please try again.');
     } finally {
-      setResetLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  if (showForgotPassword) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
-        <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="p-1 h-auto"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <Mail className="h-5 w-5" />
-                Reset Password
-              </CardTitle>
-              <CardDescription>
-                Enter your email to receive a password reset link
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reset-email">Email</Label>
-                  <Input
-                    id="reset-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={resetLoading}>
-                  {resetLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="mr-2 h-4 w-4" />
-                  )}
-                  Send Reset Email
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -149,6 +94,7 @@ export function AuthForm() {
           variant="ghost"
           onClick={clearPracticeSelection}
           className="fixed top-4 left-4 z-50"
+          data-testid="button-back-practice-selection"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to practice selection
@@ -174,123 +120,92 @@ export function AuthForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              <TabsTrigger value="admin">Administrator</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="w-full text-sm"
-                  onClick={() => setShowForgotPassword(true)}
-                >
-                  Forgot your password?
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign Up
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="admin">
-              <form onSubmit={handleAdminSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="admin-email">Administrator Email</Label>
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    placeholder="admin@practice.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="admin-password">Administrator Password</Label>
-                  <Input
-                    id="admin-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Administrator Sign In
-                </Button>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="w-full text-sm"
-                  onClick={() => setShowForgotPassword(true)}
-                >
-                  Forgot your password?
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            <Tabs defaultValue="signin" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin" data-testid="tab-signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="signin">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="input-signin-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <Input
+                      id="signin-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      data-testid="input-signin-password"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isSubmitting} data-testid="button-signin">
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In
+                  </Button>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="signup">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="Your Name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      data-testid="input-signup-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="input-signup-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      data-testid="input-signup-password"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isSubmitting} data-testid="button-signup">
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign Up
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  </div>
   );
 }
