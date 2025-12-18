@@ -1,14 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { Resend } from 'npm:resend@4.0.0';
 import React from 'npm:react@18.3.1';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { PolicyReviewEmail } from './_templates/policy-review-email.tsx';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -32,13 +28,19 @@ interface PracticeData {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Only accept POST requests from CRON jobs
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  // Verify CRON secret
+  const authError = requireCronSecret(req);
+  if (authError) return authError;
+
+  const supabase = createServiceClient();
 
   console.log('📧 Starting weekly policy review email notifications...');
 
@@ -72,9 +74,7 @@ const handler = async (req: Request): Promise<Response> => {
           message: 'No overdue policies found',
           emails_sent: 0,
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -138,6 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send emails
     let emailsSent = 0;
     const emailResults = [];
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
     for (const practiceData of practiceMap.values()) {
       if (practiceData.practice_managers.length === 0) {
@@ -229,9 +230,7 @@ const handler = async (req: Request): Promise<Response> => {
         emails_sent: emailsSent,
         email_results: emailResults,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('❌ Error in send-policy-review-emails:', error);
@@ -240,10 +239,7 @@ const handler = async (req: Request): Promise<Response> => {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 };

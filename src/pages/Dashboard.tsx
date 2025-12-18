@@ -7,11 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
-import { format, isThisMonth, isPast, isFuture } from 'date-fns';
+import { format, isThisMonth, isPast } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { PoliciesNeedingAcknowledgment } from '@/components/dashboard/PoliciesNeedingAcknowledgment';
 import { AITaskSuggestions } from '@/components/dashboard/AITaskSuggestions';
-import { AIComplianceScores } from '@/components/dashboard/AIComplianceScores';
+import { PracticeScoresCard } from '@/components/dashboard/PracticeScoresCard';
 
 type Task = {
   id: string;
@@ -195,10 +195,10 @@ export default function Dashboard() {
         {/* Policies Needing Acknowledgment */}
         <PoliciesNeedingAcknowledgment />
 
-        {/* AI Components */}
+        {/* AI Components - PracticeScoresCard replaces AIComplianceScores */}
         <div className="grid gap-6 md:grid-cols-2">
           <AITaskSuggestions />
-          <AIComplianceScores />
+          <PracticeScoresCard />
         </div>
 
         <Card>

@@ -1,22 +1,22 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { corsHeaders, handleCors } from '../_shared/cors.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { section, score, target, gap, contributors, country } = await req.json();
 
     console.log('Generating suggestions for:', { section, score, target, gap, country });
+
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key is not configured');
+    }
 
     const prompt = `You are a UK GP practice audit expert. A practice in ${country} has an audit readiness score of ${score}/100 for ${section}, with a target of ${target}/100 (gap: ${gap} points).
 
@@ -57,7 +57,7 @@ Provide exactly 2 short, actionable improvement tips (one sentence each) to clos
     });
   } catch (error) {
     console.error('Error in suggest-improvements function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
