@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 
 interface Practice {
   id: string;
   name: string;
-  created_at?: string;
 }
 
 const SELECTED_PRACTICE_KEY = "selected_practice_id";
@@ -26,18 +24,26 @@ export const usePracticeSelection = () => {
 
   const fetchPractices = async () => {
     try {
-      const { data, error } = await supabase
-        .from("practices")
-        .select("id, name") // Only fetch non-sensitive fields
-        .order("name");
-
-      if (error) {
-        console.error("Error fetching practices:", error);
-        throw error;
+      const response = await fetch('/api/practices');
+      if (!response.ok) {
+        throw new Error('Failed to fetch practices');
       }
-
+      const data = await response.json();
       console.log("Fetched practices:", data);
       setPractices(data || []);
+      
+      // Validate that cached practice still exists
+      const cachedId = sessionStorage.getItem(SELECTED_PRACTICE_KEY);
+      if (cachedId && data) {
+        const practiceExists = data.some((p: Practice) => p.id === cachedId);
+        if (!practiceExists) {
+          // Clear stale cache
+          sessionStorage.removeItem(SELECTED_PRACTICE_KEY);
+          sessionStorage.removeItem(SELECTED_PRACTICE_NAME_KEY);
+          setSelectedPracticeId(null);
+          setSelectedPracticeName(null);
+        }
+      }
     } catch (error) {
       console.error("Error fetching practices:", error);
     } finally {
