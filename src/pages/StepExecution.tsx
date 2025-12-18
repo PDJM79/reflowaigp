@@ -181,17 +181,34 @@ export default function StepExecution() {
       return;
     }
 
+    // Capture step ID before any async operations to prevent race conditions
+    const stepIdToComplete = stepInstance.id;
+    const stepIndexToComplete = currentStepIndex;
+
     setSubmitting(true);
     try {
-      // Update step instance
-      await supabase
+      // Update step instance and verify the update succeeded
+      const { data: updatedStep, error: updateError } = await supabase
         .from('step_instances')
         .update({
           status: 'complete' as const,
           notes,
           server_timestamp: new Date().toISOString()
         })
-        .eq('id', stepInstance.id);
+        .eq('id', stepIdToComplete)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating step:', updateError);
+        throw new Error('Failed to update step status');
+      }
+
+      // Verify the update was actually applied
+      if (updatedStep?.status !== 'complete') {
+        console.error('Step status not updated correctly:', updatedStep);
+        throw new Error('Step status verification failed');
+      }
 
       useToastHook({
         title: "Step Completed",
@@ -208,15 +225,19 @@ export default function StepExecution() {
         }
       }
       
-      if (currentStepIndex + 1 >= stepCount) {
+      if (stepIndexToComplete + 1 >= stepCount) {
         // Complete the entire process
-        await supabase
+        const { error: processError } = await supabase
           .from('process_instances')
           .update({
             status: 'complete' as const,
             completed_at: new Date().toISOString()
           })
           .eq('id', taskId);
+
+        if (processError) {
+          console.error('Error completing process:', processError);
+        }
 
         useToastHook({
           title: "Process Completed",
@@ -226,7 +247,7 @@ export default function StepExecution() {
         navigate(`/task/${taskId}`);
       } else {
         // Navigate to next step
-        navigate(`/task/${taskId}/step/${currentStepIndex + 1}`);
+        navigate(`/task/${taskId}/step/${stepIndexToComplete + 1}`);
       }
     } catch (error) {
       console.error('Error completing step:', error);
