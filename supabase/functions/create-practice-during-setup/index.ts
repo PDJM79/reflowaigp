@@ -1,9 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwt } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 interface CreatePracticeRequest {
   name: string;
@@ -11,57 +8,15 @@ interface CreatePracticeRequest {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    console.log('[create-practice-during-setup] Request received');
+    // Validate JWT - user won't have a practice yet during setup
+    const { userId } = await requireJwt(req);
 
-    // Create Supabase client with service role for elevated privileges
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    // Get the authenticated user from the request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('[create-practice-during-setup] Missing authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify the user is authenticated
-    const supabaseClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('[create-practice-during-setup] User authentication failed:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('[create-practice-during-setup] User authenticated:', user.id);
+    console.log('[create-practice-during-setup] User authenticated:', userId);
 
     // Parse request body
     const body: CreatePracticeRequest = await req.json();
@@ -69,16 +24,15 @@ Deno.serve(async (req) => {
 
     if (!name || !country) {
       console.error('[create-practice-during-setup] Missing required fields');
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: name and country' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, 'Missing required fields: name and country', 400);
     }
 
     console.log('[create-practice-during-setup] Creating practice:', name);
 
-    // Use service role to create practice (bypasses RLS)
-    const { data: practice, error: practiceError } = await supabaseAdmin
+    const supabase = createServiceClient();
+
+    // Create practice using service role (bypasses RLS)
+    const { data: practice, error: practiceError } = await supabase
       .from('practices')
       .insert({
         name,
@@ -89,19 +43,16 @@ Deno.serve(async (req) => {
 
     if (practiceError) {
       console.error('[create-practice-during-setup] Failed to create practice:', practiceError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to create practice', details: practiceError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, `Failed to create practice: ${practiceError.message}`, 500);
     }
 
     console.log('[create-practice-during-setup] Practice created successfully:', practice.id);
 
     // Log the practice creation in audit trail
-    const { error: auditError } = await supabaseAdmin
+    const { error: auditError } = await supabase
       .from('audit_trail')
       .insert({
-        actor_id: user.id,
+        actor_id: userId,
         practice_id: practice.id,
         entity_type: 'practices',
         entity_id: practice.id,
@@ -118,25 +69,15 @@ Deno.serve(async (req) => {
       // Don't fail the request if audit logging fails
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        practice 
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return jsonResponse(req, { 
+      success: true, 
+      practice 
+    });
 
   } catch (error) {
-    console.error('[create-practice-during-setup] Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error('[create-practice-during-setup] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('Missing') || message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
 });
