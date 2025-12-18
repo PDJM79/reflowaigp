@@ -1,22 +1,29 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { getEnvOrThrow } from '../_shared/supabase.ts';
 
 serve(async (req) => {
   // Handle CORS preflight
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  // Enforce POST method
+  if (req.method !== 'POST') {
+    return errorResponse(req, 'Method not allowed', 405);
+  }
 
   try {
+    // Require authenticated user with practice context
+    const { practiceId } = await requireJwtAndPractice(req);
+    console.log('Generating suggestions for practice:', practiceId);
+
     const { section, score, target, gap, contributors, country } = await req.json();
 
-    console.log('Generating suggestions for:', { section, score, target, gap, country });
+    console.log('Suggestion request:', { section, score, target, gap, country });
 
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key is not configured');
-    }
+    const openAIApiKey = getEnvOrThrow('OPENAI_API_KEY');
 
     const prompt = `You are a UK GP practice audit expert. A practice in ${country} has an audit readiness score of ${score}/100 for ${section}, with a target of ${target}/100 (gap: ${gap} points).
 
@@ -52,14 +59,9 @@ Provide exactly 2 short, actionable improvement tips (one sentence each) to clos
 
     console.log('Generated tips:', tips);
 
-    return new Response(JSON.stringify({ tips }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse(req, { tips });
   } catch (error) {
     console.error('Error in suggest-improvements function:', error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(req, (error as Error).message, 500);
   }
 });
