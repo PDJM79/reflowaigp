@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createAnonClient } from '../_shared/supabase.ts';
 
 interface RetryEmailRequest {
   emailLogId: string;
@@ -13,54 +10,29 @@ interface RetryEmailRequest {
 
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-
-    // Verify user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-
-    if (authError || !user) {
-      console.error('Authentication error:', authError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
+    // Require authenticated user and get their practice
+    const authResult = await requireJwtAndPractice(req);
+    if (authResult instanceof Response) return authResult;
+    
+    const { userId, practiceId } = authResult;
+    const supabaseClient = createAnonClient(req);
 
     // Verify user is a practice manager
     const { data: userData, error: userError } = await supabaseClient
       .from('users')
-      .select('id, practice_id, is_practice_manager')
-      .eq('auth_user_id', user.id)
+      .select('id, is_practice_manager')
+      .eq('auth_user_id', userId)
       .single();
 
     if (userError || !userData) {
       console.error('User lookup error:', userError);
       return new Response(
         JSON.stringify({ error: 'User not found' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -68,10 +40,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('User is not a practice manager');
       return new Response(
         JSON.stringify({ error: 'Forbidden: Only practice managers can retry emails' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -81,10 +50,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (!emailLogId) {
       return new Response(
         JSON.stringify({ error: 'Email log ID is required' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -93,31 +59,22 @@ const handler = async (req: Request): Promise<Response> => {
       .from('email_logs')
       .select('*')
       .eq('id', emailLogId)
-      .eq('practice_id', userData.practice_id)
+      .eq('practice_id', practiceId)
       .single();
 
     if (logError || !emailLog) {
       console.error('Email log lookup error:', logError);
       return new Response(
         JSON.stringify({ error: 'Email log not found' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Note: emailLog.recipient_email is still stored in email_logs table
-    // This is acceptable as it's for auditing purposes and already sent emails
 
     // Check if email is eligible for retry (failed or bounced)
     if (!['failed', 'bounced'].includes(emailLog.status)) {
       return new Response(
         JSON.stringify({ error: 'Only failed or bounced emails can be retried' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -189,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: insertError } = await supabaseClient
       .from('email_logs')
       .insert({
-        practice_id: userData.practice_id,
+        practice_id: practiceId,
         resend_email_id: emailResponse.data?.id || null,
         recipient_email: emailLog.recipient_email,
         recipient_name: emailLog.recipient_name,
@@ -216,21 +173,13 @@ const handler = async (req: Request): Promise<Response> => {
         message: 'Email resent successfully',
         emailId: emailResponse.data?.id,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     console.error('Error in retry-email function:', error);
     return new Response(
-      JSON.stringify({
-        error: error.message || 'Internal server error',
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ error: error.message || 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 };
