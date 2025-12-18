@@ -8,7 +8,9 @@ import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, FileText, GraduationCap, Calendar, Shield, Plus, FileDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, FileText, GraduationCap, Calendar, Shield, Plus, FileDown, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { DBSTrackingDialog } from '@/components/hr/DBSTrackingDialog';
 import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 import { AppraisalDialog } from '@/components/hr/AppraisalDialog';
@@ -38,6 +40,7 @@ export default function HR() {
   const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
   const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const [practiceId, setPracticeId] = useState<string>('');
+  const [isImportingDBS, setIsImportingDBS] = useState(false);
 
   // Employee pagination
   const [employeePage, setEmployeePage] = useState(1);
@@ -76,17 +79,19 @@ export default function HR() {
       const from = (employeePage - 1) * employeePageSize;
       const to = from + employeePageSize - 1;
 
-      const [employeesData, appraisalsData, trainingData, leaveData] = await Promise.all([
+      const [employeesData, appraisalsData, trainingData, leaveData, dbsData] = await Promise.all([
         supabase.from('employees').select('*').eq('practice_id', userData.practice_id).range(from, to),
         supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
         supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
         supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
+        supabase.from('dbs_checks').select('*').eq('practice_id', userData.practice_id).order('check_date', { ascending: false }),
       ]);
 
       setEmployees(employeesData.data || []);
       setAppraisals(appraisalsData.data || []);
       setTrainingRecords(trainingData.data || []);
       setLeaveRequests(leaveData.data || []);
+      setDbsChecks(dbsData.data || []);
     } catch (error) {
       console.error('Error fetching HR data:', error);
     } finally {
@@ -97,23 +102,102 @@ export default function HR() {
   const activeEmployees = employees.filter(e => !e.end_date);
   const pendingAppraisals = appraisals.filter(a => !a.completed_date);
 
+  const handleDBSImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !practiceId) return;
+
+    setIsImportingDBS(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      const nameIndex = headers.findIndex(h => h.includes('name') || h.includes('employee'));
+      const dateIndex = headers.findIndex(h => h.includes('check') && h.includes('date') || h === 'date');
+      const certIndex = headers.findIndex(h => h.includes('certificate') || h.includes('cert'));
+      const reviewIndex = headers.findIndex(h => h.includes('review') || h.includes('next'));
+
+      if (nameIndex === -1 || dateIndex === -1) {
+        toast.error('CSV must contain employee name and check date columns');
+        return;
+      }
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const employeeName = values[nameIndex];
+        const checkDate = values[dateIndex];
+        const certificateNumber = certIndex !== -1 ? values[certIndex] : null;
+        const nextReviewDue = reviewIndex !== -1 ? values[reviewIndex] : null;
+
+        if (!employeeName || !checkDate) {
+          skipped++;
+          continue;
+        }
+
+        // Find employee by name
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('practice_id', practiceId)
+          .ilike('name', `%${employeeName}%`)
+          .single();
+
+        if (!employee) {
+          skipped++;
+          continue;
+        }
+
+        // Insert DBS check
+        const { error } = await supabase.from('dbs_checks').insert({
+          employee_id: employee.id,
+          practice_id: practiceId,
+          check_date: new Date(checkDate).toISOString().split('T')[0],
+          certificate_number: certificateNumber || null,
+          next_review_due: nextReviewDue ? new Date(nextReviewDue).toISOString().split('T')[0] : null,
+        });
+
+        if (error) {
+          console.error('Import error for row:', i, error);
+          skipped++;
+        } else {
+          imported++;
+        }
+      }
+
+      toast.success(`Imported ${imported} DBS checks${skipped > 0 ? `, ${skipped} skipped` : ''}`);
+      fetchHRData();
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import DBS checks');
+    } finally {
+      setIsImportingDBS(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <BackButton />
+      {/* Header Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <BackButton />
+          <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
               <Users className="h-6 w-6 sm:h-8 sm:w-8" />
               Human Resources
             </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage employees, training, appraisals, and leave</p>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground">Manage employees, training, appraisals, and leave</p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        
+        {/* Action Buttons - Separate Row */}
+        <div className="flex flex-wrap gap-2">
           <Button 
             size={isMobile ? 'lg' : 'default'}
-            className="flex-1 sm:flex-none min-h-[44px]"
+            className="min-h-[44px]"
             onClick={() => setIsAppraisalDialogOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -122,7 +206,7 @@ export default function HR() {
           <Button 
             size={isMobile ? 'lg' : 'default'}
             variant="outline"
-            className="flex-1 sm:flex-none min-h-[44px]"
+            className="min-h-[44px]"
             onClick={() => setIsTrainingCatalogueOpen(true)}
           >
             <GraduationCap className="h-4 w-4 mr-2" />
@@ -131,7 +215,7 @@ export default function HR() {
           <Button
             size={isMobile ? 'lg' : 'default'}
             variant="outline"
-            className="flex-1 sm:flex-none min-h-[44px]"
+            className="min-h-[44px]"
             onClick={async () => {
               try {
                 const { data: userData } = await supabase
@@ -183,7 +267,7 @@ export default function HR() {
           <Button
             size={isMobile ? 'lg' : 'default'}
             variant="outline"
-            className="flex-1 sm:flex-none min-h-[44px]"
+            className="min-h-[44px]"
             onClick={async () => {
               try {
                 const { data: practice } = await supabase
@@ -376,6 +460,75 @@ export default function HR() {
                       );
                     })()}
                   </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="dbs">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base sm:text-lg">DBS Checks</CardTitle>
+                <div className="flex gap-2">
+                  <Label htmlFor="dbs-import" className="cursor-pointer">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[36px]"
+                      disabled={isImportingDBS}
+                      asChild
+                    >
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {isImportingDBS ? 'Importing...' : 'Import CSV'}
+                      </span>
+                    </Button>
+                  </Label>
+                  <Input
+                    id="dbs-import"
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleDBSImport}
+                    disabled={isImportingDBS}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Import CSV with columns: Employee Name, Check Date, Certificate Number (optional), Next Review Due (optional)
+                </p>
+                {dbsChecks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No DBS checks recorded</p>
+                    <p className="text-sm mt-2">Import a CSV file or add DBS checks from the employee list</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {dbsChecks.map((check: any) => {
+                      const employee = employees.find(e => e.id === check.employee_id);
+                      return (
+                        <div 
+                          key={check.id} 
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base">{employee?.name || 'Unknown Employee'}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
+                              {check.certificate_number && `Cert: ${check.certificate_number}`}
+                            </p>
+                          </div>
+                          <div className="text-xs sm:text-sm text-muted-foreground text-right">
+                            <div>Checked: {new Date(check.check_date).toLocaleDateString()}</div>
+                            {check.next_review_due && (
+                              <div>Review Due: {new Date(check.next_review_due).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
