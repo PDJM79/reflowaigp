@@ -1,7 +1,7 @@
-import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum('user_role', [
   'practice_manager', 'nurse_lead', 'cd_lead_gp', 'estates_lead', 'ig_lead', 
@@ -77,7 +77,20 @@ export const sessions = pgTable("sessions", {
   sid: varchar("sid", { length: 255 }).primaryKey(),
   sess: jsonb("sess").notNull(),
   expire: timestamp("expire").notNull(),
+}, (table) => [index("IDX_session_expire").on(table.expire)]);
+
+export const authUsers = pgTable("auth_users", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email", { length: 255 }).unique(),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  profileImageUrl: text("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export type AuthUser = typeof authUsers.$inferSelect;
+export type UpsertAuthUser = typeof authUsers.$inferInsert;
 
 export const employees = pgTable("employees", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -6,10 +6,16 @@ import type {
   Task, Incident, Complaint, PolicyDocument, TrainingRecord, Notification,
   InsertPractice, InsertUser, InsertEmployee, InsertProcessTemplate,
   InsertProcessInstance, InsertTask, InsertIncident, InsertComplaint,
-  InsertPolicyDocument, InsertTrainingRecord, InsertNotification
+  InsertPolicyDocument, InsertTrainingRecord, InsertNotification,
+  AuthUser, UpsertAuthUser
 } from "@shared/schema";
 
 export interface IStorage {
+  getAuthUser(id: string): Promise<AuthUser | undefined>;
+  upsertAuthUser(user: UpsertAuthUser): Promise<AuthUser>;
+  getUserByAuthId(authUserId: string): Promise<User | undefined>;
+  getUsersWithPracticesByAuthId(authUserId: string): Promise<Array<User & { practice: Practice }>>;
+
   getPractice(id: string): Promise<Practice | undefined>;
   getPractices(): Promise<Practice[]>;
   createPractice(practice: InsertPractice): Promise<Practice>;
@@ -72,6 +78,41 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getAuthUser(id: string): Promise<AuthUser | undefined> {
+    const [user] = await db.select().from(schema.authUsers).where(eq(schema.authUsers.id, id));
+    return user;
+  }
+
+  async upsertAuthUser(userData: UpsertAuthUser): Promise<AuthUser> {
+    const [user] = await db
+      .insert(schema.authUsers)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: schema.authUsers.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getUserByAuthId(authUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.authUserId, authUserId));
+    return user;
+  }
+
+  async getUsersWithPracticesByAuthId(authUserId: string): Promise<Array<User & { practice: Practice }>> {
+    const results = await db
+      .select()
+      .from(schema.users)
+      .innerJoin(schema.practices, eq(schema.users.practiceId, schema.practices.id))
+      .where(eq(schema.users.authUserId, authUserId));
+    
+    return results.map(r => ({ ...r.users, practice: r.practices }));
+  }
+
   async getPractice(id: string): Promise<Practice | undefined> {
     const [practice] = await db.select().from(schema.practices).where(eq(schema.practices.id, id));
     return practice;
