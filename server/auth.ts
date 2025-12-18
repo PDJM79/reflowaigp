@@ -70,13 +70,19 @@ export async function setupAuth(app: Express) {
 
       await storage.updateUserLastLogin(user.id);
 
-      res.json({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        practiceId: user.practiceId,
-        isPracticeManager: user.isPracticeManager,
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Failed to save session" });
+        }
+        res.json({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          practiceId: user.practiceId,
+          isPracticeManager: user.isPracticeManager,
+        });
       });
     } catch (error) {
       console.error("Login error:", error);

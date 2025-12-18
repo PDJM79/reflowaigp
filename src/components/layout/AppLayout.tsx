@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -28,38 +27,18 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate('/');
       return;
     }
 
-    // Fetch user roles - FIXED: properly join through users table
-    const fetchUserRoles = async () => {
-      // First get internal user ID from auth_user_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-      
-      if (userData) {
-        // Then fetch all roles for this user
-        const { data: rolesData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userData.id);
-        
-        if (rolesData) {
-          setUserRoles(rolesData.map((r) => r.role));
-        }
-      }
-    };
-    
-    fetchUserRoles();
+    // Set user role from the user object
+    if (user.role) {
+      setUserRoles([user.role]);
+    }
   }, [user, navigate]);
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
   };
 
   const toggleGroup = (groupTitle: string) => {
