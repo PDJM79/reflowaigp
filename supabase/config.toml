@@ -77,3 +77,12 @@ verify_jwt = true
 
 [functions.seed-training-catalogue]
 verify_jwt = true
+
+[functions.send-email-reports]
+verify_jwt = false
+
+[functions.retry-email]
+verify_jwt = true
+
+[functions.send-governance-approval-emails]
+verify_jwt = true
