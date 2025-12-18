@@ -1697,6 +1697,74 @@ export type Database = {
           },
         ]
       }
+      governance_approvals: {
+        Row: {
+          approval_notes: string | null
+          approval_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          decision: string
+          digital_signature: string | null
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          id: string
+          practice_id: string
+          requested_at: string | null
+          requested_by: string | null
+          reviewer_title: string | null
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          approval_notes?: string | null
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          decision?: string
+          digital_signature?: string | null
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          id?: string
+          practice_id: string
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewer_title?: string | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          approval_notes?: string | null
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          decision?: string
+          digital_signature?: string | null
+          entity_id?: string
+          entity_name?: string
+          entity_type?: string
+          id?: string
+          practice_id?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewer_title?: string | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_approvals_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       GP: {
         Row: {
           "Evidence required": string | null
