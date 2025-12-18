@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2, Camera, Loader2, RefreshCw } from 'lucide-react';
@@ -23,11 +24,17 @@ export default function FridgeTemps() {
   const [fridges, setFridges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
   const [newFridge, setNewFridge] = useState({
     name: '',
     location: '',
     min_temp: '2',
     max_temp: '8'
+  });
+  const [newLog, setNewLog] = useState({
+    fridge_id: '',
+    reading: '',
+    log_time: 'AM'
   });
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
@@ -136,6 +143,44 @@ export default function FridgeTemps() {
     }
   };
 
+  const handleLogTemperature = async () => {
+    if (!newLog.fridge_id) {
+      toast.error('Please select a fridge');
+      return;
+    }
+    if (!newLog.reading) {
+      toast.error('Please enter a temperature reading');
+      return;
+    }
+
+    try {
+      const selectedFridge = fridges.find(f => f.id === newLog.fridge_id);
+      const reading = parseFloat(newLog.reading);
+      const breachFlag = selectedFridge ? (reading < selectedFridge.min_temp || reading > selectedFridge.max_temp) : false;
+
+      const { error } = await supabase
+        .from('temp_logs')
+        .insert({
+          fridge_id: newLog.fridge_id,
+          reading: reading,
+          log_date: new Date().toISOString().split('T')[0],
+          log_time: newLog.log_time,
+          breach_flag: breachFlag,
+          recorded_by: user?.id || ''
+        });
+
+      if (error) throw error;
+
+      toast.success(breachFlag ? 'Temperature logged - BREACH DETECTED!' : 'Temperature logged successfully');
+      setIsLogDialogOpen(false);
+      setNewLog({ fridge_id: '', reading: '', log_time: 'AM' });
+      fetchData();
+    } catch (error) {
+      console.error('Error logging temperature:', error);
+      toast.error('Failed to log temperature');
+    }
+  };
+
   const breaches = logs.filter(l => l.breach_flag);
   const compliant = logs.filter(l => !l.breach_flag);
 
@@ -168,14 +213,87 @@ export default function FridgeTemps() {
           <p className="text-sm sm:text-base text-muted-foreground">Track vaccine and medication storage temperatures</p>
         </div>
         <Button 
-          onClick={() => navigate('/tasks?module=fridge_temps')}
+          onClick={() => setIsLogDialogOpen(true)}
           size={isMobile ? 'lg' : 'default'}
           className="w-full sm:w-auto min-h-[44px]"
+          disabled={fridges.length === 0}
         >
           <Camera className="h-4 w-4 mr-2" />
           {isMobile ? 'Log Temp' : 'Log Temperature'}
         </Button>
       </div>
+
+      {/* Log Temperature Dialog */}
+      <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Log Temperature Reading</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="fridge_select" className="text-base">Select Fridge *</Label>
+              <Select
+                value={newLog.fridge_id}
+                onValueChange={(value) => setNewLog({ ...newLog, fridge_id: value })}
+              >
+                <SelectTrigger className="h-11 text-base">
+                  <SelectValue placeholder="Select a fridge" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fridges.map((fridge) => (
+                    <SelectItem key={fridge.id} value={fridge.id}>
+                      {fridge.name} ({fridge.min_temp}°C - {fridge.max_temp}°C)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reading" className="text-base">Temperature (°C) *</Label>
+              <Input
+                id="reading"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                placeholder="e.g., 4.5"
+                value={newLog.reading}
+                onChange={(e) => setNewLog({ ...newLog, reading: e.target.value })}
+                className="h-11 text-base"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="log_time" className="text-base">Time of Day</Label>
+              <Select
+                value={newLog.log_time}
+                onValueChange={(value) => setNewLog({ ...newLog, log_time: value })}
+              >
+                <SelectTrigger className="h-11 text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AM">Morning (AM)</SelectItem>
+                  <SelectItem value="PM">Afternoon (PM)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsLogDialogOpen(false)}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleLogTemperature}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                Log Temperature
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 sm:gap-4">
         <Card className="touch-manipulation">
