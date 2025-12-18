@@ -30,6 +30,7 @@ export default function Policies() {
   const [sendingEmails, setSendingEmails] = useState(false);
   const [sendingAckReminders, setSendingAckReminders] = useState(false);
   const [sendingEscalations, setSendingEscalations] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -61,21 +62,39 @@ export default function Policies() {
 
   const fetchPolicies = async () => {
     try {
-      const { data: userData } = await supabase
+      setError(null);
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, practice_id')
         .eq('auth_user_id', user?.id)
         .single();
 
-      if (!userData) return;
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        setError('Failed to load user data. Please try refreshing the page.');
+        setLoading(false);
+        return;
+      }
 
-      const { data, error } = await supabase
+      if (!userData) {
+        setError('User data not found. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: policiesError } = await supabase
         .from('policy_documents')
         .select('*')
         .eq('practice_id', userData.practice_id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (policiesError) {
+        console.error('Error fetching policies:', policiesError);
+        setError('Failed to load policies. Please try refreshing the page.');
+        setLoading(false);
+        return;
+      }
+      
       setPolicies(data || []);
 
       // Fetch user's acknowledgments
@@ -90,6 +109,7 @@ export default function Policies() {
       setMyAcknowledgments(ackSet);
     } catch (error) {
       console.error('Error fetching policies:', error);
+      setError('An unexpected error occurred. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
@@ -361,6 +381,17 @@ export default function Policies() {
 
       {loading ? (
         <div className="text-center py-8">Loading policies...</div>
+      ) : error ? (
+        <Card className="border-destructive">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <p className="text-destructive font-medium mb-2">Error Loading Policies</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => { setLoading(true); fetchPolicies(); }}>
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       ) : selectedPolicyForTracker ? (
         <div className="space-y-4">
           <Button variant="outline" onClick={() => setSelectedPolicyForTracker(null)}>
