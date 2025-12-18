@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
-import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
 import { PracticeSelection } from '@/components/auth/PracticeSelection';
 import { GenerateTestData } from '@/components/admin/GenerateTestData';
@@ -13,14 +12,11 @@ import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, isAuthenticated } = useAuth();
   const { isMasterUser, selectedPracticeId, setSelectedPractice, clearSelectedPractice, loading: masterLoading } = useMasterUser();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
   const { selectedPracticeId: preAuthPracticeId, loading: practiceLoading, selectPractice } = usePracticeSelection();
   const [showAuthForm, setShowAuthForm] = useState(false);
-  
-  // Check if user needs to change password
-  const needsPasswordChange = user?.user_metadata?.force_password_change === true;
 
   if (authLoading || setupLoading || masterLoading || practiceLoading) {
     return (
@@ -30,7 +26,7 @@ const Index = () => {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     // Show practice selection first, then auth form
     if (!showAuthForm) {
       return <PracticeSelection onPracticeSelected={() => setShowAuthForm(true)} />;
@@ -42,10 +38,6 @@ const Index = () => {
         <GenerateTestData />
       </div>
     );
-  }
-
-  if (needsPasswordChange) {
-    return <PasswordChangeForm onComplete={() => window.location.reload()} />;
   }
 
   // Master user flow - show practice selector if no practice selected
