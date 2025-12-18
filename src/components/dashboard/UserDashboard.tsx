@@ -14,6 +14,7 @@ import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
 import { PasswordReset } from '@/components/admin/PasswordReset';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
@@ -63,7 +64,7 @@ export function UserDashboard() {
             .single();
 
           // Fetch user roles from user_roles table using internal user ID
-          let roles: string[] = [];
+          let roles: Database['public']['Enums']['user_role'][] = [];
           if (internalUser) {
             const { data: userRoles } = await supabase
               .from('user_roles')
@@ -74,29 +75,28 @@ export function UserDashboard() {
           }
 
           // Fallback: if no roles found, use is_practice_manager flag
-          if (roles.length === 0) {
-            if (data.is_practice_manager) {
-              roles = ['practice_manager'];
-            } else {
-              roles = ['staff'];
-            }
+          if (roles.length === 0 && data.is_practice_manager) {
+            roles = ['practice_manager'];
           }
 
-          const primaryRole = roles[0] || 'staff';
+          const primaryRole = roles[0] || 'unknown';
           setUserRole(primaryRole);
 
           console.log('User roles:', roles, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
 
           // Fetch all process templates where any of the user's roles is responsible
-          // Cast roles to the expected type for the query
-          const { data: templates, error: templatesError } = await supabase
-            .from('process_templates')
-            .select('name, responsible_role, frequency')
-            .eq('practice_id', practiceId)
-            .in('responsible_role', roles as ("administrator" | "auditor" | "cd_lead_gp" | "estates_lead" | "gp" | "group_manager" | "hca" | "ig_lead" | "nurse" | "nurse_lead" | "practice_manager" | "reception" | "reception_lead")[]);
+          if (roles.length > 0) {
+            const { data: templates, error: templatesError } = await supabase
+              .from('process_templates')
+              .select('name, responsible_role, frequency')
+              .eq('practice_id', practiceId)
+              .in('responsible_role', roles);
 
-          console.log('Process templates for role:', templates, 'Error:', templatesError);
-          setAllProcessesByRole(templates || []);
+            console.log('Process templates for role:', templates, 'Error:', templatesError);
+            setAllProcessesByRole(templates || []);
+          } else {
+            setAllProcessesByRole([]);
+          }
         } else {
           console.log('No user data found in dashboard');
         }

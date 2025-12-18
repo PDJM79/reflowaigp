@@ -50,14 +50,11 @@ export function AppLayout() {
         
         if (rolesData && rolesData.length > 0) {
           setUserRoles(rolesData.map((r) => r.role));
-        } else {
+        } else if (userData.is_practice_manager) {
           // Fallback: use is_practice_manager flag if no roles in user_roles table
-          if (userData.is_practice_manager) {
-            setUserRoles(['practice_manager']);
-          } else {
-            setUserRoles(['staff']);
-          }
+          setUserRoles(['practice_manager']);
         }
+        // If no roles and not practice manager, userRoles stays empty - user sees 'all' nav items only
       }
     };
     
