@@ -5,18 +5,23 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
 
-    /* Linting */
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    }
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "drizzle.config.ts", "server"]
 }
