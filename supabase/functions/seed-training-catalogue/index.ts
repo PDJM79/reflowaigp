@@ -1,29 +1,19 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    const { practiceId } = await req.json();
-    
-    if (!practiceId) {
-      return new Response(
-        JSON.stringify({ error: 'practiceId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Validate JWT and get practice from user's membership
+    const { practiceId } = await requireJwtAndPractice(req);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[seed-training-catalogue] Seeding for practice:', practiceId);
+
+    const supabase = createServiceClient();
 
     // Default NHS training types
     const trainingTypes = [
@@ -56,13 +46,10 @@ serve(async (req) => {
     const newTypes = trainingTypes.filter(t => !existingKeys.has(t.key));
 
     if (newTypes.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          message: 'Training catalogue already seeded for this practice',
-          existing_count: existingTypes?.length || 0 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { 
+        message: 'Training catalogue already seeded for this practice',
+        existing_count: existingTypes?.length || 0 
+      });
     }
 
     // Insert new training types
@@ -83,27 +70,22 @@ serve(async (req) => {
       .insert(typesToInsert);
 
     if (insertError) {
-      console.error('Error inserting training types:', insertError);
-      return new Response(
-        JSON.stringify({ error: insertError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error('[seed-training-catalogue] Error inserting training types:', insertError);
+      return errorResponse(req, insertError.message, 500);
     }
 
-    return new Response(
-      JSON.stringify({ 
-        message: 'Training catalogue seeded successfully',
-        inserted_count: newTypes.length,
-        total_count: trainingTypes.length
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.log(`[seed-training-catalogue] Inserted ${newTypes.length} training types`);
+
+    return jsonResponse(req, { 
+      message: 'Training catalogue seeded successfully',
+      inserted_count: newTypes.length,
+      total_count: trainingTypes.length
+    });
 
   } catch (error) {
-    console.error('Error in seed-training-catalogue:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error('[seed-training-catalogue] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('Missing') || message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
 });
