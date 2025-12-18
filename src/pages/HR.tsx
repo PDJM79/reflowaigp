@@ -8,7 +8,7 @@ import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, FileText, GraduationCap, Calendar, Shield, Plus, FileDown } from 'lucide-react';
+import { Users, FileText, GraduationCap, Calendar, Shield, Plus, FileDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DBSTrackingDialog } from '@/components/hr/DBSTrackingDialog';
 import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 import { AppraisalDialog } from '@/components/hr/AppraisalDialog';
@@ -16,6 +16,9 @@ import { Feedback360Dialog } from '@/components/hr/Feedback360Dialog';
 import { TrainingCatalogueDialog } from '@/components/hr/TrainingCatalogueDialog';
 import { generateTrainingMatrixPDF, generateDBSRegisterPDF } from '@/lib/pdfExportV2';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function HR() {
   const { user } = useAuth();
@@ -36,13 +39,18 @@ export default function HR() {
   const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const [practiceId, setPracticeId] = useState<string>('');
 
+  // Employee pagination
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeePageSize, setEmployeePageSize] = useState(25);
+  const [employeeTotalCount, setEmployeeTotalCount] = useState(0);
+
   useEffect(() => {
     if (!user) {
       navigate('/');
       return;
     }
     fetchHRData();
-  }, [user, navigate]);
+  }, [user, navigate, employeePage, employeePageSize]);
 
   const fetchHRData = async () => {
     try {
@@ -56,8 +64,20 @@ export default function HR() {
 
       setPracticeId(userData.practice_id);
 
+      // Get employee count
+      const { count: empCount } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', userData.practice_id);
+
+      setEmployeeTotalCount(empCount || 0);
+
+      // Get paginated employees
+      const from = (employeePage - 1) * employeePageSize;
+      const to = from + employeePageSize - 1;
+
       const [employeesData, appraisalsData, trainingData, leaveData] = await Promise.all([
-        supabase.from('employees').select('*').eq('practice_id', userData.practice_id),
+        supabase.from('employees').select('*').eq('practice_id', userData.practice_id).range(from, to),
         supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
         supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
         supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
@@ -260,22 +280,102 @@ export default function HR() {
                     <p>No employees registered</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {employees.map((employee) => (
-                      <div 
-                        key={employee.id} 
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm sm:text-base">{employee.name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
+                  <>
+                    <div className="space-y-3">
+                      {employees.map((employee) => (
+                        <div 
+                          key={employee.id} 
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base">{employee.name}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
+                          </div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">
+                            {employee.start_date && `Started ${new Date(employee.start_date).toLocaleDateString()}`}
+                          </div>
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          {employee.start_date && `Started ${new Date(employee.start_date).toLocaleDateString()}`}
+                      ))}
+                    </div>
+                    
+                    {/* Employee Pagination */}
+                    {(() => {
+                      const totalPages = Math.ceil(employeeTotalCount / employeePageSize);
+                      const canGoPrevious = employeePage > 1;
+                      const canGoNext = employeePage < totalPages;
+                      const startItem = employeeTotalCount === 0 ? 0 : (employeePage - 1) * employeePageSize + 1;
+                      const endItem = Math.min(employeePage * employeePageSize, employeeTotalCount);
+                      
+                      return (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Showing {startItem}-{endItem} of {employeeTotalCount}</span>
+                            <Select 
+                              value={employeePageSize.toString()} 
+                              onValueChange={(value) => {
+                                setEmployeePageSize(Number(value));
+                                setEmployeePage(1);
+                              }}
+                            >
+                              <SelectTrigger className="w-[80px] h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PAGE_SIZE_OPTIONS.map((size) => (
+                                  <SelectItem key={size} value={size.toString()}>
+                                    {size}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <span>per page</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEmployeePage(1)}
+                              disabled={!canGoPrevious}
+                              className="min-h-[36px]"
+                            >
+                              First
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEmployeePage(employeePage - 1)}
+                              disabled={!canGoPrevious}
+                              className="min-h-[36px]"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="px-3 text-sm">
+                              Page {employeePage} of {totalPages || 1}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEmployeePage(employeePage + 1)}
+                              disabled={!canGoNext}
+                              className="min-h-[36px]"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEmployeePage(totalPages)}
+                              disabled={!canGoNext}
+                              className="min-h-[36px]"
+                            >
+                              Last
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      );
+                    })()}
+                  </>
                 )}
               </CardContent>
             </Card>

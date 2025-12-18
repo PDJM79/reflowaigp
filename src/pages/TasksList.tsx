@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +35,8 @@ interface Task {
   } | null;
 }
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 export default function TasksList() {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -50,6 +51,11 @@ export default function TasksList() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -65,10 +71,16 @@ export default function TasksList() {
       return;
     }
     fetchTasks();
-  }, [user, navigate, selectedModule, selectedStatus, selectedPriority, showMyTasks]);
+  }, [user, navigate, selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, searchQuery]);
 
   const fetchTasks = async () => {
     try {
+      setLoading(true);
       const { data: userData } = await supabase
         .from('users')
         .select('id, practice_id')
@@ -78,7 +90,14 @@ export default function TasksList() {
       if (!userData) return;
       setCurrentUserId(userData.id);
 
-      let query = supabase
+      // Build base query for count
+      let countQuery = supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', userData.practice_id);
+
+      // Build data query with pagination
+      let dataQuery = supabase
         .from('tasks')
         .select(`
           *,
@@ -88,26 +107,43 @@ export default function TasksList() {
         .eq('practice_id', userData.practice_id)
         .order('due_at', { ascending: true });
 
+      // Apply filters to both queries
       if (selectedModule !== 'all') {
-        query = query.eq('module', selectedModule);
+        countQuery = countQuery.eq('module', selectedModule);
+        dataQuery = dataQuery.eq('module', selectedModule);
       }
 
       if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus);
+        countQuery = countQuery.eq('status', selectedStatus);
+        dataQuery = dataQuery.eq('status', selectedStatus);
       }
 
       if (selectedPriority !== 'all') {
-        query = query.eq('priority', selectedPriority);
+        countQuery = countQuery.eq('priority', selectedPriority);
+        dataQuery = dataQuery.eq('priority', selectedPriority);
       }
 
       if (showMyTasks) {
-        query = query.eq('assigned_to_user_id', userData.id);
+        countQuery = countQuery.eq('assigned_to_user_id', userData.id);
+        dataQuery = dataQuery.eq('assigned_to_user_id', userData.id);
       }
 
-      const { data, error } = await query;
+      // Apply pagination range
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      dataQuery = dataQuery.range(from, to);
 
-      if (error) throw error;
-      setTasks(data || []);
+      // Execute both queries
+      const [countResult, dataResult] = await Promise.all([
+        countQuery,
+        dataQuery
+      ]);
+
+      if (countResult.error) throw countResult.error;
+      if (dataResult.error) throw dataResult.error;
+
+      setTotalCount(countResult.count || 0);
+      setTasks(dataResult.data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -121,12 +157,20 @@ export default function TasksList() {
     return matchesSearch;
   });
 
+  // Stats from current page (for display purposes, actual counts would need separate queries)
   const openTasks = filteredTasks.filter(t => t.status === 'open');
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
   const completedTasks = filteredTasks.filter(t => t.status === 'complete');
   const overdueTasks = filteredTasks.filter(t => 
     t.status !== 'complete' && new Date(t.due_at) < new Date()
   );
+
+  // Pagination calculations
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const canGoPrevious = page > 1;
+  const canGoNext = page < totalPages;
+  const startItem = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalCount);
 
   return (
     <div ref={scrollableRef} className="space-y-4 sm:space-y-6 p-3 sm:p-6 overflow-y-auto">
@@ -292,16 +336,88 @@ export default function TasksList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              isMyTask={task.assigned_to_user_id === currentUserId}
-              onRefresh={fetchTasks}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                isMyTask={task.assigned_to_user_id === currentUserId}
+                onRefresh={fetchTasks}
+              />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Showing {startItem}-{endItem} of {totalCount} tasks</span>
+              <Select 
+                value={pageSize.toString()} 
+                onValueChange={(value) => {
+                  setPageSize(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[80px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>per page</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={!canGoPrevious}
+                className="min-h-[36px]"
+              >
+                First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={!canGoPrevious}
+                className="min-h-[36px]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="px-3 text-sm">
+                Page {page} of {totalPages || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={!canGoNext}
+                className="min-h-[36px]"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(totalPages)}
+                disabled={!canGoNext}
+                className="min-h-[36px]"
+              >
+                Last
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       <TaskDialog
