@@ -890,13 +890,13 @@ export function generateMedicalRequestsReportPDF(data: MedicalRequestReportData)
         new Date(r.received_at).toLocaleDateString(),
         r.request_type.replace(/_/g, ' '),
         r.status.replace(/_/g, ' '),
-        r.requester_organization || r.requester_name || '-',
+        r.notes?.substring(0, 30) || '-',
         `${daysPending} days`,
         r.assigned_gp_name || 'Unassigned',
       ];
     });
     exporter.addTable(
-      ['Received', 'Type', 'Status', 'Requester', 'Pending', 'Assigned To'],
+      ['Received', 'Type', 'Status', 'Notes', 'Pending', 'Assigned To'],
       pendingRows
     );
   }
@@ -915,13 +915,13 @@ export function generateMedicalRequestsReportPDF(data: MedicalRequestReportData)
       return [
         new Date(r.received_at).toLocaleDateString(),
         r.request_type.replace(/_/g, ' '),
-        r.requester_organization || r.requester_name || '-',
+        r.notes?.substring(0, 30) || '-',
         r.sent_at ? new Date(r.sent_at).toLocaleDateString() : '-',
         `${turnaround} days`,
       ];
     });
     exporter.addTable(
-      ['Received', 'Type', 'Requester', 'Sent', 'Turnaround'],
+      ['Received', 'Type', 'Notes', 'Sent', 'Turnaround'],
       completedRows
     );
 
