@@ -3894,15 +3894,74 @@ export type Database = {
           },
         ]
       }
+      task_events: {
+        Row: {
+          actor_user_id: string | null
+          after: Json | null
+          before: Json | null
+          event_at: string
+          event_type: string
+          id: string
+          practice_id: string
+          task_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          event_at?: string
+          event_type: string
+          id?: string
+          practice_id: string
+          task_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          event_at?: string
+          event_type?: string
+          id?: string
+          practice_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_templates: {
         Row: {
           allowed_roles: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks: string[]
           created_at: string | null
           default_assignee_role: Database["public"]["Enums"]["user_role"] | null
           description: string | null
           due_rule: string | null
+          evidence_min_count: number
           evidence_tags: string[] | null
+          fit_for_audit_weight: number
           id: string
+          is_auditable: boolean
           json_schema: Json | null
           module: string
           practice_id: string | null
@@ -3914,14 +3973,18 @@ export type Database = {
         }
         Insert: {
           allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks?: string[]
           created_at?: string | null
           default_assignee_role?:
             | Database["public"]["Enums"]["user_role"]
             | null
           description?: string | null
           due_rule?: string | null
+          evidence_min_count?: number
           evidence_tags?: string[] | null
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           json_schema?: Json | null
           module: string
           practice_id?: string | null
@@ -3933,14 +3996,18 @@ export type Database = {
         }
         Update: {
           allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks?: string[]
           created_at?: string | null
           default_assignee_role?:
             | Database["public"]["Enums"]["user_role"]
             | null
           description?: string | null
           due_rule?: string | null
+          evidence_min_count?: number
           evidence_tags?: string[] | null
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           json_schema?: Json | null
           module?: string
           practice_id?: string | null
@@ -3964,6 +4031,7 @@ export type Database = {
         Row: {
           assigned_to_role: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id: string | null
+          audit_frameworks: string[]
           completed_at: string | null
           completion_time_seconds: number | null
           compliance_metadata: Json | null
@@ -3971,7 +4039,10 @@ export type Database = {
           created_by: string | null
           description: string | null
           due_at: string
+          evidence_min_count: number
+          fit_for_audit_weight: number
           id: string
+          is_auditable: boolean
           module: string
           practice_id: string
           priority: string | null
@@ -3981,6 +4052,7 @@ export type Database = {
           returned_by: string | null
           returned_reason: string | null
           scheduled_at: string | null
+          search_vector: unknown
           status: string | null
           template_id: string | null
           title: string
@@ -3989,6 +4061,7 @@ export type Database = {
         Insert: {
           assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id?: string | null
+          audit_frameworks?: string[]
           completed_at?: string | null
           completion_time_seconds?: number | null
           compliance_metadata?: Json | null
@@ -3996,7 +4069,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_at: string
+          evidence_min_count?: number
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           module: string
           practice_id: string
           priority?: string | null
@@ -4006,6 +4082,7 @@ export type Database = {
           returned_by?: string | null
           returned_reason?: string | null
           scheduled_at?: string | null
+          search_vector?: unknown
           status?: string | null
           template_id?: string | null
           title: string
@@ -4014,6 +4091,7 @@ export type Database = {
         Update: {
           assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id?: string | null
+          audit_frameworks?: string[]
           completed_at?: string | null
           completion_time_seconds?: number | null
           compliance_metadata?: Json | null
@@ -4021,7 +4099,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_at?: string
+          evidence_min_count?: number
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           module?: string
           practice_id?: string
           priority?: string | null
@@ -4031,6 +4112,7 @@ export type Database = {
           returned_by?: string | null
           returned_reason?: string | null
           scheduled_at?: string | null
+          search_vector?: unknown
           status?: string | null
           template_id?: string | null
           title?: string
@@ -4485,6 +4567,15 @@ export type Database = {
         Args: { _employee_id: string }
         Returns: string
       }
+      get_practice_scores_secure: {
+        Args: {
+          p_as_of?: string
+          p_end_date?: string
+          p_practice_id: string
+          p_start_date?: string
+        }
+        Returns: Json
+      }
       get_role_assignment_email_audited: {
         Args: { _assignment_id: string }
         Returns: string
@@ -4578,6 +4669,35 @@ export type Database = {
         Args: { _practice_id: string; _user_id: string }
         Returns: boolean
       }
+      search_tasks_secure: {
+        Args: {
+          p_limit?: number
+          p_module?: string
+          p_offset?: number
+          p_only_my_tasks?: boolean
+          p_priority?: string
+          p_query?: string
+          p_status?: string
+        }
+        Returns: {
+          assigned_to_role: Database["public"]["Enums"]["user_role"]
+          assigned_to_user_id: string
+          completed_at: string
+          description: string
+          due_at: string
+          evidence_count: number
+          evidence_min_count: number
+          id: string
+          is_auditable: boolean
+          module: string
+          priority: string
+          rank: number
+          status: string
+          title: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       user_has_mfa_enabled: { Args: { _user_id: string }; Returns: boolean }
       verify_user_mfa_token: {
         Args: { _token: string; _user_id: string }

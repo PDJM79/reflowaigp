@@ -1,26 +1,33 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+// supabase/functions/calculate-compliance-scores/index.ts
+// Calculates practice compliance and fit-for-audit scores
+// Uses JWT auth - derives practice from user, never trusts client
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleOptions(req);
+  if (preflight) return preflight;
 
   try {
-    const { practiceId } = await req.json();
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return errorResponse(req, 'Method not allowed', 405);
+    }
 
-    // Gather comprehensive compliance data
+    // Authenticate and get practice from user record
+    const ctx = await requireJwtAndPractice(req);
+    console.log(`📊 Calculating scores for practice: ${ctx.practiceId}`);
+
+    const supabase = createServiceClient();
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+
+    const body = await req.json().catch(() => ({}));
+    const startDate = body?.startDate ?? null;
+    const endDate = body?.endDate ?? null;
+
+    // Gather comprehensive compliance data using derived practice ID
     const [
       { data: tasks },
       { data: policies },
@@ -32,57 +39,92 @@ serve(async (req) => {
       { data: complaints },
       { data: employees },
     ] = await Promise.all([
-      supabase.from('tasks').select('status, priority, due_at').eq('practice_id', practiceId),
-      supabase.from('policy_documents').select('status, next_review_date').eq('practice_id', practiceId),
-      supabase.from('incidents').select('severity, created_at').eq('practice_id', practiceId),
-      supabase.from('fire_safety_assessments').select('assessment_date').eq('practice_id', practiceId).order('assessment_date', { ascending: false }).limit(1),
-      supabase.from('ipc_actions').select('completed_at').eq('practice_id', practiceId),
-      supabase.from('training_records').select('expiry_date, is_mandatory').eq('practice_id', practiceId),
-      supabase.from('dbs_checks').select('next_review_due').eq('practice_id', practiceId),
-      supabase.from('complaints').select('sla_status, severity').eq('practice_id', practiceId),
-      supabase.from('employees').select('id').eq('practice_id', practiceId).is('end_date', null),
+      supabase.from('tasks').select('status, priority, due_at, completed_at').eq('practice_id', ctx.practiceId),
+      supabase.from('policy_documents').select('status, next_review_date').eq('practice_id', ctx.practiceId),
+      supabase.from('incidents').select('severity, created_at').eq('practice_id', ctx.practiceId),
+      supabase.from('fire_safety_assessments').select('assessment_date').eq('practice_id', ctx.practiceId).order('assessment_date', { ascending: false }).limit(1),
+      supabase.from('ipc_actions').select('completed_at').eq('practice_id', ctx.practiceId),
+      supabase.from('training_records').select('expiry_date, is_mandatory').eq('practice_id', ctx.practiceId),
+      supabase.from('dbs_checks').select('next_review_due').eq('practice_id', ctx.practiceId),
+      supabase.from('complaints').select('status, ack_sent_at, final_sent_at, ack_due, final_due').eq('practice_id', ctx.practiceId),
+      supabase.from('employees').select('id').eq('practice_id', ctx.practiceId).is('end_date', null),
     ]);
 
-    // Calculate metrics
-    const taskCompletionRate = tasks?.length ? 
-      Math.round((tasks.filter(t => t.status === 'complete').length / tasks.length) * 100) : 0;
+    // Calculate task-based compliance metrics
+    const now = new Date();
+    const totalTasks = tasks?.length ?? 0;
+    const completedTasks = tasks?.filter(t => t.status === 'closed' || t.status === 'complete') ?? [];
+    const taskCompletionRate = totalTasks > 0 
+      ? Math.round((completedTasks.length / totalTasks) * 100) 
+      : 0;
     
-    const overdueTasks = tasks?.filter(t => t.status !== 'complete' && new Date(t.due_at) < new Date()).length || 0;
+    const overdueTasks = tasks?.filter(t => 
+      t.status !== 'closed' && t.status !== 'complete' && 
+      t.due_at && new Date(t.due_at) < now
+    ).length ?? 0;
+
+    // Compliance score calculation (on-time = 1.0, late = 0.7, incomplete = 0)
+    const completedOnTime = completedTasks.filter(t => 
+      t.completed_at && t.due_at && new Date(t.completed_at) <= new Date(t.due_at)
+    ).length;
+    const completedLate = completedTasks.filter(t => 
+      t.completed_at && t.due_at && new Date(t.completed_at) > new Date(t.due_at)
+    ).length;
     
-    const activePolicies = policies?.filter(p => p.status === 'active').length || 0;
+    const complianceScore = totalTasks > 0
+      ? Math.round(((completedOnTime * 1.0 + completedLate * 0.7) / totalTasks) * 100)
+      : 100;
+
+    // Policy metrics
+    const activePolicies = policies?.filter(p => p.status === 'active').length ?? 0;
     const policiesNeedingReview = policies?.filter(p => {
       const reviewDate = new Date(p.next_review_date);
-      return reviewDate <= new Date();
-    }).length || 0;
+      return reviewDate <= now;
+    }).length ?? 0;
     
-    const criticalIncidents = incidents?.filter(i => i.severity === 'critical').length || 0;
-    const recentIncidents = incidents?.filter(i => {
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      return new Date(i.created_at) >= threeMonthsAgo;
-    }).length || 0;
+    // Incident metrics
+    const criticalIncidents = incidents?.filter(i => i.severity === 'critical').length ?? 0;
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const recentIncidents = incidents?.filter(i => new Date(i.created_at) >= threeMonthsAgo).length ?? 0;
     
+    // Fire safety
     const latestFireAssessment = fireAssessments?.[0]?.assessment_date;
-    const fireAssessmentAge = latestFireAssessment ? 
-      Math.floor((Date.now() - new Date(latestFireAssessment).getTime()) / (1000 * 60 * 60 * 24)) : 365;
+    const fireAssessmentAge = latestFireAssessment 
+      ? Math.floor((Date.now() - new Date(latestFireAssessment).getTime()) / (1000 * 60 * 60 * 24)) 
+      : 365;
     
-    const ipcCompletionRate = ipcActions?.length ?
-      Math.round((ipcActions.filter(a => a.completed_at).length / ipcActions.length) * 100) : 100;
+    // IPC
+    const ipcCompletionRate = ipcActions?.length
+      ? Math.round((ipcActions.filter(a => a.completed_at).length / ipcActions.length) * 100)
+      : 100;
     
-    const staffCount = employees?.length || 0;
-    const trainingCompliance = training?.length && staffCount ?
-      Math.round((training.filter(t => !t.expiry_date || new Date(t.expiry_date) > new Date()).length / training.length) * 100) : 0;
+    // Training & DBS
+    const staffCount = employees?.length ?? 0;
+    const trainingCompliance = training?.length && staffCount
+      ? Math.round((training.filter(t => !t.expiry_date || new Date(t.expiry_date) > now).length / training.length) * 100)
+      : 0;
     
-    const dbsCompliance = dbsChecks?.length && staffCount ?
-      Math.round((dbsChecks.filter(d => new Date(d.next_review_due) > new Date()).length / dbsChecks.length) * 100) : 0;
+    const dbsCompliance = dbsChecks?.length && staffCount
+      ? Math.round((dbsChecks.filter(d => new Date(d.next_review_due) > now).length / dbsChecks.length) * 100)
+      : 0;
     
-    const complaintsOnTrack = complaints?.filter(c => c.sla_status === 'on_track' || c.sla_status === 'completed').length || 0;
-    const complaintsCompliance = complaints?.length ? 
-      Math.round((complaintsOnTrack / complaints.length) * 100) : 100;
+    // Complaints SLA
+    const complaintsOnTrack = complaints?.filter(c => 
+      c.status === 'resolved' || 
+      (c.ack_sent_at && new Date(c.ack_sent_at) <= new Date(c.ack_due))
+    ).length ?? 0;
+    const complaintsCompliance = complaints?.length 
+      ? Math.round((complaintsOnTrack / complaints.length) * 100) 
+      : 100;
 
     const metricsData = {
+      complianceScore,
       taskCompletionRate,
+      completedOnTime,
+      completedLate,
       overdueTasks,
+      totalTasks,
       activePolicies,
       policiesNeedingReview,
       criticalIncidents,
@@ -95,6 +137,7 @@ serve(async (req) => {
       staffCount,
     };
 
+    // AI-powered regulatory scoring
     const systemPrompt = `You are an NHS regulatory compliance expert. Analyze the provided practice data and calculate compliance scores for three regulatory frameworks:
 
 1. HIW (Healthcare Inspectorate Wales) - Focus on patient experience, safe care delivery, and management quality
@@ -104,7 +147,8 @@ serve(async (req) => {
 Return percentage scores (0-100) for each framework with detailed breakdown and justification.`;
 
     const userPrompt = `Practice metrics:
-- Task completion: ${taskCompletionRate}% (${overdueTasks} overdue)
+- Task completion: ${taskCompletionRate}% (${overdueTasks} overdue, ${completedOnTime} on-time, ${completedLate} late)
+- Compliance score: ${complianceScore}%
 - Active policies: ${activePolicies} (${policiesNeedingReview} need review)
 - Incidents: ${recentIncidents} in last 3 months (${criticalIncidents} critical)
 - Fire assessment: ${fireAssessmentAge} days old
@@ -182,16 +226,10 @@ Calculate HIW, CQC, and QOF compliance scores with justifications.`;
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(req, 'Rate limit exceeded. Please try again later.', 429);
       }
       if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Lovable AI credits depleted. Please top up your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(req, 'Lovable AI credits depleted. Please top up your workspace.', 402);
       }
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
@@ -204,16 +242,17 @@ Calculate HIW, CQC, and QOF compliance scores with justifications.`;
       throw new Error('No scores returned from AI');
     }
 
-    return new Response(
-      JSON.stringify({ scores, metrics: metricsData }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.log(`✅ Scores calculated for practice ${ctx.practiceId}`);
 
-  } catch (error) {
-    console.error('Error in calculate-compliance-scores:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, { 
+      ok: true, 
+      scores, 
+      metrics: metricsData,
+      practiceId: ctx.practiceId,
+    });
+
+  } catch (e) {
+    console.error('❌ calculate-compliance-scores error:', e);
+    return errorResponse(req, String(e?.message ?? e), 400);
   }
 });
