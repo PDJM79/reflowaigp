@@ -685,3 +685,148 @@ export function generateRoomAssessmentPDF(data: {
 
   return exporter;
 }
+
+// Fridge Temperature Report PDF Generator
+export function generateFridgeTempReportPDF(data: {
+  practiceName: string;
+  period: string;
+  fridges: Array<{
+    id: string;
+    name: string;
+    location: string | null;
+    min_temp: number;
+    max_temp: number;
+  }>;
+  logs: Array<{
+    id: string;
+    fridge_id: string;
+    reading: number;
+    log_date: string;
+    log_time: string;
+    breach_flag: boolean | null;
+    remedial_action: string | null;
+    outcome: string | null;
+  }>;
+  stats: {
+    totalLogs: number;
+    breaches: number;
+    complianceRate: number;
+  };
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName, data.period);
+  exporter.addSectionTitle('Fridge Temperature Monitoring Report');
+  
+  // Overall Compliance Summary
+  exporter.addSubsectionTitle('Compliance Summary');
+  exporter.addKeyValuePairs([
+    { key: 'Report Period', value: data.period },
+    { key: 'Total Fridges', value: data.fridges.length.toString() },
+    { key: 'Total Readings', value: data.stats.totalLogs.toString() },
+    { key: 'Temperature Breaches', value: data.stats.breaches.toString() },
+    { key: 'Compliance Rate', value: `${data.stats.complianceRate.toFixed(1)}%` }
+  ]);
+
+  // Compliance RAG indicator
+  const ragStatus = data.stats.complianceRate >= 95 
+    ? 'green' 
+    : data.stats.complianceRate >= 85 
+      ? 'amber' 
+      : 'red';
+  exporter.addRAGIndicator(ragStatus, `Overall Compliance: ${ragStatus.toUpperCase()}`);
+
+  // Fridge Details
+  exporter.addSubsectionTitle('Registered Fridges');
+  const fridgeRows = data.fridges.map(fridge => {
+    const fridgeLogs = data.logs.filter(l => l.fridge_id === fridge.id);
+    const fridgeBreaches = fridgeLogs.filter(l => l.breach_flag).length;
+    const fridgeCompliance = fridgeLogs.length > 0 
+      ? ((fridgeLogs.length - fridgeBreaches) / fridgeLogs.length) * 100 
+      : 100;
+
+    return [
+      fridge.name,
+      fridge.location || 'N/A',
+      `${fridge.min_temp}°C - ${fridge.max_temp}°C`,
+      fridgeLogs.length.toString(),
+      fridgeBreaches.toString(),
+      `${fridgeCompliance.toFixed(0)}%`
+    ];
+  });
+  exporter.addTable(
+    ['Fridge', 'Location', 'Range', 'Readings', 'Breaches', 'Compliance'],
+    fridgeRows
+  );
+
+  // Temperature Breach Summary
+  const breachLogs = data.logs.filter(l => l.breach_flag);
+  if (breachLogs.length > 0) {
+    exporter.addSubsectionTitle('Temperature Breaches');
+    const breachRows = breachLogs.map(log => {
+      const fridge = data.fridges.find(f => f.id === log.fridge_id);
+      const outcomeLabels: Record<string, string> = {
+        'stock_ok': 'Stock OK',
+        'stock_moved': 'Stock Moved',
+        'stock_discarded': 'Stock Discarded',
+        'fridge_serviced': 'Fridge Serviced',
+        'monitoring': 'Monitoring',
+        'other': 'Other'
+      };
+
+      return [
+        new Date(log.log_date).toLocaleDateString(),
+        log.log_time,
+        fridge?.name || 'Unknown',
+        `${log.reading}°C`,
+        log.remedial_action || 'Not recorded',
+        log.outcome ? outcomeLabels[log.outcome] || log.outcome : 'Pending'
+      ];
+    });
+    exporter.addTable(
+      ['Date', 'Time', 'Fridge', 'Reading', 'Action Taken', 'Outcome'],
+      breachRows
+    );
+  }
+
+  // Daily Log Summary (last 7 days)
+  const recentLogs = data.logs.slice(0, 50);
+  if (recentLogs.length > 0) {
+    exporter.addSubsectionTitle('Recent Temperature Readings');
+    const logRows = recentLogs.map(log => {
+      const fridge = data.fridges.find(f => f.id === log.fridge_id);
+      return [
+        new Date(log.log_date).toLocaleDateString(),
+        log.log_time,
+        fridge?.name || 'Unknown',
+        `${log.reading}°C`,
+        log.breach_flag ? 'BREACH' : 'OK'
+      ];
+    });
+    exporter.addTable(
+      ['Date', 'Time', 'Fridge', 'Reading', 'Status'],
+      logRows
+    );
+
+    if (data.logs.length > 50) {
+      exporter.addParagraph(`Note: Showing first 50 of ${data.logs.length} total readings.`);
+    }
+  }
+
+  // Compliance Notes
+  exporter.addSubsectionTitle('Compliance Requirements');
+  exporter.addBulletList([
+    'Vaccine fridges must be maintained between 2°C and 8°C',
+    'Temperature should be recorded at least twice daily (AM and PM)',
+    'Any breach must have a documented remedial action within 24 hours',
+    'Fridge temperature logs should be retained for 3 years',
+    'Fridges should be calibrated annually and after any servicing'
+  ]);
+
+  exporter.addSignatureSection([
+    { role: 'Clinical Lead', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' }
+  ]);
+
+  return exporter;
+}
