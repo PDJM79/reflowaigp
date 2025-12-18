@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText, Loader2, RefreshCw } from 'lucide-react';
+import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText, Loader2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ComplaintSLADialog } from '@/components/complaints/ComplaintSLADialog';
 import { ComplaintThemeAnalysis } from '@/components/complaints/ComplaintThemeAnalysis';
 import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker';
@@ -14,6 +14,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function Complaints() {
   const { user } = useAuth();
@@ -22,6 +25,10 @@ export default function Complaints() {
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
   const [dialogAction, setDialogAction] = useState<'acknowledgment' | 'final_response'>('acknowledgment');
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     if (!user) {
@@ -29,9 +36,9 @@ export default function Complaints() {
     }
   }, [user, navigate]);
 
-  // Fetch complaints with new SLA fields
-  const { data: complaints = [], isLoading, refetch } = useQuery({
-    queryKey: ['complaints', user?.id],
+  // Fetch complaints with pagination
+  const { data: complaintsData, isLoading, refetch } = useQuery({
+    queryKey: ['complaints', user?.id, page, pageSize],
     queryFn: async () => {
       const { data: userData } = await (supabase as any)
         .from('users')
@@ -39,19 +46,32 @@ export default function Complaints() {
         .eq('auth_user_id', user?.id)
         .single();
 
-      if (!userData) return [];
+      if (!userData) return { complaints: [], totalCount: 0 };
+
+      // Get total count
+      const { count } = await (supabase as any)
+        .from('complaints')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', userData.practice_id);
+
+      // Get paginated data
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
 
       const { data } = await (supabase as any)
         .from('complaints')
         .select('*')
         .eq('practice_id', userData.practice_id)
         .order('received_date', { ascending: false })
-        .limit(50);
+        .range(from, to);
 
-      return data || [];
+      return { complaints: data || [], totalCount: count || 0 };
     },
     enabled: !!user?.id,
   });
+
+  const complaints = complaintsData?.complaints || [];
+  const totalCount = complaintsData?.totalCount || 0;
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -65,6 +85,13 @@ export default function Complaints() {
   const needsFinal = complaints.filter((c: any) => c.acknowledgment_sent_at && !c.final_response_sent_at);
   const overdueComplaints = complaints.filter((c: any) => c.sla_status === 'overdue');
   const atRiskComplaints = complaints.filter((c: any) => c.sla_status === 'at_risk');
+
+  // Pagination calculations
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const canGoPrevious = page > 1;
+  const canGoNext = page < totalPages;
+  const startItem = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalCount);
 
   const handleSendAcknowledgment = (complaint: any) => {
     setSelectedComplaint(complaint);
@@ -177,7 +204,7 @@ export default function Complaints() {
             <CardTitle className="text-sm font-medium">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{complaints.length}</div>
+            <div className="text-3xl font-bold">{totalCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -286,6 +313,76 @@ export default function Complaints() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Showing {startItem}-{endItem} of {totalCount} complaints</span>
+                <Select 
+                  value={pageSize.toString()} 
+                  onValueChange={(value) => {
+                    setPageSize(Number(value));
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[80px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={size.toString()}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span>per page</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={!canGoPrevious}
+                  className="min-h-[36px]"
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page - 1)}
+                  disabled={!canGoPrevious}
+                  className="min-h-[36px]"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="px-3 text-sm">
+                  Page {page} of {totalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page + 1)}
+                  disabled={!canGoNext}
+                  className="min-h-[36px]"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(totalPages)}
+                  disabled={!canGoNext}
+                  className="min-h-[36px]"
+                >
+                  Last
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

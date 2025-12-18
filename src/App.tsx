@@ -65,7 +65,16 @@ import AdminCalendar from "./pages/AdminCalendar";
 import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh
+      gcTime: 30 * 60 * 1000, // 30 minutes - cache retention (formerly cacheTime)
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      retry: 1, // Retry failed requests once
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
