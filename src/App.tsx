@@ -47,6 +47,7 @@ import WorkforceDashboard from "./pages/dashboards/WorkforceDashboard";
 import EnvironmentalDashboard from "./pages/dashboards/EnvironmentalDashboard";
 import ComplaintsPatientExperience from "./pages/dashboards/ComplaintsPatientExperience";
 import DashboardsHub from "./pages/DashboardsHub";
+import GovernanceDashboard from "./pages/dashboards/GovernanceDashboard";
 
 // Update Pack v2.0 Pages
 import IPC from "./pages/IPC";
@@ -120,6 +121,7 @@ const App = () => (
                 <Route path="/dashboards/workforce" element={<WorkforceDashboard />} />
                 <Route path="/dashboards/environmental" element={<EnvironmentalDashboard />} />
                 <Route path="/dashboards/patient-experience" element={<ComplaintsPatientExperience />} />
+                <Route path="/dashboards/governance" element={<GovernanceDashboard />} />
                 
                 {/* Update Pack v2.0 Routes */}
                 <Route path="/ipc" element={<IPC />} />
