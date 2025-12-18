@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { ArrowLeft, Clock, User, CheckCircle, AlertTriangle, Play } from 'lucide-react';
+import { ArrowLeft, Clock, User, CheckCircle, AlertTriangle, Play, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
+import { BackButton } from '@/components/ui/back-button';
 
 interface ProcessInstance {
   id: string;
@@ -44,6 +45,19 @@ interface StepInstance {
   updated_at: string;
 }
 
+interface SimpleTask {
+  id: string;
+  title: string;
+  description: string;
+  module: string;
+  status: string;
+  due_at: string;
+  priority: string;
+  assigned_to_user_id: string;
+  completed_at: string;
+  created_at: string;
+}
+
 export default function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
@@ -51,14 +65,16 @@ export default function TaskDetail() {
   const [processInstance, setProcessInstance] = useState<ProcessInstance | null>(null);
   const [processTemplate, setProcessTemplate] = useState<ProcessTemplate | null>(null);
   const [stepInstances, setStepInstances] = useState<StepInstance[]>([]);
+  const [simpleTask, setSimpleTask] = useState<SimpleTask | null>(null);
   const [loading, setLoading] = useState(true);
+  const [taskType, setTaskType] = useState<'process' | 'simple' | null>(null);
 
   useEffect(() => {
     if (!taskId || !user) return;
 
     const fetchTaskData = async () => {
       try {
-        // Fetch process instance
+        // First try to fetch from process_instances
         const { data: instance } = await supabase
           .from('process_instances')
           .select('*')
@@ -67,6 +83,7 @@ export default function TaskDetail() {
 
         if (instance) {
           setProcessInstance(instance);
+          setTaskType('process');
 
           // Fetch template
           const { data: template } = await supabase
@@ -85,6 +102,18 @@ export default function TaskDetail() {
             .order('step_index', { ascending: true });
 
           setStepInstances(steps || []);
+        } else {
+          // If not found in process_instances, try tasks table
+          const { data: task } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('id', taskId)
+            .single();
+
+          if (task) {
+            setSimpleTask(task);
+            setTaskType('simple');
+          }
         }
       } catch (error) {
         console.error('Error fetching task data:', error);
@@ -161,6 +190,24 @@ export default function TaskDetail() {
     }
   };
 
+  const handleCompleteSimpleTask = async () => {
+    if (!simpleTask) return;
+
+    try {
+      await supabase
+        .from('tasks')
+        .update({ 
+          status: 'complete',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', simpleTask.id);
+
+      setSimpleTask({ ...simpleTask, status: 'complete', completed_at: new Date().toISOString() });
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
+  };
+
   const handleContinueToStep = (stepIndex: number) => {
     navigate(`/task/${taskId}/step/${stepIndex}`);
   };
@@ -181,6 +228,10 @@ export default function TaskDetail() {
     }
   };
 
+  const isOverdue = (dueAt: string) => {
+    return new Date(dueAt) < new Date();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -192,6 +243,114 @@ export default function TaskDetail() {
     );
   }
 
+  // Render simple task view
+  if (taskType === 'simple' && simpleTask) {
+    const overdue = simpleTask.status !== 'complete' && isOverdue(simpleTask.due_at);
+    
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center gap-4 mb-6">
+            <BackButton fallbackPath="/" />
+            <div>
+              <h1 className="text-2xl font-bold">{simpleTask.title}</h1>
+              <p className={`text-sm ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {overdue ? 'Overdue - ' : ''}Due: {new Date(simpleTask.due_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Task Details
+                    <Badge variant={simpleTask.status === 'complete' ? 'default' : overdue ? 'destructive' : 'outline'}>
+                      {simpleTask.status === 'complete' ? 'Complete' : overdue ? 'Overdue' : simpleTask.status}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {simpleTask.description && (
+                    <div>
+                      <h3 className="font-medium mb-2">Description</h3>
+                      <p className="text-muted-foreground">{simpleTask.description}</p>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Module</p>
+                      <Badge variant="outline" className="mt-1">{simpleTask.module || 'General'}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Priority</p>
+                      <Badge variant={simpleTask.priority === 'high' ? 'destructive' : 'outline'} className="mt-1">
+                        {simpleTask.priority || 'Normal'}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Task Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium">Status</p>
+                    <RAGBadge status={simpleTask.status === 'complete' ? 'green' : overdue ? 'red' : 'amber'} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Due Date</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {new Date(simpleTask.due_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {simpleTask.completed_at && (
+                    <div>
+                      <p className="text-sm font-medium">Completed</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(simpleTask.completed_at).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {simpleTask.status !== 'complete' ? (
+                    <Button onClick={handleCompleteSimpleTask} className="w-full">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark Complete
+                    </Button>
+                  ) : (
+                    <Badge variant="outline" className="w-full justify-center py-2">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Task Complete
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render process instance view (existing logic)
   if (!processInstance || !processTemplate) {
     return (
       <div className="min-h-screen bg-background">
@@ -229,9 +388,6 @@ export default function TaskDetail() {
     }
   }
   
-  console.log('Raw steps data:', processTemplate.steps);
-  console.log('Parsed steps array:', stepsArray);
-  
   const totalSteps = Array.isArray(stepsArray) ? stepsArray.length : 0;
 
   return (
@@ -240,10 +396,7 @@ export default function TaskDetail() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <BackButton fallbackPath="/" />
           <div>
             <h1 className="text-2xl font-bold">{processTemplate.name}</h1>
             <p className="text-muted-foreground">
