@@ -1,73 +1,39 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/auto-provision-practice/index.ts
+// JWT-protected - provisions practice resources for authenticated user's practice
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface AutoProvisionRequest {
-  practice_id: string;
-}
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Authenticate and get practice from JWT
+    const { practiceId } = await requireJwtAndPractice(req);
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
+    console.log(`Auto-provisioning practice: ${practiceId}`);
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: { headers: { Authorization: authHeader } },
-        auth: { persistSession: false }
-      }
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    const { practice_id } = await req.json() as AutoProvisionRequest;
-
-    console.log(`Auto-provisioning practice: ${practice_id}`);
+    const supabaseAdmin = createServiceClient();
 
     // Check if already setup
     const { data: existingSetup } = await supabaseAdmin
       .from('organization_setup')
       .select('*')
-      .eq('practice_id', practice_id)
+      .eq('practice_id', practiceId)
       .single();
 
     if (existingSetup?.setup_completed) {
-      return new Response(
-        JSON.stringify({ success: true, message: 'Practice already provisioned' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { success: true, message: 'Practice already provisioned' });
     }
 
     // Create or update setup record
     const { error: setupError } = await supabaseAdmin
       .from('organization_setup')
       .upsert({
-        practice_id,
+        practice_id: practiceId,
         setup_started_at: new Date().toISOString(),
       });
 
@@ -77,7 +43,7 @@ Deno.serve(async (req) => {
     const { data: practice } = await supabaseAdmin
       .from('practices')
       .select('country')
-      .eq('id', practice_id)
+      .eq('id', practiceId)
       .single();
 
     const country = practice?.country || 'Wales';
@@ -92,7 +58,7 @@ Deno.serve(async (req) => {
         sla_hours: 4,
         responsible_role: 'nurse',
         description: 'Morning and afternoon fridge temperature monitoring',
-        regulatory_standards: [], // Will be mapped later
+        regulatory_standards: [],
       },
       {
         name: 'Daily Cleaning Checklist',
@@ -146,7 +112,7 @@ Deno.serve(async (req) => {
       .insert(
         defaultTemplates.map(t => ({
           ...t,
-          practice_id,
+          practice_id: practiceId,
           is_active: true,
         }))
       )
@@ -165,39 +131,39 @@ Deno.serve(async (req) => {
     const scheduledReminders = [
       // Claims reminders (5th, 10th, 15th @ 09:00)
       {
-        practice_id,
+        practice_id: practiceId,
         reminder_type: 'claim_reminder',
-        schedule_pattern: '0 9 5 * *', // 5th of month at 09:00
+        schedule_pattern: '0 9 5 * *',
         next_run_at: new Date(now.getFullYear(), now.getMonth(), 5, 9, 0, 0).toISOString(),
         metadata: { day: 5, description: 'Enhanced Services claim reminder - 5th of month' },
       },
       {
-        practice_id,
+        practice_id: practiceId,
         reminder_type: 'claim_reminder',
-        schedule_pattern: '0 9 10 * *', // 10th of month at 09:00
+        schedule_pattern: '0 9 10 * *',
         next_run_at: new Date(now.getFullYear(), now.getMonth(), 10, 9, 0, 0).toISOString(),
         metadata: { day: 10, description: 'Enhanced Services claim reminder - 10th of month' },
       },
       {
-        practice_id,
+        practice_id: practiceId,
         reminder_type: 'claim_reminder',
-        schedule_pattern: '0 9 15 * *', // 15th of month at 09:00
+        schedule_pattern: '0 9 15 * *',
         next_run_at: new Date(now.getFullYear(), now.getMonth(), 15, 9, 0, 0).toISOString(),
         metadata: { day: 15, description: 'Enhanced Services claim reminder - 15th of month' },
       },
       // IPC Audit reminders (May & December)
       {
-        practice_id,
+        practice_id: practiceId,
         reminder_type: 'ipc_audit_due',
         schedule_pattern: 'on_date',
-        next_run_at: new Date(now.getFullYear(), 4, 1, 9, 0, 0).toISOString(), // May 1st
+        next_run_at: new Date(now.getFullYear(), 4, 1, 9, 0, 0).toISOString(),
         metadata: { description: 'Six-monthly Infection Control audit - May' },
       },
       {
-        practice_id,
+        practice_id: practiceId,
         reminder_type: 'ipc_audit_due',
         schedule_pattern: 'on_date',
-        next_run_at: new Date(now.getFullYear(), 11, 1, 9, 0, 0).toISOString(), // Dec 1st
+        next_run_at: new Date(now.getFullYear(), 11, 1, 9, 0, 0).toISOString(),
         metadata: { description: 'Six-monthly Infection Control audit - December' },
       },
     ];
@@ -217,7 +183,7 @@ Deno.serve(async (req) => {
     const { data: practiceUsers } = await supabaseAdmin
       .from('users')
       .select('id')
-      .eq('practice_id', practice_id);
+      .eq('practice_id', practiceId);
 
     if (practiceUsers && practiceUsers.length > 0) {
       const { error: prefsError } = await supabaseAdmin
@@ -248,7 +214,7 @@ Deno.serve(async (req) => {
         setup_completed: true,
         setup_completed_at: new Date().toISOString(),
       })
-      .eq('practice_id', practice_id);
+      .eq('practice_id', practiceId);
 
     if (updateError) throw updateError;
 
@@ -259,25 +225,21 @@ Deno.serve(async (req) => {
         onboarding_stage: 'configured',
         onboarding_completed_at: new Date().toISOString(),
       })
-      .eq('id', practice_id);
+      .eq('id', practiceId);
 
     console.log('Auto-provisioning completed successfully');
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Practice auto-provisioned successfully',
-        templates_created: createdTemplates?.length || 0,
-        reminders_created: scheduledReminders.length,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, {
+      success: true,
+      message: 'Practice auto-provisioned successfully',
+      templates_created: createdTemplates?.length || 0,
+      reminders_created: scheduledReminders.length,
+    });
 
-  } catch (error) {
-    console.error('Auto-provision error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    console.error('Auto-provision error:', message);
+    const status = message.includes('Unauthorized') ? 401 : 400;
+    return errorResponse(req, message, status);
   }
 });
