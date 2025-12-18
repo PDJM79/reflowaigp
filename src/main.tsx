@@ -12,7 +12,24 @@ if ("serviceWorker" in navigator) {
       .then((registration) => {
         console.log("Service Worker registered:", registration);
 
-        // Check for updates every hour
+        // If a new SW is installed, ask it to activate and then reload to avoid mixed bundles
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          if (!worker) return;
+
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && registration.waiting) {
+              registration.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        });
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          window.location.reload();
+        });
+
+        // Check for updates immediately, then every hour
+        registration.update();
         setInterval(() => {
           registration.update();
         }, 60 * 60 * 1000);
