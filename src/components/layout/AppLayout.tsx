@@ -34,10 +34,10 @@ export function AppLayout() {
 
     // Fetch user roles - FIXED: properly join through users table
     const fetchUserRoles = async () => {
-      // First get internal user ID from auth_user_id
+      // First get internal user ID and is_practice_manager flag
       const { data: userData } = await supabase
         .from('users')
-        .select('id')
+        .select('id, is_practice_manager')
         .eq('auth_user_id', user.id)
         .single();
       
@@ -48,8 +48,15 @@ export function AppLayout() {
           .select('role')
           .eq('user_id', userData.id);
         
-        if (rolesData) {
+        if (rolesData && rolesData.length > 0) {
           setUserRoles(rolesData.map((r) => r.role));
+        } else {
+          // Fallback: use is_practice_manager flag if no roles in user_roles table
+          if (userData.is_practice_manager) {
+            setUserRoles(['practice_manager']);
+          } else {
+            setUserRoles(['staff']);
+          }
         }
       }
     };

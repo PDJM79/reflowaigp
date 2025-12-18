@@ -55,24 +55,45 @@ export function UserDashboard() {
           const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
           setUserPracticeId(practiceId);
 
-          // Fetch user roles from user_roles table
-          const { data: userRoles } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id);
+          // Get internal user ID from users table first
+          const { data: internalUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .single();
 
-          const primaryRole = userRoles?.[0]?.role || 'unknown';
+          // Fetch user roles from user_roles table using internal user ID
+          let roles: string[] = [];
+          if (internalUser) {
+            const { data: userRoles } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', internalUser.id);
+            
+            roles = userRoles?.map(r => r.role) || [];
+          }
+
+          // Fallback: if no roles found, use is_practice_manager flag
+          if (roles.length === 0) {
+            if (data.is_practice_manager) {
+              roles = ['practice_manager'];
+            } else {
+              roles = ['staff'];
+            }
+          }
+
+          const primaryRole = roles[0] || 'staff';
           setUserRole(primaryRole);
 
-          console.log('User roles:', userRoles, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
+          console.log('User roles:', roles, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
 
           // Fetch all process templates where any of the user's roles is responsible
-          const roles = userRoles?.map(r => r.role) || [];
+          // Cast roles to the expected type for the query
           const { data: templates, error: templatesError } = await supabase
             .from('process_templates')
             .select('name, responsible_role, frequency')
             .eq('practice_id', practiceId)
-            .in('responsible_role', roles);
+            .in('responsible_role', roles as ("administrator" | "auditor" | "cd_lead_gp" | "estates_lead" | "gp" | "group_manager" | "hca" | "ig_lead" | "nurse" | "nurse_lead" | "practice_manager" | "reception" | "reception_lead")[]);
 
           console.log('Process templates for role:', templates, 'Error:', templatesError);
           setAllProcessesByRole(templates || []);
