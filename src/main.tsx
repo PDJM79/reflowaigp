@@ -1,4 +1,4 @@
-// Force rebuild to clear Vite cache
+// Force rebuild - cache clear timestamp: 2025-06-18T12:00:00Z
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
