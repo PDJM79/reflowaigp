@@ -15,60 +15,60 @@ export interface IStorage {
   createPractice(practice: InsertPractice): Promise<Practice>;
   updatePractice(id: string, data: Partial<InsertPractice>): Promise<Practice | undefined>;
 
-  getUser(id: string): Promise<User | undefined>;
+  getUser(id: string, practiceId: string): Promise<User | undefined>;
   getUserByEmail(email: string, practiceId: string): Promise<User | undefined>;
   getUsersByPractice(practiceId: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
+  updateUser(id: string, practiceId: string, data: Partial<InsertUser>): Promise<User | undefined>;
 
-  getEmployee(id: string): Promise<Employee | undefined>;
+  getEmployee(id: string, practiceId: string): Promise<Employee | undefined>;
   getEmployeesByPractice(practiceId: string): Promise<Employee[]>;
   getActiveEmployeesByPractice(practiceId: string): Promise<Employee[]>;
   createEmployee(employee: InsertEmployee): Promise<Employee>;
-  updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined>;
+  updateEmployee(id: string, practiceId: string, data: Partial<InsertEmployee>): Promise<Employee | undefined>;
 
-  getProcessTemplate(id: string): Promise<ProcessTemplate | undefined>;
+  getProcessTemplate(id: string, practiceId: string): Promise<ProcessTemplate | undefined>;
   getProcessTemplatesByPractice(practiceId: string): Promise<ProcessTemplate[]>;
   createProcessTemplate(template: InsertProcessTemplate): Promise<ProcessTemplate>;
-  updateProcessTemplate(id: string, data: Partial<InsertProcessTemplate>): Promise<ProcessTemplate | undefined>;
+  updateProcessTemplate(id: string, practiceId: string, data: Partial<InsertProcessTemplate>): Promise<ProcessTemplate | undefined>;
 
-  getProcessInstance(id: string): Promise<ProcessInstance | undefined>;
+  getProcessInstance(id: string, practiceId: string): Promise<ProcessInstance | undefined>;
   getProcessInstancesByPractice(practiceId: string): Promise<ProcessInstance[]>;
   createProcessInstance(instance: InsertProcessInstance): Promise<ProcessInstance>;
-  updateProcessInstance(id: string, data: Partial<InsertProcessInstance>): Promise<ProcessInstance | undefined>;
+  updateProcessInstance(id: string, practiceId: string, data: Partial<InsertProcessInstance>): Promise<ProcessInstance | undefined>;
 
-  getTask(id: string): Promise<Task | undefined>;
+  getTask(id: string, practiceId: string): Promise<Task | undefined>;
   getTasksByPractice(practiceId: string): Promise<Task[]>;
   getOverdueTasks(practiceId: string): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
+  updateTask(id: string, practiceId: string, data: Partial<InsertTask>): Promise<Task | undefined>;
 
-  getIncident(id: string): Promise<Incident | undefined>;
+  getIncident(id: string, practiceId: string): Promise<Incident | undefined>;
   getIncidentsByPractice(practiceId: string): Promise<Incident[]>;
   createIncident(incident: InsertIncident): Promise<Incident>;
-  updateIncident(id: string, data: Partial<InsertIncident>): Promise<Incident | undefined>;
+  updateIncident(id: string, practiceId: string, data: Partial<InsertIncident>): Promise<Incident | undefined>;
 
-  getComplaint(id: string): Promise<Complaint | undefined>;
+  getComplaint(id: string, practiceId: string): Promise<Complaint | undefined>;
   getComplaintsByPractice(practiceId: string): Promise<Complaint[]>;
   createComplaint(complaint: InsertComplaint): Promise<Complaint>;
-  updateComplaint(id: string, data: Partial<InsertComplaint>): Promise<Complaint | undefined>;
+  updateComplaint(id: string, practiceId: string, data: Partial<InsertComplaint>): Promise<Complaint | undefined>;
 
-  getPolicyDocument(id: string): Promise<PolicyDocument | undefined>;
+  getPolicyDocument(id: string, practiceId: string): Promise<PolicyDocument | undefined>;
   getPolicyDocumentsByPractice(practiceId: string): Promise<PolicyDocument[]>;
   createPolicyDocument(policy: InsertPolicyDocument): Promise<PolicyDocument>;
-  updatePolicyDocument(id: string, data: Partial<InsertPolicyDocument>): Promise<PolicyDocument | undefined>;
+  updatePolicyDocument(id: string, practiceId: string, data: Partial<InsertPolicyDocument>): Promise<PolicyDocument | undefined>;
 
-  getTrainingRecord(id: string): Promise<TrainingRecord | undefined>;
+  getTrainingRecord(id: string, practiceId: string): Promise<TrainingRecord | undefined>;
   getTrainingRecordsByPractice(practiceId: string): Promise<TrainingRecord[]>;
   getExpiringTrainingRecords(practiceId: string, daysUntilExpiry: number): Promise<TrainingRecord[]>;
   createTrainingRecord(record: InsertTrainingRecord): Promise<TrainingRecord>;
-  updateTrainingRecord(id: string, data: Partial<InsertTrainingRecord>): Promise<TrainingRecord | undefined>;
+  updateTrainingRecord(id: string, practiceId: string, data: Partial<InsertTrainingRecord>): Promise<TrainingRecord | undefined>;
 
-  getNotificationsByUser(userId: string): Promise<Notification[]>;
-  getUnreadNotificationsByUser(userId: string): Promise<Notification[]>;
+  getNotificationsByUser(userId: string, practiceId: string): Promise<Notification[]>;
+  getUnreadNotificationsByUser(userId: string, practiceId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
-  markNotificationRead(id: string): Promise<void>;
-  markAllNotificationsRead(userId: string): Promise<void>;
+  markNotificationRead(id: string, practiceId: string): Promise<void>;
+  markAllNotificationsRead(userId: string, practiceId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -91,8 +91,10 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+  async getUser(id: string, practiceId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(schema.users).where(
+      and(eq(schema.users.id, id), eq(schema.users.practiceId, practiceId))
+    );
     return user;
   }
 
@@ -110,13 +112,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
-    const [updated] = await db.update(schema.users).set({ ...data, updatedAt: new Date() }).where(eq(schema.users.id, id)).returning();
+  async updateUser(id: string, practiceId: string, data: Partial<InsertUser>): Promise<User | undefined> {
+    const [updated] = await db.update(schema.users).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.users.id, id), eq(schema.users.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getEmployee(id: string): Promise<Employee | undefined> {
-    const [employee] = await db.select().from(schema.employees).where(eq(schema.employees.id, id));
+  async getEmployee(id: string, practiceId: string): Promise<Employee | undefined> {
+    const [employee] = await db.select().from(schema.employees).where(
+      and(eq(schema.employees.id, id), eq(schema.employees.practiceId, practiceId))
+    );
     return employee;
   }
 
@@ -133,13 +139,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
-    const [updated] = await db.update(schema.employees).set({ ...data, updatedAt: new Date() }).where(eq(schema.employees.id, id)).returning();
+  async updateEmployee(id: string, practiceId: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
+    const [updated] = await db.update(schema.employees).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.employees.id, id), eq(schema.employees.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getProcessTemplate(id: string): Promise<ProcessTemplate | undefined> {
-    const [template] = await db.select().from(schema.processTemplates).where(eq(schema.processTemplates.id, id));
+  async getProcessTemplate(id: string, practiceId: string): Promise<ProcessTemplate | undefined> {
+    const [template] = await db.select().from(schema.processTemplates).where(
+      and(eq(schema.processTemplates.id, id), eq(schema.processTemplates.practiceId, practiceId))
+    );
     return template;
   }
 
@@ -152,13 +162,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateProcessTemplate(id: string, data: Partial<InsertProcessTemplate>): Promise<ProcessTemplate | undefined> {
-    const [updated] = await db.update(schema.processTemplates).set({ ...data, updatedAt: new Date() }).where(eq(schema.processTemplates.id, id)).returning();
+  async updateProcessTemplate(id: string, practiceId: string, data: Partial<InsertProcessTemplate>): Promise<ProcessTemplate | undefined> {
+    const [updated] = await db.update(schema.processTemplates).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.processTemplates.id, id), eq(schema.processTemplates.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getProcessInstance(id: string): Promise<ProcessInstance | undefined> {
-    const [instance] = await db.select().from(schema.processInstances).where(eq(schema.processInstances.id, id));
+  async getProcessInstance(id: string, practiceId: string): Promise<ProcessInstance | undefined> {
+    const [instance] = await db.select().from(schema.processInstances).where(
+      and(eq(schema.processInstances.id, id), eq(schema.processInstances.practiceId, practiceId))
+    );
     return instance;
   }
 
@@ -171,13 +185,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateProcessInstance(id: string, data: Partial<InsertProcessInstance>): Promise<ProcessInstance | undefined> {
-    const [updated] = await db.update(schema.processInstances).set({ ...data, updatedAt: new Date() }).where(eq(schema.processInstances.id, id)).returning();
+  async updateProcessInstance(id: string, practiceId: string, data: Partial<InsertProcessInstance>): Promise<ProcessInstance | undefined> {
+    const [updated] = await db.update(schema.processInstances).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.processInstances.id, id), eq(schema.processInstances.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getTask(id: string): Promise<Task | undefined> {
-    const [task] = await db.select().from(schema.tasks).where(eq(schema.tasks.id, id));
+  async getTask(id: string, practiceId: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(schema.tasks).where(
+      and(eq(schema.tasks.id, id), eq(schema.tasks.practiceId, practiceId))
+    );
     return task;
   }
 
@@ -201,13 +219,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined> {
-    const [updated] = await db.update(schema.tasks).set({ ...data, updatedAt: new Date() }).where(eq(schema.tasks.id, id)).returning();
+  async updateTask(id: string, practiceId: string, data: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updated] = await db.update(schema.tasks).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.tasks.id, id), eq(schema.tasks.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getIncident(id: string): Promise<Incident | undefined> {
-    const [incident] = await db.select().from(schema.incidents).where(eq(schema.incidents.id, id));
+  async getIncident(id: string, practiceId: string): Promise<Incident | undefined> {
+    const [incident] = await db.select().from(schema.incidents).where(
+      and(eq(schema.incidents.id, id), eq(schema.incidents.practiceId, practiceId))
+    );
     return incident;
   }
 
@@ -220,13 +242,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateIncident(id: string, data: Partial<InsertIncident>): Promise<Incident | undefined> {
-    const [updated] = await db.update(schema.incidents).set({ ...data, updatedAt: new Date() }).where(eq(schema.incidents.id, id)).returning();
+  async updateIncident(id: string, practiceId: string, data: Partial<InsertIncident>): Promise<Incident | undefined> {
+    const [updated] = await db.update(schema.incidents).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.incidents.id, id), eq(schema.incidents.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getComplaint(id: string): Promise<Complaint | undefined> {
-    const [complaint] = await db.select().from(schema.complaints).where(eq(schema.complaints.id, id));
+  async getComplaint(id: string, practiceId: string): Promise<Complaint | undefined> {
+    const [complaint] = await db.select().from(schema.complaints).where(
+      and(eq(schema.complaints.id, id), eq(schema.complaints.practiceId, practiceId))
+    );
     return complaint;
   }
 
@@ -239,13 +265,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateComplaint(id: string, data: Partial<InsertComplaint>): Promise<Complaint | undefined> {
-    const [updated] = await db.update(schema.complaints).set({ ...data, updatedAt: new Date() }).where(eq(schema.complaints.id, id)).returning();
+  async updateComplaint(id: string, practiceId: string, data: Partial<InsertComplaint>): Promise<Complaint | undefined> {
+    const [updated] = await db.update(schema.complaints).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.complaints.id, id), eq(schema.complaints.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getPolicyDocument(id: string): Promise<PolicyDocument | undefined> {
-    const [policy] = await db.select().from(schema.policyDocuments).where(eq(schema.policyDocuments.id, id));
+  async getPolicyDocument(id: string, practiceId: string): Promise<PolicyDocument | undefined> {
+    const [policy] = await db.select().from(schema.policyDocuments).where(
+      and(eq(schema.policyDocuments.id, id), eq(schema.policyDocuments.practiceId, practiceId))
+    );
     return policy;
   }
 
@@ -258,13 +288,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updatePolicyDocument(id: string, data: Partial<InsertPolicyDocument>): Promise<PolicyDocument | undefined> {
-    const [updated] = await db.update(schema.policyDocuments).set({ ...data, updatedAt: new Date() }).where(eq(schema.policyDocuments.id, id)).returning();
+  async updatePolicyDocument(id: string, practiceId: string, data: Partial<InsertPolicyDocument>): Promise<PolicyDocument | undefined> {
+    const [updated] = await db.update(schema.policyDocuments).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.policyDocuments.id, id), eq(schema.policyDocuments.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getTrainingRecord(id: string): Promise<TrainingRecord | undefined> {
-    const [record] = await db.select().from(schema.trainingRecords).where(eq(schema.trainingRecords.id, id));
+  async getTrainingRecord(id: string, practiceId: string): Promise<TrainingRecord | undefined> {
+    const [record] = await db.select().from(schema.trainingRecords).where(
+      and(eq(schema.trainingRecords.id, id), eq(schema.trainingRecords.practiceId, practiceId))
+    );
     return record;
   }
 
@@ -288,17 +322,27 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateTrainingRecord(id: string, data: Partial<InsertTrainingRecord>): Promise<TrainingRecord | undefined> {
-    const [updated] = await db.update(schema.trainingRecords).set({ ...data, updatedAt: new Date() }).where(eq(schema.trainingRecords.id, id)).returning();
+  async updateTrainingRecord(id: string, practiceId: string, data: Partial<InsertTrainingRecord>): Promise<TrainingRecord | undefined> {
+    const [updated] = await db.update(schema.trainingRecords).set({ ...data, updatedAt: new Date() }).where(
+      and(eq(schema.trainingRecords.id, id), eq(schema.trainingRecords.practiceId, practiceId))
+    ).returning();
     return updated;
   }
 
-  async getNotificationsByUser(userId: string): Promise<Notification[]> {
-    return db.select().from(schema.notifications).where(eq(schema.notifications.userId, userId)).orderBy(desc(schema.notifications.createdAt));
+  async getNotificationsByUser(userId: string, practiceId: string): Promise<Notification[]> {
+    return db.select().from(schema.notifications).where(
+      and(eq(schema.notifications.userId, userId), eq(schema.notifications.practiceId, practiceId))
+    ).orderBy(desc(schema.notifications.createdAt));
   }
 
-  async getUnreadNotificationsByUser(userId: string): Promise<Notification[]> {
-    return db.select().from(schema.notifications).where(and(eq(schema.notifications.userId, userId), isNull(schema.notifications.readAt))).orderBy(desc(schema.notifications.createdAt));
+  async getUnreadNotificationsByUser(userId: string, practiceId: string): Promise<Notification[]> {
+    return db.select().from(schema.notifications).where(
+      and(
+        eq(schema.notifications.userId, userId), 
+        eq(schema.notifications.practiceId, practiceId),
+        isNull(schema.notifications.readAt)
+      )
+    ).orderBy(desc(schema.notifications.createdAt));
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
@@ -306,12 +350,20 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async markNotificationRead(id: string): Promise<void> {
-    await db.update(schema.notifications).set({ readAt: new Date() }).where(eq(schema.notifications.id, id));
+  async markNotificationRead(id: string, practiceId: string): Promise<void> {
+    await db.update(schema.notifications).set({ readAt: new Date() }).where(
+      and(eq(schema.notifications.id, id), eq(schema.notifications.practiceId, practiceId))
+    );
   }
 
-  async markAllNotificationsRead(userId: string): Promise<void> {
-    await db.update(schema.notifications).set({ readAt: new Date() }).where(and(eq(schema.notifications.userId, userId), isNull(schema.notifications.readAt)));
+  async markAllNotificationsRead(userId: string, practiceId: string): Promise<void> {
+    await db.update(schema.notifications).set({ readAt: new Date() }).where(
+      and(
+        eq(schema.notifications.userId, userId), 
+        eq(schema.notifications.practiceId, practiceId),
+        isNull(schema.notifications.readAt)
+      )
+    );
   }
 }
 
