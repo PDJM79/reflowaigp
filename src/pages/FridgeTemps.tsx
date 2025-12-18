@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -10,21 +11,39 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2, Camera, Loader2, RefreshCw } from 'lucide-react';
+import { Thermometer, AlertTriangle, CheckCircle, Plus, Trash2, Camera, Loader2, RefreshCw, FileText, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { SectionScoreBadge } from '@/components/dashboard/SectionScoreBadge';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
+import { generateFridgeTempReportPDF } from '@/lib/pdfExportV2';
+
+// Import fridge components
+import { EditFridgeDialog } from '@/components/fridge/EditFridgeDialog';
+import { RemedialActionDialog } from '@/components/fridge/RemedialActionDialog';
+import { FridgeComplianceChart } from '@/components/fridge/FridgeComplianceChart';
+import { HistoricalLogView } from '@/components/fridge/HistoricalLogView';
+import type { Fridge, TempLogWithFridge, DailyComplianceStats } from '@/components/fridge/types';
 
 export default function FridgeTemps() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [logs, setLogs] = useState<any[]>([]);
-  const [fridges, setFridges] = useState<any[]>([]);
+  
+  // State
+  const [practiceId, setPracticeId] = useState<string | null>(null);
+  const [practiceName, setPracticeName] = useState<string>('');
+  const [fridges, setFridges] = useState<Fridge[]>([]);
+  const [todayLogs, setTodayLogs] = useState<TempLogWithFridge[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<DailyComplianceStats[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
+  const [editingFridge, setEditingFridge] = useState<Fridge | null>(null);
+  const [selectedBreachLog, setSelectedBreachLog] = useState<TempLogWithFridge | null>(null);
+  
+  // Form states
   const [newFridge, setNewFridge] = useState({
     name: '',
     location: '',
@@ -34,7 +53,7 @@ export default function FridgeTemps() {
   const [newLog, setNewLog] = useState({
     fridge_id: '',
     reading: '',
-    log_time: 'AM'
+    log_time: 'AM' as 'AM' | 'PM'
   });
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
@@ -45,24 +64,21 @@ export default function FridgeTemps() {
     enabled: isMobile,
   });
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/');
-      return;
-    }
-    fetchData();
-  }, [user, navigate]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('practice_id')
+        .select('practice_id, practices(name)')
         .eq('auth_user_id', user?.id)
         .single();
 
-      if (!userData) return;
+      if (!userData?.practice_id) return;
+      
+      setPracticeId(userData.practice_id);
+      setPracticeName((userData as any).practices?.name || '');
 
+      const today = new Date().toISOString().split('T')[0];
+      
       const [fridgesData, logsData] = await Promise.all([
         supabase
           .from('fridges')
@@ -70,20 +86,28 @@ export default function FridgeTemps() {
           .eq('practice_id', userData.practice_id),
         supabase
           .from('temp_logs')
-          .select('*, fridges(name)')
-          .eq('log_date', new Date().toISOString().split('T')[0])
-          .order('log_time', { ascending: false })
+          .select('*, fridges(name, min_temp, max_temp)')
+          .eq('log_date', today)
+          .order('created_at', { ascending: false })
       ]);
 
       setFridges(fridgesData.data || []);
-      setLogs(logsData.data || []);
+      setTodayLogs((logsData.data as TempLogWithFridge[]) || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load temperature data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/');
+      return;
+    }
+    fetchData();
+  }, [user, navigate, fetchData]);
 
   const handleAddFridge = async () => {
     if (!newFridge.name.trim()) {
@@ -91,23 +115,28 @@ export default function FridgeTemps() {
       return;
     }
 
+    const minTemp = parseFloat(newFridge.min_temp);
+    const maxTemp = parseFloat(newFridge.max_temp);
+
+    if (isNaN(minTemp) || isNaN(maxTemp)) {
+      toast.error('Please enter valid temperature values');
+      return;
+    }
+
+    if (minTemp >= maxTemp) {
+      toast.error('Minimum temperature must be less than maximum');
+      return;
+    }
+
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
       const { error } = await supabase
         .from('fridges')
         .insert({
-          practice_id: userData.practice_id,
-          name: newFridge.name,
-          location: newFridge.location,
-          min_temp: parseFloat(newFridge.min_temp),
-          max_temp: parseFloat(newFridge.max_temp)
+          practice_id: practiceId!,
+          name: newFridge.name.trim(),
+          location: newFridge.location.trim() || null,
+          min_temp: minTemp,
+          max_temp: maxTemp
         });
 
       if (error) throw error;
@@ -153,10 +182,17 @@ export default function FridgeTemps() {
       return;
     }
 
+    const reading = parseFloat(newLog.reading);
+    if (isNaN(reading)) {
+      toast.error('Please enter a valid temperature');
+      return;
+    }
+
     try {
       const selectedFridge = fridges.find(f => f.id === newLog.fridge_id);
-      const reading = parseFloat(newLog.reading);
-      const breachFlag = selectedFridge ? (reading < selectedFridge.min_temp || reading > selectedFridge.max_temp) : false;
+      const breachFlag = selectedFridge 
+        ? (reading < selectedFridge.min_temp || reading > selectedFridge.max_temp) 
+        : false;
 
       const { error } = await supabase
         .from('temp_logs')
@@ -171,7 +207,14 @@ export default function FridgeTemps() {
 
       if (error) throw error;
 
-      toast.success(breachFlag ? 'Temperature logged - BREACH DETECTED!' : 'Temperature logged successfully');
+      if (breachFlag) {
+        toast.error('Temperature logged - BREACH DETECTED! Please record remedial action.', {
+          duration: 5000
+        });
+      } else {
+        toast.success('Temperature logged successfully');
+      }
+      
       setIsLogDialogOpen(false);
       setNewLog({ fridge_id: '', reading: '', log_time: 'AM' });
       fetchData();
@@ -181,11 +224,61 @@ export default function FridgeTemps() {
     }
   };
 
-  const breaches = logs.filter(l => l.breach_flag);
-  const compliant = logs.filter(l => !l.breach_flag);
+  const handleExportPDF = async () => {
+    if (!practiceId) return;
+
+    try {
+      // Fetch all logs for the last 30 days
+      const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      const { data: allLogs } = await supabase
+        .from('temp_logs')
+        .select('*')
+        .gte('log_date', thirtyDaysAgo)
+        .lte('log_date', today)
+        .order('log_date', { ascending: false });
+
+      const logs = allLogs || [];
+      const breaches = logs.filter(l => l.breach_flag).length;
+      const complianceRate = logs.length > 0 
+        ? ((logs.length - breaches) / logs.length) * 100 
+        : 100;
+
+      const exporter = generateFridgeTempReportPDF({
+        practiceName: practiceName || 'Practice',
+        period: `${format(subDays(new Date(), 30), 'dd MMM yyyy')} - ${format(new Date(), 'dd MMM yyyy')}`,
+        fridges: fridges,
+        logs: logs,
+        stats: {
+          totalLogs: logs.length,
+          breaches,
+          complianceRate
+        }
+      });
+
+      exporter.save(`Fridge_Temperature_Report_${today}.pdf`);
+      toast.success('Report exported successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export report');
+    }
+  };
+
+  const breaches = todayLogs.filter(l => l.breach_flag);
+  const compliant = todayLogs.filter(l => !l.breach_flag);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div ref={scrollableRef} className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
+      {/* Pull to Refresh Indicator */}
       {isMobile && (isPulling || isRefreshing) && (
         <div 
           className="flex items-center justify-center py-4 transition-opacity"
@@ -201,6 +294,8 @@ export default function FridgeTemps() {
           )}
         </div>
       )}
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -210,17 +305,31 @@ export default function FridgeTemps() {
               Fridge Temperature Monitoring
             </h1>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground">Track vaccine and medication storage temperatures</p>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Track vaccine and medication storage temperatures
+          </p>
         </div>
-        <Button 
-          onClick={() => setIsLogDialogOpen(true)}
-          size={isMobile ? 'lg' : 'default'}
-          className="w-full sm:w-auto min-h-[44px]"
-          disabled={fridges.length === 0}
-        >
-          <Camera className="h-4 w-4 mr-2" />
-          {isMobile ? 'Log Temp' : 'Log Temperature'}
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline"
+            onClick={handleExportPDF}
+            size={isMobile ? 'lg' : 'default'}
+            className="flex-1 sm:flex-none min-h-[44px]"
+            disabled={fridges.length === 0}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button 
+            onClick={() => setIsLogDialogOpen(true)}
+            size={isMobile ? 'lg' : 'default'}
+            className="flex-1 sm:flex-none min-h-[44px]"
+            disabled={fridges.length === 0}
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            {isMobile ? 'Log Temp' : 'Log Temperature'}
+          </Button>
+        </div>
       </div>
 
       {/* Log Temperature Dialog */}
@@ -265,7 +374,7 @@ export default function FridgeTemps() {
               <Label htmlFor="log_time" className="text-base">Time of Day</Label>
               <Select
                 value={newLog.log_time}
-                onValueChange={(value) => setNewLog({ ...newLog, log_time: value })}
+                onValueChange={(value: 'AM' | 'PM') => setNewLog({ ...newLog, log_time: value })}
               >
                 <SelectTrigger className="h-11 text-base">
                   <SelectValue />
@@ -295,6 +404,7 @@ export default function FridgeTemps() {
         </DialogContent>
       </Dialog>
 
+      {/* Summary Cards */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 sm:gap-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3">
@@ -310,7 +420,7 @@ export default function FridgeTemps() {
             <CardTitle className="text-xs sm:text-sm font-medium">Today's Logs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{logs.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{todayLogs.length}</div>
           </CardContent>
         </Card>
 
@@ -339,7 +449,14 @@ export default function FridgeTemps() {
         </Card>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+      {/* Compliance Chart */}
+      {practiceId && (
+        <FridgeComplianceChart stats={weeklyStats} />
+      )}
+
+      {/* Main Content Grid */}
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        {/* Registered Fridges */}
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-4">
             <CardTitle className="text-base sm:text-lg">Registered Fridges</CardTitle>
@@ -430,7 +547,7 @@ export default function FridgeTemps() {
             ) : (
               <div className="space-y-2">
                 {fridges.map((fridge) => (
-                  <div key={fridge.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent">
+                  <div key={fridge.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation hover:bg-accent/50 transition-colors">
                     <div className="flex-1 min-w-0 mr-2">
                       <p className="font-medium text-sm sm:text-base truncate">{fridge.name}</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">
@@ -438,14 +555,24 @@ export default function FridgeTemps() {
                         Range: {fridge.min_temp}°C - {fridge.max_temp}°C
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteFridge(fridge.id, fridge.name)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] flex-shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingFridge(fridge)}
+                        className="min-h-[44px] min-w-[44px] flex-shrink-0"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteFridge(fridge.id, fridge.name)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] flex-shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -453,42 +580,32 @@ export default function FridgeTemps() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Today's Temperature Logs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {logs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Thermometer className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No temperature logs for today</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {logs.map((log: any) => (
-                  <div 
-                    key={log.id} 
-                    className={`flex items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation ${
-                      log.breach_flag ? 'border-destructive bg-destructive/5' : ''
-                    }`}
-                  >
-                    <div className="min-w-0 mr-2">
-                      <p className="font-medium text-sm sm:text-base truncate">{log.fridges?.name}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">{log.log_time}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-lg sm:text-xl">{log.reading}°C</p>
-                      {log.breach_flag && (
-                        <p className="text-xs text-destructive font-semibold">BREACH</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Historical Log View */}
+        {practiceId && (
+          <HistoricalLogView
+            practiceId={practiceId}
+            fridges={fridges}
+            onSelectBreachLog={setSelectedBreachLog}
+            onStatsChange={setWeeklyStats}
+          />
+        )}
       </div>
+
+      {/* Edit Fridge Dialog */}
+      <EditFridgeDialog
+        fridge={editingFridge}
+        open={!!editingFridge}
+        onOpenChange={(open) => !open && setEditingFridge(null)}
+        onSuccess={fetchData}
+      />
+
+      {/* Remedial Action Dialog */}
+      <RemedialActionDialog
+        log={selectedBreachLog}
+        open={!!selectedBreachLog}
+        onOpenChange={(open) => !open && setSelectedBreachLog(null)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
