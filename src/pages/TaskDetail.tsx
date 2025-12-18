@@ -79,7 +79,7 @@ export default function TaskDetail() {
           .from('process_instances')
           .select('*')
           .eq('id', taskId)
-          .single();
+          .maybeSingle();
 
         if (instance) {
           setProcessInstance(instance);
@@ -108,7 +108,7 @@ export default function TaskDetail() {
             .from('tasks')
             .select('*')
             .eq('id', taskId)
-            .single();
+            .maybeSingle();
 
           if (task) {
             setSimpleTask(task);
