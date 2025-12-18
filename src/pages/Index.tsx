@@ -7,7 +7,6 @@ import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
 import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
 import { PracticeSelection } from '@/components/auth/PracticeSelection';
-import { GenerateTestData } from '@/components/admin/GenerateTestData';
 import { useOrganizationSetup } from '@/hooks/useOrganizationSetup';
 import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { Loader2 } from 'lucide-react';
@@ -37,9 +36,8 @@ const Index = () => {
     }
     
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <AuthForm />
-        <GenerateTestData />
       </div>
     );
   }

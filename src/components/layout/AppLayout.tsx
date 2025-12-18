@@ -28,7 +28,7 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate('/');
       return;
     }
 
@@ -59,7 +59,7 @@ export function AppLayout() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   const toggleGroup = (groupTitle: string) => {
@@ -99,7 +99,6 @@ export function AppLayout() {
       title: 'Compliance',
       items: [
         { icon: Shield, label: 'IPC Audits', path: '/ipc', roles: ['nurse_lead', 'practice_manager'] },
-        { icon: Shield, label: t('nav.infection_control'), path: '/infection-control', roles: ['nurse_lead', 'practice_manager'] },
         { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
         { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', roles: ['practice_manager', 'ig_lead'] },
       ]

@@ -23,7 +23,6 @@ import TasksList from "./pages/TasksList";
 import Schedule from "./pages/Schedule";
 
 // Modules
-import InfectionControl from "./pages/InfectionControl";
 import Cleaning from "./pages/Cleaning";
 import MonthEndScripts from "./pages/MonthEndScripts";
 import FridgeTemps from "./pages/FridgeTemps";
@@ -53,7 +52,6 @@ import DashboardsHub from "./pages/DashboardsHub";
 import IPC from "./pages/IPC";
 import IPCAuditDetail from "./pages/IPCAuditDetail";
 import RoomAssessments from "./pages/RoomAssessments";
-import IncidentsList from "./pages/IncidentsList";
 
 // Existing Pages (to be migrated)
 import TaskDetail from "./pages/TaskDetail";
@@ -100,7 +98,6 @@ const App = () => (
                 <Route path="/schedule" element={<Schedule />} />
                 <Route path="/month-end" element={<MonthEndScripts />} />
                 <Route path="/claims" element={<Claims />} />
-                <Route path="/infection-control" element={<InfectionControl />} />
                 <Route path="/cleaning" element={<Cleaning />} />
                 <Route path="/incidents" element={<Incidents />} />
                 <Route path="/fire-safety" element={<FireSafety />} />
@@ -128,7 +125,6 @@ const App = () => (
                 <Route path="/ipc" element={<IPC />} />
                 <Route path="/ipc/audit/:auditId" element={<IPCAuditDetail />} />
                 <Route path="/room-assessments" element={<RoomAssessments />} />
-                <Route path="/incidents-list" element={<IncidentsList />} />
                 
                 {/* Legacy Routes (keeping for compatibility) */}
                 <Route path="/task/:taskId" element={<TaskDetail />} />
