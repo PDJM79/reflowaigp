@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IncidentReportDialog } from '@/components/incidents/IncidentReportDialog';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +14,7 @@ export default function Incidents() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -62,7 +64,7 @@ export default function Incidents() {
           </h1>
           <p className="text-muted-foreground">Track and manage practice incidents</p>
         </div>
-        <Button>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Report Incident
         </Button>
@@ -140,6 +142,8 @@ export default function Incidents() {
           ))}
         </div>
       )}
+
+      <IncidentReportDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
