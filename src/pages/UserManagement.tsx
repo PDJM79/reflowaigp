@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BackButton } from '@/components/ui/back-button';
-import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus } from 'lucide-react';
+import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePracticeSelection } from '@/hooks/usePracticeSelection';
@@ -159,12 +159,20 @@ export default function UserManagement() {
         </div>
         <div className="flex gap-2">
           {hasCapability('assign_roles') && (
-            <Link to="/role-management">
-              <Button variant="outline">
-                <Settings className="h-5 w-5 mr-2" />
-                Manage Roles
-              </Button>
-            </Link>
+            <>
+              <Link to="/staff-roles">
+                <Button variant="outline">
+                  <Users className="h-5 w-5 mr-2" />
+                  Staff Roles
+                </Button>
+              </Link>
+              <Link to="/role-management">
+                <Button variant="outline">
+                  <Settings className="h-5 w-5 mr-2" />
+                  Manage Roles
+                </Button>
+              </Link>
+            </>
           )}
           <Button onClick={handleCreateUser} size="lg">
             <UserPlus className="h-5 w-5 mr-2" />
