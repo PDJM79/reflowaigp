@@ -3,7 +3,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleOptions, buildCorsHeaders } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createAnonClient } from '../_shared/supabase.ts';
 import { requireCapability } from '../_shared/capabilities.ts';
@@ -14,8 +14,10 @@ interface RetryEmailRequest {
 
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
+  const corsResponse = handleOptions(req);
   if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
     // Require authenticated user and get their practice
