@@ -162,13 +162,14 @@ export function PracticeScoresCard() {
           <div className="grid gap-4 md:grid-cols-2">
             {/* Compliance Score */}
             <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <TrendingUp className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="font-medium">Compliance Score</span>
                 </div>
                 <Badge 
                   variant="outline" 
+                  className="shrink-0"
                   style={{ 
                     borderColor: ragColor(complianceRag),
                     color: ragColor(complianceRag),
@@ -202,13 +203,14 @@ export function PracticeScoresCard() {
 
             {/* Fit for Audit Score */}
             <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="font-medium">Fit for Audit</span>
                 </div>
                 <Badge 
                   variant="outline" 
+                  className="shrink-0"
                   style={{ 
                     borderColor: ragColor(fitRag),
                     color: ragColor(fitRag),
