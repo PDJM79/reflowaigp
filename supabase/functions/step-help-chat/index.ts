@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleOptions, buildCorsHeaders } from '../_shared/cors.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -204,8 +204,10 @@ Focus specifically on helping complete the current step while maintaining awaren
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
+  const corsResponse = handleOptions(req);
   if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
     // Early validation - check if OpenAI API key is available
