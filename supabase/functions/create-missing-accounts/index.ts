@@ -1,6 +1,7 @@
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureUserPracticeRole } from '../_shared/capabilities.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -89,6 +90,18 @@ Deno.serve(async (req) => {
 
         if (updateError) {
           console.error(`[create-missing-accounts] Error updating role assignment for ${assignment.assigned_email}:`, updateError);
+        }
+
+        // Create user_practice_roles entry for the new role system
+        // Use the users table id (dbUser equivalent) which we need to get
+        const { data: userRecord } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', authUser.user.id)
+          .single();
+
+        if (userRecord) {
+          await ensureUserPracticeRole(supabase, userRecord.id, practiceId, assignment.role);
         }
 
         results.push({

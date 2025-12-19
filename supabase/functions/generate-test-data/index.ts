@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureUserPracticeRole } from '../_shared/capabilities.ts';
 
 serve(async (req) => {
   // No CORS for CRON jobs - not called from browser
@@ -207,6 +208,9 @@ serve(async (req) => {
       if (roleError) {
         console.error('Role error for', user.email, roleError);
       }
+
+      // Create user_practice_roles entry for the new role system
+      await ensureUserPracticeRole(supabaseAdmin, dbUser.id, practice.id, user.role);
 
       createdUsers.push({ ...dbUser, role: user.role });
       console.log('Created user:', user.email);
