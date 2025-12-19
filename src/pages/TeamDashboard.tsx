@@ -13,7 +13,7 @@ import { RAGBadge } from '@/components/dashboard/RAGBadge';
 interface TeamMember {
   id: string;
   name: string;
-  user_roles: Array<{ role: string }>;
+  roles: string[];
   is_active: boolean;
   assigned_tasks: number;
   completed_tasks: number;
@@ -28,9 +28,17 @@ interface TeamTask {
   status: string;
   assignee: {
     name: string;
-    roles: Array<{ role: string }>;
+    roles: string[];
   };
 }
+
+// Helper to extract role keys from new role system
+const extractRoleKeys = (userPracticeRoles: any): string[] => {
+  if (!userPracticeRoles || !Array.isArray(userPracticeRoles)) return [];
+  return userPracticeRoles
+    .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
+    .filter(Boolean);
+};
 
 export default function TeamDashboard() {
   const navigate = useNavigate();
@@ -59,7 +67,11 @@ export default function TeamDashboard() {
             id,
             name,
             is_active,
-            user_roles(role)
+            user_practice_roles(
+              practice_roles(
+                role_catalog(role_key, display_name)
+              )
+            )
           `)
           .eq('practice_id', userData.practice_id);
 
@@ -73,7 +85,11 @@ export default function TeamDashboard() {
             ),
             users!assignee_id (
               name,
-              user_roles(role)
+              user_practice_roles(
+                practice_roles(
+                  role_catalog(role_key, display_name)
+                )
+              )
             )
           `)
           .eq('practice_id', userData.practice_id);
@@ -92,7 +108,10 @@ export default function TeamDashboard() {
             const pending = memberTasks.filter(t => t.status === 'pending').length;
 
             return {
-              ...member,
+              id: member.id,
+              name: member.name,
+              is_active: member.is_active,
+              roles: extractRoleKeys((member as any).user_practice_roles),
               assigned_tasks: memberTasks.length,
               completed_tasks: completed,
               overdue_tasks: overdue,
@@ -114,7 +133,7 @@ export default function TeamDashboard() {
               status: task.status,
               assignee: {
                 name: task.users?.name || 'Unknown',
-                roles: task.users?.user_roles || []
+                roles: extractRoleKeys(task.users?.user_practice_roles)
               }
             }))
             .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
@@ -246,8 +265,8 @@ export default function TeamDashboard() {
                         <h3 className="font-medium">{member.name}</h3>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Badge variant="outline" className="text-xs">
-                            {member.user_roles && member.user_roles.length > 0 
-                              ? member.user_roles[0].role.replace('_', ' ').toUpperCase()
+                            {member.roles && member.roles.length > 0 
+                              ? member.roles[0].replace('_', ' ').toUpperCase()
                               : 'NO ROLE'}
                           </Badge>
                           <span>•</span>
