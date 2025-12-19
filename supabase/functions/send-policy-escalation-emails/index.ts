@@ -5,6 +5,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { PolicyEscalationEmail } from './_templates/policy-escalation-email.tsx';
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { getUsersWithCapability } from '../_shared/capabilities.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -139,14 +140,14 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('practice_id', policy.practice_id)
         .in('user_id', unacknowledgedUsers.map(u => u.id));
 
-      // Get practice managers for this practice
-      const { data: practiceManagerRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('practice_id', policy.practice_id)
-        .eq('role', 'practice_manager');
+      // Get users with manage_staff capability for this practice
+      const practiceManagerUsers = await getUsersWithCapability(
+        supabase,
+        policy.practice_id,
+        'manage_staff'
+      );
 
-      const practiceManagerIds = practiceManagerRoles?.map(r => r.user_id) || [];
+      const practiceManagerIds = practiceManagerUsers.map(u => u.id);
 
       // Process each unacknowledged user
       for (const user of unacknowledgedUsers) {
