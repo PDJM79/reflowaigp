@@ -1,25 +1,50 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BackButton } from '@/components/ui/back-button';
-import { Plus, Search, UserPlus, Mail, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePracticeSelection } from '@/hooks/usePracticeSelection';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { toast } from 'sonner';
 import { UserManagementDialog } from '@/components/admin/UserManagementDialog';
+
+interface UserRole {
+  practice_role_id: string;
+  practice_roles: {
+    id: string;
+    role_catalog: {
+      display_name: string;
+      category: string;
+    } | null;
+  } | null;
+}
 
 interface User {
   id: string;
   name: string;
   is_active: boolean;
   created_at: string;
-  user_roles: Array<{ role: string }>;
+  user_practice_roles: UserRole[];
 }
+
+const CATEGORY_COLORS: Record<string, string> = {
+  clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  governance: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  it: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  support: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+  pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+};
 
 export default function UserManagement() {
   const { user } = useAuth();
+  const { selectedPracticeId } = usePracticeSelection();
+  const { hasCapability } = useCapabilities();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +54,7 @@ export default function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
-  }, [user]);
+  }, [user, selectedPracticeId]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -44,17 +69,9 @@ export default function UserManagement() {
   }, [searchQuery, users]);
 
   const fetchUsers = async () => {
-    if (!user) return;
+    if (!user || !selectedPracticeId) return;
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -62,14 +79,23 @@ export default function UserManagement() {
           name,
           is_active,
           created_at,
-          user_roles(role)
+          user_practice_roles(
+            practice_role_id,
+            practice_roles:practice_role_id(
+              id,
+              role_catalog:role_catalog_id(
+                display_name,
+                category
+              )
+            )
+          )
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', selectedPracticeId)
         .order('name');
 
       if (error) throw error;
-      setUsers(data || []);
-      setFilteredUsers(data || []);
+      setUsers((data || []) as User[]);
+      setFilteredUsers((data || []) as User[]);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -105,26 +131,8 @@ export default function UserManagement() {
     setIsDialogOpen(true);
   };
 
-  const roleOptions = [
-    { value: 'practice_manager', label: 'Practice Manager', color: 'bg-purple-100 text-purple-800' },
-    { value: 'administrator', label: 'Administrator', color: 'bg-blue-100 text-blue-800' },
-    { value: 'nurse_lead', label: 'Nurse Lead', color: 'bg-green-100 text-green-800' },
-    { value: 'cd_lead_gp', label: 'CD Lead GP', color: 'bg-indigo-100 text-indigo-800' },
-    { value: 'estates_lead', label: 'Estates Lead', color: 'bg-orange-100 text-orange-800' },
-    { value: 'ig_lead', label: 'IG Lead', color: 'bg-red-100 text-red-800' },
-    { value: 'reception_lead', label: 'Reception Lead', color: 'bg-pink-100 text-pink-800' },
-    { value: 'gp', label: 'GP', color: 'bg-indigo-100 text-indigo-800' },
-    { value: 'nurse', label: 'Nurse', color: 'bg-green-100 text-green-800' },
-    { value: 'hca', label: 'HCA', color: 'bg-teal-100 text-teal-800' },
-    { value: 'reception', label: 'Reception', color: 'bg-pink-100 text-pink-800' },
-  ];
-
-  const getRoleLabel = (role: string) => {
-    return roleOptions.find(r => r.value === role)?.label || role;
-  };
-
-  const getRoleColor = (role: string) => {
-    return roleOptions.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800';
+  const getRoleColor = (category: string | undefined) => {
+    return CATEGORY_COLORS[category || 'support'] || CATEGORY_COLORS.support;
   };
 
   if (loading) {
@@ -149,10 +157,20 @@ export default function UserManagement() {
             Manage user accounts, roles, and permissions for your practice
           </p>
         </div>
-        <Button onClick={handleCreateUser} size="lg">
-          <UserPlus className="h-5 w-5 mr-2" />
-          Add New User
-        </Button>
+        <div className="flex gap-2">
+          {hasCapability('assign_roles') && (
+            <Link to="/role-management">
+              <Button variant="outline">
+                <Settings className="h-5 w-5 mr-2" />
+                Manage Roles
+              </Button>
+            </Link>
+          )}
+          <Button onClick={handleCreateUser} size="lg">
+            <UserPlus className="h-5 w-5 mr-2" />
+            Add New User
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -174,8 +192,8 @@ export default function UserManagement() {
 
       {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="hover:shadow-lg transition-shadow">
+        {filteredUsers.map((u) => (
+          <Card key={u.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -183,15 +201,15 @@ export default function UserManagement() {
                     <Shield className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{user.name}</CardTitle>
+                    <CardTitle className="text-lg">{u.name}</CardTitle>
                     <div className="flex items-center gap-2 mt-1">
-                      {user.is_active ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {u.is_active ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Active
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
                           <XCircle className="h-3 w-3 mr-1" />
                           Inactive
                         </Badge>
@@ -206,12 +224,16 @@ export default function UserManagement() {
               <div>
                 <p className="text-sm font-medium mb-2">Roles:</p>
                 <div className="flex flex-wrap gap-2">
-                  {user.user_roles.length > 0 ? (
-                    user.user_roles.map((r, idx) => (
-                      <Badge key={idx} className={getRoleColor(r.role)}>
-                        {getRoleLabel(r.role)}
-                      </Badge>
-                    ))
+                  {u.user_practice_roles.length > 0 ? (
+                    u.user_practice_roles.map((upr, idx) => {
+                      const roleName = upr.practice_roles?.role_catalog?.display_name || 'Unknown';
+                      const category = upr.practice_roles?.role_catalog?.category;
+                      return (
+                        <Badge key={idx} className={getRoleColor(category)}>
+                          {roleName}
+                        </Badge>
+                      );
+                    })
                   ) : (
                     <span className="text-sm text-muted-foreground">No roles assigned</span>
                   )}
@@ -224,18 +246,18 @@ export default function UserManagement() {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => handleEditUser(user)}
+                  onClick={() => handleEditUser(u)}
                 >
                   <Shield className="h-4 w-4 mr-1" />
                   Edit Roles
                 </Button>
                 <Button
-                  variant={user.is_active ? "outline" : "default"}
+                  variant={u.is_active ? "outline" : "default"}
                   size="sm"
                   className="flex-1"
-                  onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                  onClick={() => handleToggleUserStatus(u.id, u.is_active)}
                 >
-                  {user.is_active ? 'Deactivate' : 'Activate'}
+                  {u.is_active ? 'Deactivate' : 'Activate'}
                 </Button>
               </div>
             </CardContent>
