@@ -1,3 +1,4 @@
+// PDF Export V2 - Comprehensive report generation utilities
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
