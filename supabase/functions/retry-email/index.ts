@@ -1,8 +1,12 @@
+// supabase/functions/retry-email/index.ts
+// JWT-protected - users with run_reports capability can retry failed emails
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createAnonClient } from '../_shared/supabase.ts';
+import { requireCapability } from '../_shared/capabilities.ts';
 
 interface RetryEmailRequest {
   emailLogId: string;
@@ -15,34 +19,16 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Require authenticated user and get their practice
-    const authResult = await requireJwtAndPractice(req);
-    if (authResult instanceof Response) return authResult;
-    
-    const { userId, practiceId } = authResult;
+    const { authUserId, practiceId, appUserId } = await requireJwtAndPractice(req);
     const supabaseClient = createAnonClient(req);
 
-    // Verify user is a practice manager
-    const { data: userData, error: userError } = await supabaseClient
-      .from('users')
-      .select('id, is_practice_manager')
-      .eq('auth_user_id', userId)
-      .single();
-
-    if (userError || !userData) {
-      console.error('User lookup error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'User not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!userData.is_practice_manager) {
-      console.error('User is not a practice manager');
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: Only practice managers can retry emails' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Verify user has run_reports capability
+    await requireCapability(
+      supabaseClient,
+      authUserId,
+      'run_reports',
+      'Forbidden: run_reports capability required to retry emails'
+    );
 
     // Parse request body
     const { emailLogId }: RetryEmailRequest = await req.json();
@@ -157,7 +143,7 @@ const handler = async (req: Request): Promise<Response> => {
         metadata: {
           ...metadata,
           retry_of: emailLogId,
-          retried_by: userData.id,
+          retried_by: appUserId,
           original_status: emailLog.status,
         },
       });
@@ -177,9 +163,10 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: any) {
     console.error('Error in retry-email function:', error);
+    const status = error.message?.includes('Forbidden') || error.message?.includes('Unauthorized') ? 403 : 500;
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 };

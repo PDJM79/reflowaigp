@@ -1,10 +1,11 @@
 // supabase/functions/reset-user-password/index.ts
-// JWT-protected - practice managers can reset passwords for users in their practice
+// JWT-protected - users with manage_users capability can reset passwords for users in their practice
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createServiceClient, createUserClientFromRequest } from '../_shared/supabase.ts';
+import { requireCapability } from '../_shared/capabilities.ts';
 
 interface ResetPasswordRequest {
   email: string;
@@ -18,21 +19,16 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Authenticate and get practice from JWT
-    const { practiceId } = await requireJwtAndPractice(req);
+    const { authUserId, practiceId } = await requireJwtAndPractice(req);
 
-    // Verify user is practice manager
+    // Verify user has manage_users capability
     const supabaseClient = createUserClientFromRequest(req);
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    const { data: requesterUser } = await supabaseClient
-      .from('users')
-      .select('is_practice_manager')
-      .eq('auth_user_id', user!.id)
-      .single();
-    
-    if (!requesterUser?.is_practice_manager) {
-      return errorResponse(req, 'Unauthorized: Practice manager privileges required', 403);
-    }
+    await requireCapability(
+      supabaseClient,
+      authUserId,
+      'manage_users',
+      'Unauthorized: manage_users capability required'
+    );
 
     const { email, newPassword }: ResetPasswordRequest = await req.json();
 
@@ -59,16 +55,16 @@ const handler = async (req: Request): Promise<Response> => {
       return errorResponse(req, 'Unauthorized: Cannot reset password for users in other practices', 403);
     }
 
-    const authUserId = targetUser.auth_user_id;
+    const authUserId_target = targetUser.auth_user_id;
     
-    if (!authUserId) {
+    if (!authUserId_target) {
       console.error(`Auth user ID not found for email: ${email}`);
       return errorResponse(req, 'User account error', 404);
     }
 
     // Reset the user's password
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      authUserId,
+      authUserId_target,
       { password: newPassword }
     );
 
