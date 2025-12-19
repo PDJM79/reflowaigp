@@ -5,6 +5,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { PolicyReviewEmail } from './_templates/policy-review-email.tsx';
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { getUsersWithCapability } from '../_shared/capabilities.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -108,31 +109,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Fetch practice managers for each practice
     for (const [practiceId, practiceData] of practiceMap.entries()) {
-      const { data: managersData, error: managersError } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('practice_id', practiceId)
-        .eq('is_active', true);
+      // Get users with review_policies capability (includes managers, IG leads, etc.)
+      const usersWithCapability = await getUsersWithCapability(
+        supabase,
+        practiceId,
+        'review_policies'
+      );
 
-      if (managersError) {
-        console.error(`Error fetching managers for practice ${practiceId}:`, managersError);
-        continue;
-      }
+      practiceData.practice_managers = usersWithCapability;
 
-      // Filter to only practice managers and IG leads
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .eq('practice_id', practiceId)
-        .in('role', ['practice_manager', 'ig_lead']);
-
-      const managerUserIds = new Set(rolesData?.map(r => r.user_id) || []);
-      
-      practiceData.practice_managers = managersData?.filter(u => 
-        managerUserIds.has(u.id)
-      ) || [];
-
-      console.log(`Found ${practiceData.practice_managers.length} manager(s) for ${practiceData.practice_name}`);
+      console.log(`Found ${practiceData.practice_managers.length} user(s) with review_policies capability for ${practiceData.practice_name}`);
     }
 
     // Send emails
