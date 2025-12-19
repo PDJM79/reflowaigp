@@ -13,13 +13,21 @@ export const buildCorsHeaders = (req: Request): HeadersInit => {
   const origin = req.headers.get('Origin');
   const allowed = parseAllowedOrigins();
 
-  // If no allowlist configured, default to localhost/dev convenience:
-  const allowDev =
-    allowed.length === 0 &&
-    (origin?.startsWith('http://localhost:') || origin?.startsWith('http://127.0.0.1:'));
+  // Check if origin is a Lovable preview domain
+  const isLovablePreview = origin?.endsWith('.lovableproject.com');
 
-  const allowOrigin =
-    allowDev ? origin! : allowed.includes(origin ?? '') ? origin! : '';
+  // Allow localhost for dev
+  const isLocalhost =
+    origin?.startsWith('http://localhost:') ||
+    origin?.startsWith('http://127.0.0.1:');
+
+  // Allow if in explicit allowlist
+  const isInAllowlist = allowed.includes(origin ?? '');
+
+  // Determine if we should allow this origin
+  const shouldAllow = isLovablePreview || isLocalhost || isInAllowlist;
+
+  console.log(`CORS check: origin=${origin}, allowed=${shouldAllow}`);
 
   const headers: HeadersInit = {
     'Vary': 'Origin',
@@ -28,8 +36,9 @@ export const buildCorsHeaders = (req: Request): HeadersInit => {
       'authorization, x-client-info, apikey, content-type, x-job-token, svix-id, svix-timestamp, svix-signature',
   };
 
-  // Only set Allow-Origin when it matches allowlist (or dev fallback).
-  if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
+  if (shouldAllow && origin) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
 
   return headers;
 };
