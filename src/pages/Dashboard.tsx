@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft, GitBranch } from 'lucide-react';
 import { format, isThisMonth, isPast } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { PoliciesNeedingAcknowledgment } from '@/components/dashboard/PoliciesNeedingAcknowledgment';
 import { AITaskSuggestions } from '@/components/dashboard/AITaskSuggestions';
 import { PracticeScoresCard } from '@/components/dashboard/PracticeScoresCard';
+import { ShowProcessDialog } from '@/components/process/ShowProcessDialog';
 
 type Task = {
   id: string;
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [practiceId, setPracticeId] = useState<string | null>(null);
 
   // Check for manager capabilities via new role system
   const isManager = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice', 'run_reports');
@@ -39,14 +42,16 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchTasks = async () => {
-      // Get user data
+      // Get user data with practice_id
       const { data: userData } = await supabase
         .from('users')
-        .select('id')
+        .select('id, practice_id')
         .eq('auth_user_id', user.id)
         .single();
 
       if (userData) {
+        setPracticeId(userData.practice_id);
+        
         // Fetch tasks assigned to this user
         const { data: tasksData } = await supabase
           .from('tasks')
@@ -192,6 +197,30 @@ export default function Dashboard() {
           <AITaskSuggestions />
           <PracticeScoresCard />
         </div>
+
+        {/* Process Mapping */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5" />
+              Process Mapping
+            </CardTitle>
+            <CardDescription>View and generate process diagrams for your practice</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setShowProcessDialog(true)}>
+              Show Process
+            </Button>
+          </CardContent>
+        </Card>
+
+        {practiceId && (
+          <ShowProcessDialog
+            open={showProcessDialog}
+            onOpenChange={setShowProcessDialog}
+            practiceId={practiceId}
+          />
+        )}
 
         <Card>
           <CardHeader>

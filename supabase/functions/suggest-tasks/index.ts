@@ -1,12 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleOptions, buildCorsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 
 serve(async (req) => {
   // Handle CORS preflight
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
     // Require authenticated user and get their practice
