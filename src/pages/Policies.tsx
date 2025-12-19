@@ -45,14 +45,20 @@ export default function Policies() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('user_roles(role)')
+        .select(`
+          user_practice_roles(
+            practice_roles(
+              role_catalog(role_key)
+            )
+          )
+        `)
         .eq('auth_user_id', user?.id)
         .single();
 
-      if (userData?.user_roles) {
-        const roles = Array.isArray(userData.user_roles) 
-          ? userData.user_roles.map((r: any) => r.role)
-          : [(userData.user_roles as any).role];
+      if (userData?.user_practice_roles) {
+        const roles = userData.user_practice_roles
+          .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
+          .filter(Boolean);
         setUserRoles(roles);
       }
     } catch (error) {

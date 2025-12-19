@@ -80,7 +80,11 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
           .select(`
             id, 
             name,
-            user_roles!inner(role)
+            user_practice_roles(
+              practice_roles(
+                role_catalog(role_key, display_name)
+              )
+            )
           `)
           .eq('practice_id', userData.practice_id)
           .eq('is_active', true),
@@ -288,11 +292,16 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id} className="py-3">
-                      {user.name} ({Array.isArray(user.user_roles) ? user.user_roles.map((r: any) => r.role).join(', ') : 'No role'})
-                    </SelectItem>
-                  ))}
+                  {users.map((u) => {
+                    const roleKeys = u.user_practice_roles?.map((upr: any) => 
+                      upr.practice_roles?.role_catalog?.role_key
+                    ).filter(Boolean) || [];
+                    return (
+                      <SelectItem key={u.id} value={u.id} className="py-3">
+                        {u.name} ({roleKeys.length > 0 ? roleKeys.join(', ') : 'No role'})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
