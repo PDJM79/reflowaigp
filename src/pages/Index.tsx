@@ -1,8 +1,8 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { AuthForm } from '@/components/auth/AuthForm';
-import { UserDashboard } from '@/components/dashboard/UserDashboard';
 import { OrganizationSetup } from '@/components/auth/OrganizationSetup';
 import { PasswordChangeForm } from '@/components/auth/PasswordChangeForm';
 import { PracticeSelector } from '@/components/master/PracticeSelector';
@@ -55,7 +55,8 @@ const Index = () => {
     return <OrganizationSetup onComplete={() => window.location.reload()} />;
   }
 
-  return <UserDashboard />;
+  // User is authenticated and setup is complete - redirect to home with sidebar
+  return <Navigate to="/" replace />;
 };
 
 export default Index;
