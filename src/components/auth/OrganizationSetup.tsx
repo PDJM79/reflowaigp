@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, LogOut, Mail, Calendar } from 'lucide-react';
+import { Plus, Trash2, LogOut, Mail, Calendar, Loader2 } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { AVAILABLE_ROLES } from '@/types/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { RoleEmailAssignment, TaskScheduleConfig, FREQUENCY_OPTIONS, DEFAULT_TASK_TEMPLATES } from '@/types/organizationSetup';
+import { ROLE_CATEGORY_LABELS, RoleCategory, RoleCatalogEntry } from '@/types/roles';
 
 interface OrganizationSetupProps {
   onComplete: () => void;
@@ -24,6 +24,10 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const [roleAssignments, setRoleAssignments] = useState<RoleEmailAssignment[]>([
     { email: '', name: '', password: '', roles: ['practice_manager'] }
   ]);
+  
+  // Role catalog state
+  const [roleCatalog, setRoleCatalog] = useState<RoleCatalogEntry[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
   
   // Initialize task schedules with tomorrow as default start date
   const tomorrow = new Date();
@@ -41,6 +45,63 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   );
   
   const [loading, setLoading] = useState(false);
+
+  // Fetch role catalog on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('role_catalog')
+          .select('id, role_key, display_name, category, description')
+          .order('display_name');
+        
+        if (error) throw error;
+        // Cast category to RoleCategory
+        setRoleCatalog((data || []).map(r => ({
+          ...r,
+          category: r.category as RoleCategory,
+          default_capabilities: [],
+          created_at: '',
+          updated_at: '',
+        })));
+      } catch (err) {
+        console.error('Error fetching role catalog:', err);
+        toast({
+          title: "Failed to load roles",
+          description: "Using default role set",
+          variant: "destructive",
+        });
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+    fetchRoles();
+  }, []);
+
+  // Group roles by category
+  const rolesByCategory = useMemo(() => {
+    const grouped: Record<RoleCategory, RoleCatalogEntry[]> = {
+      clinical: [],
+      admin: [],
+      governance: [],
+      it: [],
+      support: [],
+      pcn: [],
+    };
+    
+    roleCatalog.forEach(role => {
+      if (grouped[role.category]) {
+        grouped[role.category].push(role);
+      }
+    });
+    
+    return grouped;
+  }, [roleCatalog]);
+
+  // Helper to get role label
+  const getRoleLabel = (roleKey: string): string => {
+    return roleCatalog.find(r => r.role_key === roleKey)?.display_name || roleKey;
+  };
 
   const addRoleAssignment = () => {
     setRoleAssignments([...roleAssignments, { email: '', name: '', password: '', roles: [] }]);
@@ -518,25 +579,43 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label className="text-sm font-medium">Roles (select all that apply)</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {AVAILABLE_ROLES.map(role => (
-                          <div key={role.value} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${index}-${role.value}`}
-                              checked={assignment.roles.includes(role.value)}
-                              onCheckedChange={() => toggleRole(index, role.value)}
-                            />
-                            <label
-                              htmlFor={`${index}-${role.value}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {role.label}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
+                      {rolesLoading ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Loading roles...</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {(Object.entries(rolesByCategory) as [RoleCategory, RoleCatalogEntry[]][])
+                            .filter(([_, roles]) => roles.length > 0)
+                            .map(([category, roles]) => (
+                              <div key={category} className="space-y-2">
+                                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                                  {ROLE_CATEGORY_LABELS[category]}
+                                </Label>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                  {roles.map(role => (
+                                    <div key={role.role_key} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`${index}-${role.role_key}`}
+                                        checked={assignment.roles.includes(role.role_key)}
+                                        onCheckedChange={() => toggleRole(index, role.role_key)}
+                                      />
+                                      <label
+                                        htmlFor={`${index}-${role.role_key}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                      >
+                                        {role.display_name}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
 
                     {assignment.name && assignment.email && assignment.password && assignment.roles.length > 0 && (
@@ -552,7 +631,7 @@ Your account has been set up for ${organizationName || '[Practice]'}.
 
 Email: ${assignment.email}
 Password: ${assignment.password}
-Roles: ${assignment.roles.map(r => AVAILABLE_ROLES.find(ar => ar.value === r)?.label).join(', ')}
+Roles: ${assignment.roles.map(r => getRoleLabel(r)).join(', ')}
 
 Login at: ${window.location.origin}
 
@@ -585,7 +664,7 @@ Best regards`);
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-semibold">{schedule.templateName}</Label>
                       <span className="text-sm text-muted-foreground">
-                        Assigned to: {AVAILABLE_ROLES.find(r => r.value === schedule.responsibleRole)?.label}
+                        Assigned to: {getRoleLabel(schedule.responsibleRole)}
                       </span>
                     </div>
 
