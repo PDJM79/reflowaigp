@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -12,6 +13,7 @@ import { generateClaimsPackPDF } from '@/lib/pdfExportV2';
 import { toast } from 'sonner';
 
 export default function Claims() {
+  const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [claimRuns, setClaimRuns] = useState<any[]>([]);
@@ -57,6 +59,33 @@ export default function Claims() {
 
   const draftClaims = claimRuns.filter(c => c.status === 'draft');
   const submittedClaims = claimRuns.filter(c => c.status === 'submitted');
+
+  // Capability check - requires manage_claims capability
+  const canManageClaims = hasCapability('manage_claims');
+
+  if (capabilitiesLoading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!canManageClaims) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              You need the "manage_claims" capability to access claims.
+            </p>
+            <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
