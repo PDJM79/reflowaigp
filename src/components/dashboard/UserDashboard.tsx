@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound, ArrowRight } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound, ArrowRight, GitBranch } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
@@ -14,6 +14,7 @@ import { RoleManagement } from '@/components/admin/RoleManagement';
 import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
 import { PasswordReset } from '@/components/admin/PasswordReset';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
+import { ShowProcessDialog } from '@/components/process/ShowProcessDialog';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ export function UserDashboard() {
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [showCreateMasterUser, setShowCreateMasterUser] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [assigningTasks, setAssigningTasks] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
   const [passingTask, setPassingTask] = useState<string | null>(null);
@@ -612,14 +614,24 @@ export function UserDashboard() {
                     Assign All Tasks to Me
                   </Button>
                   {canViewDashboards && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={createInitialProcesses}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Create Tasks for All Users
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => setShowProcessDialog(true)}
+                      >
+                        <GitBranch className="h-4 w-4 mr-2" />
+                        Show Process
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={createInitialProcesses}
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Create Tasks for All Users
+                      </Button>
+                    </>
                   )}
                   {canManageUsers && (
                     <>
@@ -651,6 +663,13 @@ export function UserDashboard() {
       <RoleManagement 
         open={showRoleManagement} 
         onOpenChange={setShowRoleManagement} 
+      />
+
+      <ShowProcessDialog
+        open={showProcessDialog}
+        onOpenChange={setShowProcessDialog}
+        practiceId={userPracticeId}
+        practiceName={isMasterUser ? selectedPracticeName : undefined}
       />
       
       {showCreateMasterUser && (
