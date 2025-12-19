@@ -32,7 +32,7 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
   const [isPracticeManager, setIsPracticeManager] = useState(false);
 
   const fetchCapabilities = useCallback(async () => {
-    if (!user || !selectedPracticeId) {
+    if (!user) {
       setCapabilities([]);
       setUserRoles([]);
       setLoading(false);
@@ -43,14 +43,26 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
       setLoading(true);
       setError(null);
 
-      // Get user's internal ID and check is_practice_manager flag
+      // Get user's internal ID, practice_id, and is_practice_manager flag
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, is_practice_manager')
+        .select('id, is_practice_manager, practice_id')
         .eq('auth_user_id', user.id)
         .single();
 
       if (userError || !userData) {
+        setCapabilities([]);
+        setUserRoles([]);
+        setIsPracticeManager(false);
+        setLoading(false);
+        return;
+      }
+
+      // Use selectedPracticeId if set (for master users switching), otherwise fall back to user's practice
+      const effectivePracticeId = selectedPracticeId || userData.practice_id;
+
+      if (!effectivePracticeId) {
+        // No practice association - can't determine capabilities
         setCapabilities([]);
         setUserRoles([]);
         setIsPracticeManager(false);
@@ -102,7 +114,7 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
           )
         `)
         .eq('user_id', userData.id)
-        .eq('practice_id', selectedPracticeId);
+        .eq('practice_id', effectivePracticeId);
 
       if (rolesError) {
         console.error('Error fetching user roles:', rolesError);
