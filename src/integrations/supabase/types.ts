@@ -4797,6 +4797,10 @@ export type Database = {
         Returns: boolean
       }
       current_practice_id: { Args: never; Returns: string }
+      current_user_has_capability: {
+        Args: { _capability: Database["public"]["Enums"]["capability"] }
+        Returns: boolean
+      }
       expire_old_notifications: { Args: never; Returns: undefined }
       get_candidate_email_audited: {
         Args: { _candidate_id: string }
@@ -4889,8 +4893,27 @@ export type Database = {
         }
         Returns: boolean
       }
-      has_capability: {
-        Args: { cap: Database["public"]["Enums"]["capability"]; p_id?: string }
+      has_capability:
+        | {
+            Args: {
+              _capability: Database["public"]["Enums"]["capability"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              cap: Database["public"]["Enums"]["capability"]
+              p_id?: string
+            }
+            Returns: boolean
+          }
+      has_capability_for_practice: {
+        Args: {
+          _capability: Database["public"]["Enums"]["capability"]
+          _practice_id: string
+          _user_id: string
+        }
         Returns: boolean
       }
       has_role: {
