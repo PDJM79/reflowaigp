@@ -118,30 +118,32 @@ export function PracticeScoresCard() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Practice Scores
-          </CardTitle>
-          <CardDescription>Compliance & Fit for Audit metrics</CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={windowDays} onValueChange={setWindowDays}>
-            <SelectTrigger className="w-[140px] h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WINDOW_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="icon" onClick={fetchScores} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Practice Scores
+            </CardTitle>
+            <CardDescription>Compliance & Fit for Audit metrics</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Select value={windowDays} onValueChange={setWindowDays}>
+              <SelectTrigger className="w-[140px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WINDOW_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="icon" onClick={fetchScores} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -159,76 +161,80 @@ export function PracticeScoresCard() {
             </Button>
           </div>
         ) : scores ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             {/* Compliance Score */}
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="font-medium">Compliance Score</span>
+            <div className="p-5 rounded-xl border bg-gradient-to-br from-background to-muted/30">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-base">Compliance Score</span>
+              </div>
+              
+              <div className="text-center mb-4">
+                <div 
+                  className="text-5xl font-bold"
+                  style={{ color: ragColor(complianceRag) }}
+                >
+                  {scores.compliance.score}%
                 </div>
                 <Badge 
                   variant="outline" 
-                  className="shrink-0"
+                  className="mt-3"
                   style={{ 
                     borderColor: ragColor(complianceRag),
                     color: ragColor(complianceRag),
                   }}
                 >
                   <RagIcon rag={complianceRag} />
-                  <span className="ml-1">{ragLabel(complianceRag)}</span>
+                  <span className="ml-1.5">{ragLabel(complianceRag)}</span>
                 </Badge>
               </div>
-              <div 
-                className="text-4xl font-bold mb-2"
-                style={{ color: ragColor(complianceRag) }}
-              >
-                {scores.compliance.score}%
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
+              
+              <div className="text-sm text-muted-foreground space-y-2 pt-4 border-t">
                 <div className="flex justify-between">
-                  <span>On-time:</span>
-                  <span className="font-medium">{scores.compliance.completedOnTime}</span>
+                  <span>On-time</span>
+                  <span className="font-medium text-foreground">{scores.compliance.completedOnTime}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Late:</span>
-                  <span className="font-medium">{scores.compliance.completedLate}</span>
+                  <span>Late</span>
+                  <span className="font-medium text-foreground">{scores.compliance.completedLate}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Incomplete:</span>
+                  <span>Incomplete</span>
                   <span className="font-medium text-destructive">{scores.compliance.incompleteDue}</span>
                 </div>
               </div>
             </div>
 
             {/* Fit for Audit Score */}
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="font-medium">Fit for Audit</span>
+            <div className="p-5 rounded-xl border bg-gradient-to-br from-background to-muted/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-base">Fit for Audit</span>
+              </div>
+              
+              <div className="text-center mb-4">
+                <div 
+                  className="text-5xl font-bold"
+                  style={{ color: ragColor(fitRag) }}
+                >
+                  {scores.fitForAudit.score}%
                 </div>
                 <Badge 
                   variant="outline" 
-                  className="shrink-0"
+                  className="mt-3"
                   style={{ 
                     borderColor: ragColor(fitRag),
                     color: ragColor(fitRag),
                   }}
                 >
                   <RagIcon rag={fitRag} />
-                  <span className="ml-1">{ragLabel(fitRag)}</span>
+                  <span className="ml-1.5">{ragLabel(fitRag)}</span>
                 </Badge>
               </div>
-              <div 
-                className="text-4xl font-bold mb-2"
-                style={{ color: ragColor(fitRag) }}
-              >
-                {scores.fitForAudit.score}%
-              </div>
-              <div className="text-xs text-muted-foreground">
+              
+              <div className="text-sm text-muted-foreground pt-4 border-t">
                 <p>Would the practice pass a CQC/HIW audit today?</p>
-                <p className="mt-1">
+                <p className="mt-2 text-xs">
                   Based on auditable task completion and evidence requirements.
                 </p>
               </div>
