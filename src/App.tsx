@@ -85,12 +85,12 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Index />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Protected Routes with AppLayout */}
               <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/" element={<Dashboard />} />
                 <Route path="/settings" element={<Settings />} />
                 
                 {/* Task Management */}

@@ -28,7 +28,7 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/');
+      navigate('/login');
       return;
     }
 
@@ -63,7 +63,7 @@ export function AppLayout() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    navigate('/login');
   };
 
   const toggleGroup = (groupTitle: string) => {
