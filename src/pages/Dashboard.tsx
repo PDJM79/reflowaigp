@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,33 +27,26 @@ type Task = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const { t } = useTranslation();
-  const [userRole, setUserRole] = useState<string>('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Check for manager capabilities via new role system
+  const isManager = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice', 'run_reports');
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchUserAndTasks = async () => {
-      // Get user and role
+    const fetchTasks = async () => {
+      // Get user data
       const { data: userData } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
 
-      // Get user's primary role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-      if (userData && roleData) {
-        setUserRole(roleData.role);
-
+      if (userData) {
         // Fetch tasks assigned to this user
         const { data: tasksData } = await supabase
           .from('tasks')
@@ -65,10 +59,8 @@ export default function Dashboard() {
       setLoading(false);
     };
 
-    fetchUserAndTasks();
+    fetchTasks();
   }, [user]);
-
-  const isManager = userRole === 'practice_manager' || userRole === 'administrator' || userRole === 'group_manager';
 
   // Filter tasks for current month, completed, and timed out
   const currentMonthTasks = tasks.filter(task => 
@@ -137,7 +129,7 @@ export default function Dashboard() {
     </Card>
   );
 
-  if (loading) {
+  if (loading || capabilitiesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">

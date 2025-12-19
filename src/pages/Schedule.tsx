@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,17 +25,20 @@ type Task = {
 
 export default function Schedule() {
   const { user } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [userRole, setUserRole] = useState<string>('');
+
+  // Check for manager capabilities via new role system
+  const isManager = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice', 'run_reports');
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchTasksAndRole = async () => {
-      // Get user and primary role
+    const fetchTasks = async () => {
+      // Get user and practice
       const { data: userData } = await supabase
         .from('users')
         .select('id, practice_id')
@@ -42,17 +46,6 @@ export default function Schedule() {
         .single();
 
       if (!userData) return;
-
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-      if (roleData) {
-        setUserRole(roleData.role);
-      }
 
       // Fetch tasks for next 12 months
       const startDate = new Date();
@@ -95,10 +88,8 @@ export default function Schedule() {
       setLoading(false);
     };
 
-    fetchTasksAndRole();
+    fetchTasks();
   }, [user]);
-
-  const isManager = userRole === 'practice_manager' || userRole === 'administrator' || userRole === 'group_manager';
 
   const getTasksForDate = (date: Date) => {
     return tasks.filter(task => isSameDay(new Date(task.due_at), date));
@@ -276,7 +267,7 @@ export default function Schedule() {
     );
   };
 
-  if (loading) {
+  if (loading || capabilitiesLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[400px]">

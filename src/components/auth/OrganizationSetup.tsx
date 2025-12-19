@@ -250,29 +250,56 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         }
       }
 
-      // Create user_roles entries for all role assignments
-      const userRolesEntries = [];
+      // Create user_practice_roles entries using new role system
       for (const assignment of filledAssignments) {
         const userId = createdUserIds[assignment.email];
         if (userId) {
-          for (const role of assignment.roles) {
-            userRolesEntries.push({
-              user_id: userId,
-              role: role as any,
-              practice_id: practice.id,
-              created_by: currentUserId
-            });
+          for (const roleKey of assignment.roles) {
+            try {
+              // Get role_catalog entry
+              const { data: catalogEntry } = await supabase
+                .from('role_catalog')
+                .select('id')
+                .eq('role_key', roleKey)
+                .single();
+
+              if (!catalogEntry) continue;
+
+              // Get or create practice_role
+              let { data: practiceRole } = await supabase
+                .from('practice_roles')
+                .select('id')
+                .eq('practice_id', practice.id)
+                .eq('role_catalog_id', catalogEntry.id)
+                .single();
+
+              if (!practiceRole) {
+                const { data: newPracticeRole } = await supabase
+                  .from('practice_roles')
+                  .insert({
+                    practice_id: practice.id,
+                    role_catalog_id: catalogEntry.id,
+                    is_active: true
+                  })
+                  .select('id')
+                  .single();
+                practiceRole = newPracticeRole;
+              }
+
+              if (practiceRole) {
+                // Create user_practice_role
+                await supabase
+                  .from('user_practice_roles')
+                  .upsert({
+                    user_id: userId,
+                    practice_role_id: practiceRole.id,
+                    practice_id: practice.id
+                  }, { onConflict: 'user_id,practice_role_id' });
+              }
+            } catch (roleError) {
+              console.error(`Error assigning role ${roleKey} to user:`, roleError);
+            }
           }
-        }
-      }
-
-      if (userRolesEntries.length > 0) {
-        const { error: rolesError } = await supabase
-          .from('user_roles')
-          .insert(userRolesEntries);
-
-        if (rolesError) {
-          console.error('Error creating user roles:', rolesError);
         }
       }
 
