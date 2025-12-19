@@ -29,6 +29,16 @@ mermaid.initialize({
   },
 });
 
+function normalizeMermaidText(input: string): string {
+  let text = input.trim().replace(/\r\n/g, "\n");
+  // Strip fenced code blocks (common when AI returns ```mermaid ... ```)
+  text = text.replace(/^```\s*mermaid\s*/i, "");
+  text = text.replace(/^```\s*/i, "");
+  text = text.replace(/```\s*$/g, "");
+  text = text.replace(/```/g, "");
+  return text.trim();
+}
+
 export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
@@ -40,13 +50,15 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
     let isCancelled = false;
     
     const renderDiagram = async () => {
-      if (!mermaidText) {
+      const normalizedText = normalizeMermaidText(mermaidText);
+
+      if (!normalizedText) {
         setLoading(false);
         return;
       }
 
       // Pre-validation: check for basic mermaid structure
-      const hasFlowchart = mermaidText.includes('flowchart') || mermaidText.includes('graph');
+      const hasFlowchart = normalizedText.includes('flowchart') || normalizedText.includes('graph');
       if (!hasFlowchart) {
         setError('Invalid diagram format - missing flowchart declaration');
         setLoading(false);
@@ -67,9 +79,9 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
       try {
         // Generate unique ID for this render
         const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
+
         // Render the diagram
-        const { svg } = await mermaid.render(id, mermaidText);
+        const { svg } = await mermaid.render(id, normalizedText);
         
         if (!isCancelled) {
           setSvgContent(svg);
