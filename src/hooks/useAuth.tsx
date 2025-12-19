@@ -6,19 +6,19 @@ import { toast } from '@/components/ui/use-toast';
 
 // Auth cleanup utility to prevent limbo states
 function cleanupAuthState(): void {
-  localStorage.removeItem('supabase.auth.token');
+  // Clear the specific Supabase auth token for this project
+  const supabaseKey = 'sb-eeqfqklcdstbziedsnxc-auth-token';
+  localStorage.removeItem(supabaseKey);
   
+  // Clear all Supabase-related keys from localStorage
   Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+    if (key.startsWith('supabase') || key.includes('sb-') || key.includes('auth')) {
       localStorage.removeItem(key);
     }
   });
   
-  Object.keys(sessionStorage || {}).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      sessionStorage.removeItem(key);
-    }
-  });
+  // Clear session storage completely
+  sessionStorage.clear();
 }
 
 interface AuthContextType {
@@ -104,37 +104,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // Immediately clear state to prevent auto-login loop
+    setUser(null);
+    setSession(null);
     setLoading(true);
+    
+    // Clear all auth storage
+    cleanupAuthState();
+    
     try {
-      cleanupAuthState();
-      
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        console.warn('Sign out error (continuing):', err);
-      }
-      
-      toast({
-        title: "Signed out",
-        description: "You have been signed out successfully",
-      });
-      
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
-    } catch (error) {
-      console.error('Sign out error:', error);
-      toast({
-        title: "Sign out error",
-        description: "There was an issue signing out, but you've been logged out locally",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
-    } finally {
-      setLoading(false);
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      console.warn('Sign out error (continuing):', err);
     }
+    
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully",
+    });
+    
+    // Redirect to login page (not root which may auto-redirect back)
+    window.location.href = '/login';
   }
 
   const value: AuthContextType = {

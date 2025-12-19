@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
@@ -29,7 +29,7 @@ interface NavGroup {
 }
 
 export function AppLayout() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -39,9 +39,15 @@ export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['Overview', 'Tasks & Schedule']);
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
+
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
   };
 
   const toggleGroup = (groupTitle: string) => {
@@ -131,6 +137,10 @@ export function AppLayout() {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Don't render layout if auth is loading or user is not authenticated
+  if (authLoading || !user) {
+    return null;
+  }
   const renderNavItems = () => (
     <div className="space-y-2">
       {visibleNavGroups.map((group) => {
