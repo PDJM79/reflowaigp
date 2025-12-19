@@ -261,7 +261,7 @@ export function ShowProcessDialog({
             <Separator />
 
             {/* Diagram */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className="flex-1 max-h-[calc(90vh-280px)] -mx-6 px-6">
               {diagramLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />

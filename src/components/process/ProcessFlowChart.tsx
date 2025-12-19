@@ -139,7 +139,7 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
   return (
     <div 
       ref={containerRef}
-      className={`overflow-auto bg-background rounded-lg border p-4 ${className}`}
+      className={`bg-background rounded-lg border p-4 ${className}`}
     >
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -150,7 +150,7 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
         </Alert>
       )}
       <div 
-        className="flex justify-center min-h-[300px]"
+        className="flex justify-center"
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     </div>
