@@ -89,3 +89,9 @@ verify_jwt = true
 
 [functions.generate-process-diagram]
 verify_jwt = true
+
+[functions.manage-mfa-settings]
+verify_jwt = true
+
+[functions.send-mfa-change-notification]
+verify_jwt = true

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ShieldOff, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import * as OTPAuth from 'otpauth';
+import { ReauthenticationDialog } from './ReauthenticationDialog';
 
 interface DisableMFADialogProps {
   open: boolean;
@@ -26,6 +26,29 @@ export function DisableMFADialog({
 }: DisableMFADialogProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showReauth, setShowReauth] = useState(false);
+  const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      // Reset state and show re-auth first
+      setCode('');
+      setVerifiedPassword(null);
+      setShowReauth(true);
+    } else {
+      setShowReauth(false);
+    }
+  }, [open]);
+
+  const handleReauthSuccess = (password: string) => {
+    setVerifiedPassword(password);
+    setShowReauth(false);
+  };
+
+  const handleReauthClose = () => {
+    setShowReauth(false);
+    onOpenChange(false);
+  };
 
   const handleDisable = async () => {
     if (code.length !== 6) {
@@ -33,68 +56,66 @@ export function DisableMFADialog({
       return;
     }
 
+    if (!verifiedPassword) {
+      toast.error('Please complete re-authentication first');
+      setShowReauth(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Fetch the MFA secret to verify the code
-      const { data: mfaData, error: fetchError } = await supabase
-        .from('user_auth_sensitive')
-        .select('mfa_secret')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError || !mfaData?.mfa_secret) {
-        toast.error('MFA not configured');
-        setLoading(false);
-        return;
-      }
-
-      // Verify the TOTP code before disabling
-      const totp = new OTPAuth.TOTP({
-        issuer: 'ReflowAI GP',
-        label: userEmail,
-        algorithm: 'SHA1',
-        digits: 6,
-        period: 30,
-        secret: OTPAuth.Secret.fromBase32(mfaData.mfa_secret),
+      // Call the secure edge function to disable MFA
+      const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
+        body: {
+          action: 'disable',
+          userId: userId,
+          password: verifiedPassword,
+          totpCode: code,
+        },
       });
 
-      const delta = totp.validate({ token: code, window: 1 });
-      
-      if (delta === null) {
-        toast.error('Invalid verification code');
-        setCode('');
-        setLoading(false);
-        return;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to disable MFA');
       }
 
-      // Delete the MFA secret
-      const { error: deleteError } = await supabase
-        .from('user_auth_sensitive')
-        .update({ mfa_secret: null })
-        .eq('user_id', userId);
+      if (data?.error) {
+        if (data.error.includes('verification code')) {
+          toast.error('Invalid verification code');
+          setCode('');
+          setLoading(false);
+          return;
+        }
+        throw new Error(data.error);
+      }
 
-      if (deleteError) throw deleteError;
-
-      // Update the mfa_enabled flag
-      await supabase
-        .from('users')
-        .update({ mfa_enabled: false })
-        .eq('id', userId);
-
-      toast.success('MFA disabled successfully');
+      toast.success('MFA disabled successfully. You will receive a confirmation email.');
       setCode('');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error disabling MFA:', error);
-      toast.error('Failed to disable MFA');
+      toast.error(error.message || 'Failed to disable MFA');
     } finally {
       setLoading(false);
     }
   };
 
+  // Show re-authentication dialog first
+  if (showReauth && open) {
+    return (
+      <ReauthenticationDialog
+        open={true}
+        onOpenChange={handleReauthClose}
+        onSuccess={handleReauthSuccess}
+        title="Verify Identity to Disable MFA"
+        description="Enter your password to confirm you want to disable Two-Factor Authentication"
+      />
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && !showReauth} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

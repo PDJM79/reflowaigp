@@ -8,32 +8,51 @@ import { Loader2, Shield, Copy, Check, QrCode, AlertTriangle } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as OTPAuth from 'otpauth';
+import { ReauthenticationDialog } from './ReauthenticationDialog';
 
 interface MFASetupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userEmail: string;
+  userId?: string; // Optional: for admin setting up MFA for another user
   onSuccess: () => void;
 }
 
-export function MFASetupDialog({ open, onOpenChange, userEmail, onSuccess }: MFASetupDialogProps) {
-  const [step, setStep] = useState<'generate' | 'verify'>('generate');
+export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSuccess }: MFASetupDialogProps) {
+  const [step, setStep] = useState<'reauth' | 'generate' | 'verify'>('reauth');
   const [secret, setSecret] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null);
+  const [showReauth, setShowReauth] = useState(false);
 
   useEffect(() => {
     if (open) {
-      generateSecret();
-    } else {
-      setStep('generate');
+      // Reset state when dialog opens
+      setStep('reauth');
       setSecret('');
       setQrDataUrl('');
       setVerificationCode('');
+      setVerifiedPassword(null);
+      setShowReauth(true);
+    } else {
+      setShowReauth(false);
     }
   }, [open]);
+
+  const handleReauthSuccess = (password: string) => {
+    setVerifiedPassword(password);
+    setShowReauth(false);
+    setStep('generate');
+    generateSecret();
+  };
+
+  const handleReauthClose = () => {
+    setShowReauth(false);
+    onOpenChange(false);
+  };
 
   const generateSecret = async () => {
     try {
@@ -80,6 +99,13 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, onSuccess }: MFA
       return;
     }
 
+    if (!verifiedPassword) {
+      toast.error('Please complete re-authentication first');
+      setStep('reauth');
+      setShowReauth(true);
+      return;
+    }
+
     setLoading(true);
     try {
       // Verify the code locally first
@@ -99,36 +125,43 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, onSuccess }: MFA
         return;
       }
 
-      // Get current user's ID from users table
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      // Get target user ID
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
 
-      if (!userData) throw new Error('User not found');
+        if (!userData) throw new Error('User not found');
+        targetUserId = userData.id;
+      }
 
-      // Save the secret to user_auth_sensitive
-      const { error } = await supabase
-        .from('user_auth_sensitive')
-        .upsert({
-          user_id: userData.id,
-          mfa_secret: secret,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
+      // Call the secure edge function to enable MFA
+      const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
+        body: {
+          action: 'enable',
+          userId: targetUserId,
+          password: verifiedPassword,
+          mfaSecret: secret,
+          totpCode: verificationCode,
+        },
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to enable MFA');
+      }
 
-      // Update the mfa_enabled flag on users table
-      await supabase
-        .from('users')
-        .update({ mfa_enabled: true })
-        .eq('id', userData.id);
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
-      toast.success('MFA enabled successfully!');
+      toast.success('MFA enabled successfully! You will receive a confirmation email.');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -139,8 +172,21 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, onSuccess }: MFA
     }
   };
 
+  // Show re-authentication dialog first
+  if (showReauth && open) {
+    return (
+      <ReauthenticationDialog
+        open={true}
+        onOpenChange={handleReauthClose}
+        onSuccess={handleReauthSuccess}
+        title="Verify Identity for MFA Setup"
+        description="Enter your password to begin setting up Two-Factor Authentication"
+      />
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && step !== 'reauth'} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
