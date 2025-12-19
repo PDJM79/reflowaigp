@@ -155,3 +155,76 @@ export async function requireCapability(
     throw new Error(errorMessage || `Unauthorized: ${capability} capability required`);
   }
 }
+
+/**
+ * Ensure a user has a practice role assignment in user_practice_roles.
+ * Creates practice_roles entry if needed, then creates user_practice_roles entry.
+ * This should be called when creating new users to ensure they have proper role assignments.
+ */
+export async function ensureUserPracticeRole(
+  supabase: SupabaseClient,
+  userId: string,
+  practiceId: string,
+  roleKey: string
+): Promise<void> {
+  console.log(`[ensureUserPracticeRole] Assigning role '${roleKey}' to user ${userId} for practice ${practiceId}`);
+
+  // 1. Get the role_catalog entry for this role_key
+  const { data: roleCatalog, error: catalogError } = await supabase
+    .from('role_catalog')
+    .select('id')
+    .eq('role_key', roleKey)
+    .single();
+
+  if (catalogError || !roleCatalog) {
+    console.warn(`[ensureUserPracticeRole] Role '${roleKey}' not found in role_catalog:`, catalogError?.message);
+    return;
+  }
+
+  // 2. Ensure practice_roles entry exists (create if needed)
+  let { data: practiceRole, error: practiceRoleError } = await supabase
+    .from('practice_roles')
+    .select('id')
+    .eq('practice_id', practiceId)
+    .eq('role_catalog_id', roleCatalog.id)
+    .single();
+
+  if (practiceRoleError?.code === 'PGRST116' || !practiceRole) {
+    // No practice_role exists, create one
+    const { data: newPracticeRole, error: createError } = await supabase
+      .from('practice_roles')
+      .insert({ practice_id: practiceId, role_catalog_id: roleCatalog.id })
+      .select('id')
+      .single();
+
+    if (createError) {
+      console.error(`[ensureUserPracticeRole] Failed to create practice_role:`, createError.message);
+      return;
+    }
+    practiceRole = newPracticeRole;
+  }
+
+  if (!practiceRole) {
+    console.error(`[ensureUserPracticeRole] Could not get or create practice_role for role '${roleKey}'`);
+    return;
+  }
+
+  // 3. Create user_practice_roles entry (upsert to handle duplicates)
+  const { error: assignError } = await supabase
+    .from('user_practice_roles')
+    .upsert(
+      {
+        user_id: userId,
+        practice_id: practiceId,
+        practice_role_id: practiceRole.id
+      },
+      { onConflict: 'user_id,practice_role_id' }
+    );
+
+  if (assignError) {
+    console.error(`[ensureUserPracticeRole] Failed to assign role:`, assignError.message);
+    return;
+  }
+
+  console.log(`[ensureUserPracticeRole] Successfully assigned role '${roleKey}' to user ${userId}`);
+}
