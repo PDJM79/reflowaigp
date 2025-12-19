@@ -157,6 +157,112 @@ export async function requireCapability(
 }
 
 /**
+ * User info returned by getUsersWithCapability
+ */
+export interface UserWithCapability {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+/**
+ * Get all users in a practice who have a specific capability.
+ * This checks both role-based capabilities (from role_catalog.default_capabilities)
+ * and practice-specific capability overrides.
+ */
+export async function getUsersWithCapability(
+  supabase: SupabaseClient,
+  practiceId: string,
+  capability: Capability
+): Promise<UserWithCapability[]> {
+  const userMap = new Map<string, UserWithCapability>();
+
+  // Query all user_practice_roles for the practice, joining to get role capabilities
+  const { data: roleAssignments, error: roleError } = await supabase
+    .from('user_practice_roles')
+    .select(`
+      user_id,
+      users!inner (
+        id,
+        name,
+        email,
+        is_active
+      ),
+      practice_roles!inner (
+        id,
+        role_catalog!inner (
+          default_capabilities
+        )
+      )
+    `)
+    .eq('practice_id', practiceId);
+
+  if (roleError) {
+    console.warn('Role-based capability lookup failed:', roleError.message);
+  } else if (roleAssignments) {
+    for (const assignment of roleAssignments) {
+      const user = (assignment as any).users;
+      const practiceRole = (assignment as any).practice_roles;
+      const roleCatalog = practiceRole?.role_catalog;
+      
+      if (!user?.id || !user?.is_active) continue;
+      
+      // Check if this role has the required capability in default_capabilities
+      const defaultCapabilities: string[] = roleCatalog?.default_capabilities || [];
+      if (defaultCapabilities.includes(capability)) {
+        userMap.set(user.id, {
+          id: user.id,
+          name: user.name || '',
+          email: user.email
+        });
+        continue;
+      }
+
+      // Check for capability overrides on the practice_role
+      const { data: overrides } = await supabase
+        .from('practice_role_capabilities')
+        .select('capability, is_granted')
+        .eq('practice_role_id', practiceRole.id)
+        .eq('capability', capability);
+
+      if (overrides?.some(o => o.is_granted)) {
+        userMap.set(user.id, {
+          id: user.id,
+          name: user.name || '',
+          email: user.email
+        });
+      }
+    }
+  }
+
+  // Fallback: Check is_practice_manager flag for approve_governance capability
+  if (capability === 'approve_governance') {
+    const { data: flagBasedManagers, error: flagError } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .eq('practice_id', practiceId)
+      .eq('is_practice_manager', true)
+      .eq('is_active', true);
+
+    if (!flagError && flagBasedManagers) {
+      for (const user of flagBasedManagers) {
+        if (!userMap.has(user.id)) {
+          userMap.set(user.id, {
+            id: user.id,
+            name: user.name || '',
+            email: user.email
+          });
+        }
+      }
+    }
+  }
+
+  const users = Array.from(userMap.values());
+  console.log(`Found ${users.length} user(s) with '${capability}' capability for practice ${practiceId}`);
+  return users;
+}
+
+/**
  * Ensure a user has a practice role assignment in user_practice_roles.
  * Creates practice_roles entry if needed, then creates user_practice_roles entry.
  * This should be called when creating new users to ensure they have proper role assignments.

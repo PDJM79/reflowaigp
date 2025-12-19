@@ -5,7 +5,7 @@ import { renderAsync } from "npm:@react-email/components@0.0.22";
 import * as React from "npm:react@18.3.1";
 import { ApprovalRequestedEmail } from "./_templates/approval-requested-email.tsx";
 import { ApprovalCompletedEmail } from "./_templates/approval-completed-email.tsx";
-
+import { getUsersWithCapability } from "../_shared/capabilities.ts";
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
@@ -88,22 +88,11 @@ async function handleApprovalRequest(
   practiceName: string,
   baseUrl: string
 ) {
-  // Find all practice managers in the practice
-  const { data: managers, error: managersError } = await supabase
-    .from("users")
-    .select("id, full_name, email, auth_user_id")
-    .eq("practice_id", payload.practiceId)
-    .eq("role", "practice_manager");
+  // Find all users with approve_governance capability
+  const approvers = await getUsersWithCapability(supabase, payload.practiceId, 'approve_governance');
 
-  if (managersError) {
-    console.error("Error fetching managers:", managersError);
-    throw new Error("Failed to fetch practice managers");
-  }
-
-  console.log(`Found ${managers?.length || 0} practice managers`);
-
-  if (!managers || managers.length === 0) {
-    console.log("No practice managers found, skipping email");
+  if (approvers.length === 0) {
+    console.log("No users with approve_governance capability found, skipping email");
     return new Response(
       JSON.stringify({ success: true, emailsSent: 0, notificationsCreated: 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -121,22 +110,22 @@ async function handleApprovalRequest(
   let notificationsCreated = 0;
   const dashboardUrl = `${baseUrl}/dashboards/governance`;
 
-  for (const manager of managers) {
+  for (const approver of approvers) {
     // Check notification preferences
     const { data: prefs } = await supabase
       .from("notification_preferences")
       .select("email_frequency, policy_reminders")
-      .eq("user_id", manager.id)
+      .eq("user_id", approver.id)
       .single();
 
     const shouldSendEmail = !prefs || prefs.email_frequency !== "none";
 
     // Send email if allowed
-    if (shouldSendEmail && manager.email) {
+    if (shouldSendEmail && approver.email) {
       try {
         const html = await renderAsync(
           React.createElement(ApprovalRequestedEmail, {
-            managerName: manager.full_name || "Practice Manager",
+            managerName: approver.name || "Approver",
             entityType: payload.entityType,
             entityName: payload.entityName,
             requestedByName: payload.requestedByName,
@@ -149,23 +138,23 @@ async function handleApprovalRequest(
 
         const { error: emailError } = await resend.emails.send({
           from: "GP Compliance <notifications@resend.dev>",
-          to: [manager.email],
+          to: [approver.email],
           subject: `Approval Required: ${payload.entityName}`,
           html,
         });
 
         if (emailError) {
-          console.error(`Failed to send email to ${manager.email}:`, emailError);
+          console.error(`Failed to send email to ${approver.email}:`, emailError);
         } else {
           emailsSent++;
-          console.log(`Email sent to ${manager.email}`);
+          console.log(`Email sent to ${approver.email}`);
 
           // Log email
           await supabase.from("email_logs").insert({
             practice_id: payload.practiceId,
             email_type: "governance_approval_request",
-            recipient_email: manager.email,
-            recipient_name: manager.full_name,
+            recipient_email: approver.email,
+            recipient_name: approver.name,
             subject: `Approval Required: ${payload.entityName}`,
             status: "sent",
             metadata: {
@@ -176,14 +165,14 @@ async function handleApprovalRequest(
           });
         }
       } catch (emailErr) {
-        console.error(`Email error for ${manager.email}:`, emailErr);
+        console.error(`Email error for ${approver.email}:`, emailErr);
       }
     }
 
     // Create in-app notification
     const { error: notifError } = await supabase.from("notifications").insert({
       practice_id: payload.practiceId,
-      user_id: manager.id,
+      user_id: approver.id,
       title: "Approval Required",
       message: `${payload.entityName} requires your sign-off`,
       notification_type: "governance_approval_request",
@@ -194,7 +183,7 @@ async function handleApprovalRequest(
     });
 
     if (notifError) {
-      console.error(`Failed to create notification for ${manager.id}:`, notifError);
+      console.error(`Failed to create notification for ${approver.id}:`, notifError);
     } else {
       notificationsCreated++;
     }
