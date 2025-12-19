@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { MasterUserProvider } from "@/hooks/useMasterUser";
+import { CapabilitiesProvider } from "@/hooks/useCapabilities";
 import { AppLayout } from "@/components/layout/AppLayout";
 import '@/i18n/config';
 
@@ -79,70 +80,72 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <MasterUserProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Index />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              
-              {/* Protected Routes with AppLayout */}
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/settings" element={<Settings />} />
+        <CapabilitiesProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/login" element={<Index />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 
-                {/* Task Management */}
-                <Route path="/task-templates" element={<TaskTemplates />} />
-                <Route path="/tasks" element={<TasksList />} />
-                <Route path="/schedule" element={<Schedule />} />
-                <Route path="/month-end" element={<MonthEndScripts />} />
-                <Route path="/claims" element={<Claims />} />
-                <Route path="/cleaning" element={<Cleaning />} />
-                <Route path="/incidents" element={<Incidents />} />
-                <Route path="/fire-safety" element={<FireSafety />} />
-                <Route path="/hr" element={<HR />} />
-                <Route path="/user-management" element={<UserManagement />} />
-                <Route path="/staff-self-service" element={<StaffSelfService />} />
-                <Route path="/complaints" element={<Complaints />} />
-                <Route path="/medical-requests" element={<MedicalRequests />} />
-                <Route path="/policies" element={<Policies />} />
-                <Route path="/policies/review-history" element={<PolicyReviewHistory />} />
-                <Route path="/fridge-temps" element={<FridgeTemps />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/email-logs" element={<EmailLogs />} />
-                <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
-                
-                {/* Phase 3 Specialized Dashboards */}
-                <Route path="/dashboards" element={<DashboardsHub />} />
-                <Route path="/dashboards/compliance" element={<ComplianceOverview />} />
-                <Route path="/dashboards/clinical" element={<ClinicalGovernance />} />
-                <Route path="/dashboards/workforce" element={<WorkforceDashboard />} />
-                <Route path="/dashboards/environmental" element={<EnvironmentalDashboard />} />
-                <Route path="/dashboards/patient-experience" element={<ComplaintsPatientExperience />} />
-                <Route path="/dashboards/governance" element={<GovernanceDashboard />} />
-                
-                {/* Update Pack v2.0 Routes */}
-                <Route path="/ipc" element={<IPC />} />
-                <Route path="/ipc/audit/:auditId" element={<IPCAuditDetail />} />
-                <Route path="/room-assessments" element={<RoomAssessments />} />
-                
-                {/* Legacy Routes (keeping for compatibility) */}
-                <Route path="/task/:taskId" element={<TaskDetail />} />
-                <Route path="/task/:taskId/step/:stepIndex" element={<StepExecution />} />
-                <Route path="/processes" element={<AllProcesses />} />
-                <Route path="/risk-register" element={<RiskRegister />} />
-                <Route path="/team" element={<TeamDashboard />} />
-                <Route path="/admin/calendar" element={<AdminCalendar />} />
-                <Route path="/admin/reports" element={<AdminReports />} />
-              </Route>
+                {/* Protected Routes with AppLayout */}
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/settings" element={<Settings />} />
+                  
+                  {/* Task Management */}
+                  <Route path="/task-templates" element={<TaskTemplates />} />
+                  <Route path="/tasks" element={<TasksList />} />
+                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/month-end" element={<MonthEndScripts />} />
+                  <Route path="/claims" element={<Claims />} />
+                  <Route path="/cleaning" element={<Cleaning />} />
+                  <Route path="/incidents" element={<Incidents />} />
+                  <Route path="/fire-safety" element={<FireSafety />} />
+                  <Route path="/hr" element={<HR />} />
+                  <Route path="/user-management" element={<UserManagement />} />
+                  <Route path="/staff-self-service" element={<StaffSelfService />} />
+                  <Route path="/complaints" element={<Complaints />} />
+                  <Route path="/medical-requests" element={<MedicalRequests />} />
+                  <Route path="/policies" element={<Policies />} />
+                  <Route path="/policies/review-history" element={<PolicyReviewHistory />} />
+                  <Route path="/fridge-temps" element={<FridgeTemps />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/email-logs" element={<EmailLogs />} />
+                  <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
+                  
+                  {/* Phase 3 Specialized Dashboards */}
+                  <Route path="/dashboards" element={<DashboardsHub />} />
+                  <Route path="/dashboards/compliance" element={<ComplianceOverview />} />
+                  <Route path="/dashboards/clinical" element={<ClinicalGovernance />} />
+                  <Route path="/dashboards/workforce" element={<WorkforceDashboard />} />
+                  <Route path="/dashboards/environmental" element={<EnvironmentalDashboard />} />
+                  <Route path="/dashboards/patient-experience" element={<ComplaintsPatientExperience />} />
+                  <Route path="/dashboards/governance" element={<GovernanceDashboard />} />
+                  
+                  {/* Update Pack v2.0 Routes */}
+                  <Route path="/ipc" element={<IPC />} />
+                  <Route path="/ipc/audit/:auditId" element={<IPCAuditDetail />} />
+                  <Route path="/room-assessments" element={<RoomAssessments />} />
+                  
+                  {/* Legacy Routes (keeping for compatibility) */}
+                  <Route path="/task/:taskId" element={<TaskDetail />} />
+                  <Route path="/task/:taskId/step/:stepIndex" element={<StepExecution />} />
+                  <Route path="/processes" element={<AllProcesses />} />
+                  <Route path="/risk-register" element={<RiskRegister />} />
+                  <Route path="/team" element={<TeamDashboard />} />
+                  <Route path="/admin/calendar" element={<AdminCalendar />} />
+                  <Route path="/admin/reports" element={<AdminReports />} />
+                </Route>
 
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </CapabilitiesProvider>
       </MasterUserProvider>
     </AuthProvider>
   </QueryClientProvider>
