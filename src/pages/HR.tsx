@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ export default function HR() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
   const [employees, setEmployees] = useState<any[]>([]);
   const [appraisals, setAppraisals] = useState<any[]>([]);
   const [trainingRecords, setTrainingRecords] = useState<any[]>([]);
@@ -101,6 +103,33 @@ export default function HR() {
 
   const activeEmployees = employees.filter(e => !e.end_date);
   const pendingAppraisals = appraisals.filter(a => !a.completed_date);
+
+  // Capability check - requires manage_training or manage_appraisals capability
+  const canManageHR = hasCapability('manage_training') || hasCapability('manage_appraisals');
+
+  if (capabilitiesLoading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!canManageHR) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              You need training or appraisal management capabilities to access HR.
+            </p>
+            <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleDBSImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

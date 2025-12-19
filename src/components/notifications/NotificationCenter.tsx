@@ -31,7 +31,8 @@ export function NotificationCenter() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch notifications
+  // Fetch notifications - filtered by user_id which is already role-aware
+  // Notifications are created with specific user_id targets based on their role/capabilities
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {

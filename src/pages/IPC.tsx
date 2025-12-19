@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCapabilities } from "@/hooks/useCapabilities";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { IPCAuditCard } from "@/components/ipc/IPCAuditCard";
 import { generateIPCStatementPDF } from "@/lib/pdfExportV2";
 
 export default function IPC() {
+  const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [audits, setAudits] = useState<any[]>([]);
@@ -159,10 +161,29 @@ export default function IPC() {
     }
   };
 
-  if (loading) {
+  // Capability check - requires manage_ipc capability
+  const canManageIPC = hasCapability('manage_ipc');
+
+  if (loading || capabilitiesLoading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!canManageIPC) {
     return (
       <div className="container mx-auto p-6">
-        <p>Loading IPC data...</p>
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              You need the "manage_ipc" capability to access IPC management.
+            </p>
+            <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
