@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { format, startOfMonth, endOfMonth, addDays, isSameDay, parseISO } from 'date-fns';
 import { CalendarDays, BarChart3, Settings, ChevronLeft, ChevronRight, Edit3, Eye, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,6 +30,7 @@ interface ProcessInstance {
 
 export default function AdminCalendar() {
   const { user, signOut } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewDate, setViewDate] = useState<Date>(new Date());
@@ -37,37 +39,13 @@ export default function AdminCalendar() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessInstance | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
   const [newDueDate, setNewDueDate] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin access via capabilities
+  const isAdmin = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice');
 
   useEffect(() => {
-    checkAdminAccess();
     fetchProcesses();
   }, [user, viewDate]);
-
-  const checkAdminAccess = async () => {
-    if (!user) return;
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, is_practice_manager')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      // Check if user is practice manager OR has administrator role via user_roles
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['administrator', 'practice_manager']);
-
-      setIsAdmin(userData.is_practice_manager || (roleData && roleData.length > 0));
-    } catch (error) {
-      console.error('Error checking admin access:', error);
-    }
-  };
 
   const fetchProcesses = async () => {
     if (!user) return;
@@ -157,6 +135,17 @@ export default function AdminCalendar() {
   };
 
   const processesForSelectedDate = getProcessesForDate(selectedDate);
+
+  if (capabilitiesLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (

@@ -49,21 +49,43 @@ export function useTaskData() {
 
       console.log('Fetching data for practice:', targetPracticeId);
 
-      // Get all roles for this user
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userData.id);
+      // Get practice manager for default assignment via new role system
+      // First try new role system, then fallback to is_practice_manager flag
+      const { data: practiceManagerViaRole } = await supabase
+        .from('user_practice_roles')
+        .select(`
+          user_id,
+          users!inner(id, name, practice_id),
+          practice_roles!inner(
+            role_catalog!inner(role_key)
+          )
+        `)
+        .eq('users.practice_id', targetPracticeId)
+        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+        .limit(1)
+        .maybeSingle();
 
-      console.log('User roles:', userRoles);
+      let practiceManager: { id: string; name: string } | null = null;
+      
+      if (practiceManagerViaRole?.users) {
+        practiceManager = {
+          id: (practiceManagerViaRole.users as any).id,
+          name: (practiceManagerViaRole.users as any).name
+        };
+      } else {
+        // Fallback to is_practice_manager flag
+        const { data: fallbackPM } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('practice_id', targetPracticeId)
+          .eq('is_practice_manager', true)
+          .limit(1)
+          .maybeSingle();
+        
+        practiceManager = fallbackPM;
+      }
 
-      // Get practice manager for default assignment
-      const { data: practiceManager } = await supabase
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', targetPracticeId)
-        .eq('is_practice_manager', true)
-        .single();
+      console.log('Practice manager:', practiceManager);
 
       // Get ALL process instances for the target practice with template info
       const { data: processInstances, error: processError } = await supabase
