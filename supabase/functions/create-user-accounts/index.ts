@@ -1,10 +1,11 @@
 // supabase/functions/create-user-accounts/index.ts
-// JWT-protected - practice managers can create users in their practice
+// JWT-protected - users with manage_users capability can create users in their practice
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
 import { createServiceClient, createUserClientFromRequest } from '../_shared/supabase.ts';
+import { requireCapability } from '../_shared/capabilities.ts';
 
 interface CreateUserRequest {
   email: string;
@@ -20,21 +21,16 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Authenticate and get practice from JWT
-    const { practiceId } = await requireJwtAndPractice(req);
+    const { authUserId, practiceId } = await requireJwtAndPractice(req);
 
-    // Verify user is practice manager for their practice
+    // Verify user has manage_users capability
     const supabaseClient = createUserClientFromRequest(req);
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    const { data: requesterUser } = await supabaseClient
-      .from('users')
-      .select('is_practice_manager')
-      .eq('auth_user_id', user!.id)
-      .single();
-    
-    if (!requesterUser?.is_practice_manager) {
-      return errorResponse(req, 'Unauthorized: Practice manager privileges required', 403);
-    }
+    await requireCapability(
+      supabaseClient,
+      authUserId,
+      'manage_users',
+      'Unauthorized: manage_users capability required'
+    );
 
     const { email, name, role, password }: CreateUserRequest = await req.json();
 
@@ -92,6 +88,32 @@ const handler = async (req: Request): Promise<Response> => {
       await supabaseAdmin.from('users').delete().eq('id', createdUser.id);
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       return errorResponse(req, 'Failed to create user contact details', 400);
+    }
+
+    // If creating a practice manager, also create user_practice_roles entry
+    if (role === 'practice_manager') {
+      // Find or create the practice_manager role for this practice
+      const { data: practiceRole } = await supabaseAdmin
+        .from('practice_roles')
+        .select('id')
+        .eq('practice_id', practiceId)
+        .eq('role_catalog_id', (
+          await supabaseAdmin
+            .from('role_catalog')
+            .select('id')
+            .eq('role_key', 'practice_manager')
+            .single()
+        ).data?.id)
+        .single();
+
+      if (practiceRole) {
+        await supabaseAdmin
+          .from('user_practice_roles')
+          .insert({
+            user_id: createdUser.id,
+            practice_role_id: practiceRole.id
+          });
+      }
     }
 
     // Return credentials so practice manager can send via their email client
