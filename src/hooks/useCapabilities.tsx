@@ -60,6 +60,8 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
 
       // TEMPORARY FALLBACK: Grant all capabilities to practice managers
       // This ensures existing managers aren't locked out during role migration
+      // TODO: Remove this fallback once all users have been migrated to user_practice_roles
+      // The is_practice_manager flag is deprecated - use user_practice_roles with practice_manager role
       if (userData.is_practice_manager) {
         setIsPracticeManager(true);
         setCapabilities([...ALL_CAPABILITIES]);

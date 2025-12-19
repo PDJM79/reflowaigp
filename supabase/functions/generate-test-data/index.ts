@@ -167,13 +167,14 @@ serve(async (req) => {
       }
 
       // Create users table record (without email - emails go in user_contact_details table)
+      // NOTE: is_practice_manager flag is deprecated - use user_practice_roles via ensureUserPracticeRole below
       const { data: dbUser, error: dbError } = await supabaseAdmin
         .from('users')
         .insert({
           auth_user_id: authUser.user.id,
           practice_id: practice.id,
           name: user.name,
-          is_practice_manager: user.role === 'practice_manager',
+          is_practice_manager: user.role === 'practice_manager', // DEPRECATED: kept for backward compatibility
           is_active: true
         })
         .select()

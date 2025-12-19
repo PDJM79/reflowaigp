@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
         }
 
         // Create user record in users table
+        // NOTE: is_practice_manager flag is deprecated - use user_practice_roles via ensureUserPracticeRole below
         const { error: userError } = await supabase
           .from('users')
           .insert({
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
             name: assignment.assigned_name,
             role: assignment.role,
             practice_id: practiceId,
-            is_practice_manager: assignment.role === 'practice_manager'
+            is_practice_manager: assignment.role === 'practice_manager' // DEPRECATED: kept for backward compatibility
           });
 
         if (userError) {
