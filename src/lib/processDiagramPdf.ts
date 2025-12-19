@@ -153,8 +153,15 @@ export async function exportProcessDiagramToPDF(options: ProcessDiagramPDFOption
   yPos += 10;
 
   // Find the SVG element in the diagram container
+  // Wait a small moment to ensure the SVG is fully rendered
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
   const container = document.getElementById('process-diagram-container');
-  const svgElement = container?.querySelector('svg');
+  if (!container) {
+    throw new Error('Diagram container not found');
+  }
+  
+  const svgElement = container.querySelector('svg');
 
   if (svgElement) {
     try {

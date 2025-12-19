@@ -193,7 +193,7 @@ export function ShowProcessDialog({
             </div>
 
             {/* Process list */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className="flex-1 max-h-[calc(90vh-200px)] -mx-6 px-6">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
