@@ -5,6 +5,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { getPracticeManagersForPractice } from '../_shared/capabilities.ts';
 
 serve(async (req) => {
   try {
@@ -46,15 +47,10 @@ serve(async (req) => {
     const results = [];
 
     for (const practice of practices || []) {
-      // Get practice managers
-      const { data: managers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('practice_id', practice.id)
-        .eq('is_practice_manager', true)
-        .eq('is_active', true);
+      // Get practice managers using role system with fallback
+      const managers = await getPracticeManagersForPractice(supabase, practice.id);
 
-      if (!managers || managers.length === 0) {
+      if (managers.length === 0) {
         console.log(`No practice managers found for ${practice.name}`);
         continue;
       }

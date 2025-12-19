@@ -3,6 +3,88 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+/**
+ * Manager info returned by getPracticeManagersForPractice
+ */
+export interface ManagerInfo {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+/**
+ * Get all practice managers for a practice using the role system with fallback.
+ * Queries user_practice_roles for users with role_key='practice_manager',
+ * then falls back to checking is_practice_manager flag for backward compatibility.
+ * Results are deduplicated by user ID.
+ */
+export async function getPracticeManagersForPractice(
+  supabase: SupabaseClient,
+  practiceId: string
+): Promise<ManagerInfo[]> {
+  const managerMap = new Map<string, ManagerInfo>();
+
+  // First: Try role-based lookup via user_practice_roles
+  const { data: roleBasedManagers, error: roleError } = await supabase
+    .from('user_practice_roles')
+    .select(`
+      users!inner (
+        id,
+        name,
+        email,
+        is_active
+      ),
+      practice_roles!inner (
+        role_catalog!inner (
+          role_key
+        )
+      )
+    `)
+    .eq('practice_id', practiceId)
+    .eq('practice_roles.role_catalog.role_key', 'practice_manager');
+
+  if (roleError) {
+    console.warn('Role-based manager lookup failed, using fallback:', roleError.message);
+  } else if (roleBasedManagers) {
+    for (const item of roleBasedManagers) {
+      const user = (item as any).users;
+      if (user?.id && user?.is_active) {
+        managerMap.set(user.id, { 
+          id: user.id, 
+          name: user.name || '', 
+          email: user.email 
+        });
+      }
+    }
+  }
+
+  // Second: Fallback to is_practice_manager flag
+  const { data: flagBasedManagers, error: flagError } = await supabase
+    .from('users')
+    .select('id, name, email')
+    .eq('practice_id', practiceId)
+    .eq('is_practice_manager', true)
+    .eq('is_active', true);
+
+  if (flagError) {
+    console.warn('Flag-based manager lookup failed:', flagError.message);
+  } else if (flagBasedManagers) {
+    for (const user of flagBasedManagers) {
+      if (!managerMap.has(user.id)) {
+        managerMap.set(user.id, { 
+          id: user.id, 
+          name: user.name || '', 
+          email: user.email 
+        });
+      }
+    }
+  }
+
+  const managers = Array.from(managerMap.values());
+  console.log(`Found ${managers.length} practice manager(s) for practice ${practiceId}`);
+  return managers;
+}
+
 export type Capability = 
   | 'view_tasks'
   | 'manage_tasks'

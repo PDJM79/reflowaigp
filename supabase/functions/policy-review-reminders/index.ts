@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { getPracticeManagersForPractice } from '../_shared/capabilities.ts';
 
 interface PolicyReviewAlert {
   practice_id: string;
@@ -113,24 +114,13 @@ serve(async (req) => {
     let notificationsCreated = 0;
     
     for (const [practiceId, alert] of practiceAlerts) {
-      const { data: practiceManagers, error: pmError } = await supabaseAdmin
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', practiceId)
-        .eq('is_practice_manager', true)
-        .eq('is_active', true);
+      // Get practice managers using role system with fallback
+      const practiceManagers = await getPracticeManagersForPractice(supabaseAdmin, practiceId);
 
-      if (pmError) {
-        console.error(`Error fetching PMs for practice ${practiceId}:`, pmError);
-        continue;
-      }
-
-      if (!practiceManagers || practiceManagers.length === 0) {
+      if (practiceManagers.length === 0) {
         console.warn(`No active practice managers found for practice ${practiceId}`);
         continue;
       }
-
-      console.log(`Found ${practiceManagers.length} PM(s) for ${alert.practice_name}`);
 
       for (const pm of practiceManagers) {
         let priority = 'normal';

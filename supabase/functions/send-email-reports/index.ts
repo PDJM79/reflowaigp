@@ -8,6 +8,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { EmailReportTemplate } from './_templates/email-report.tsx';
 import { requireCronSecret } from '../_shared/auth.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { getPracticeManagersForPractice } from '../_shared/capabilities.ts';
 
 interface ReportRequest {
   periodType?: 'weekly' | 'monthly';
@@ -88,20 +89,13 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         console.log(`Processing practice: ${practice.name} (${practice.id})`);
 
-        // Get practice managers for this practice
-        const { data: managers, error: managersError } = await supabaseAdmin
-          .from('users')
-          .select('email, name')
-          .eq('practice_id', practice.id)
-          .eq('is_practice_manager', true)
-          .eq('is_active', true);
+        // Get practice managers for this practice using role system with fallback
+        const managers = await getPracticeManagersForPractice(supabaseAdmin, practice.id);
 
-        if (managersError || !managers || managers.length === 0) {
+        if (managers.length === 0) {
           console.log(`No practice managers found for ${practice.name}`);
           continue;
         }
-
-        console.log(`Found ${managers.length} practice manager(s) for ${practice.name}`);
 
         // Fetch email logs for the period
         const { data: logs, error: logsError } = await supabaseAdmin
