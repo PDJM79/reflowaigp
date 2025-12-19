@@ -7,6 +7,7 @@ import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, Us
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
@@ -22,7 +23,7 @@ export function UserDashboard() {
   const { user, signOut } = useAuth();
   const { isMasterUser, selectedPracticeId, selectedPracticeName, clearSelectedPractice } = useMasterUser();
   const { userTasks, otherTasks, loading } = useTaskData();
-  const [isPracticeManager, setIsPracticeManager] = useState(false);
+  const { hasCapability, userRoles: capabilityRoles } = useCapabilities();
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userPracticeId, setUserPracticeId] = useState('');
@@ -34,6 +35,11 @@ export function UserDashboard() {
   const [creatingAccounts, setCreatingAccounts] = useState(false);
   const [passingTask, setPassingTask] = useState<string | null>(null);
 
+  // Use capability system for access control
+  const canViewDashboards = hasCapability('view_dashboards') || isMasterUser;
+  const canManageRoles = hasCapability('assign_roles') || isMasterUser;
+  const canManageUsers = hasCapability('manage_users') || isMasterUser;
+
   useEffect(() => {
     if (!user) return;
 
@@ -42,7 +48,7 @@ export function UserDashboard() {
         console.log('Fetching user info for auth user:', user.id);
         const { data, error } = await supabase
           .from('users')
-          .select('name, is_practice_manager, practice_id, is_master_user')
+          .select('name, practice_id, is_master_user')
           .eq('auth_user_id', user.id)
           .single();
 
@@ -50,53 +56,26 @@ export function UserDashboard() {
         
         if (data) {
           setUserName(data.name);
-          setIsPracticeManager(data.is_practice_manager);
           
           // For master users, use selected practice, otherwise use user's practice
           const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
           setUserPracticeId(practiceId);
 
-          // Get internal user ID from users table first
-          const { data: internalUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('auth_user_id', user.id)
-            .single();
+          // Get display role from capability system's userRoles
+          const displayRole = capabilityRoles[0]?.practice_role?.role_catalog?.display_name || 
+                             (canViewDashboards ? 'Manager' : 'Staff');
+          setUserRole(displayRole);
 
-          // Fetch user roles from user_roles table using internal user ID
-          let roles: Database['public']['Enums']['user_role'][] = [];
-          if (internalUser) {
-            const { data: userRoles } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', internalUser.id);
-            
-            roles = userRoles?.map(r => r.role) || [];
-          }
+          console.log('User role:', displayRole, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
 
-          // Fallback: if no roles found, use is_practice_manager flag
-          if (roles.length === 0 && data.is_practice_manager) {
-            roles = ['practice_manager'];
-          }
+          // Fetch all process templates for the practice
+          const { data: templates, error: templatesError } = await supabase
+            .from('process_templates')
+            .select('name, responsible_role, frequency')
+            .eq('practice_id', practiceId);
 
-          const primaryRole = roles[0] || 'unknown';
-          setUserRole(primaryRole);
-
-          console.log('User roles:', roles, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
-
-          // Fetch all process templates where any of the user's roles is responsible
-          if (roles.length > 0) {
-            const { data: templates, error: templatesError } = await supabase
-              .from('process_templates')
-              .select('name, responsible_role, frequency')
-              .eq('practice_id', practiceId)
-              .in('responsible_role', roles);
-
-            console.log('Process templates for role:', templates, 'Error:', templatesError);
-            setAllProcessesByRole(templates || []);
-          } else {
-            setAllProcessesByRole([]);
-          }
+          console.log('Process templates:', templates, 'Error:', templatesError);
+          setAllProcessesByRole(templates || []);
         } else {
           console.log('No user data found in dashboard');
         }
@@ -106,7 +85,7 @@ export function UserDashboard() {
     };
 
     fetchUserInfo();
-  }, [user, isMasterUser, selectedPracticeId]);
+  }, [user, isMasterUser, selectedPracticeId, capabilityRoles, canViewDashboards]);
 
   const handleTaskClick = (taskId: string) => {
     console.log('Navigate to task:', taskId);
@@ -195,13 +174,13 @@ export function UserDashboard() {
     }
   };
 
-  // Auto-create tasks if none exist and user is practice manager
+  // Auto-create tasks if none exist and user can manage
   useEffect(() => {
-    if (isPracticeManager && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
+    if (canViewDashboards && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
       console.log('No tasks found, auto-creating initial processes...');
       createInitialProcesses();
     }
-  }, [isPracticeManager, userTasks.length, otherTasks.length, loading, userPracticeId]);
+  }, [canViewDashboards, userTasks.length, otherTasks.length, loading, userPracticeId]);
 
   const assignAllTasksToMe = async () => {
     if (!user) return;
@@ -343,7 +322,7 @@ export function UserDashboard() {
                 Switch Practice
               </Button>
             )}
-            {(isPracticeManager || isMasterUser) && (
+            {canManageRoles && (
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2"
@@ -395,7 +374,7 @@ export function UserDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <RAGBadge status={task.status} />
-                        {!isPracticeManager && (
+                        {!canViewDashboards && (
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -429,13 +408,13 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            {/* Ready for Audit - visible to Practice Managers and Master Users */}
-            {(isPracticeManager || isMasterUser) && (
+            {/* Ready for Audit - visible to users with dashboard access */}
+            {canViewDashboards && (
               <ReadyForAudit />
             )}
 
-            {/* Other Tasks - visible to Practice Managers and Master Users */}
-            {(isPracticeManager || isMasterUser) && (
+            {/* Other Tasks - visible to users with dashboard access */}
+            {canViewDashboards && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -608,7 +587,7 @@ export function UserDashboard() {
                     )}
                     Assign All Tasks to Me
                   </Button>
-                  {(isPracticeManager || isMasterUser) && (
+                  {canViewDashboards && (
                     <Button 
                       variant="outline" 
                       className="w-full justify-start"
@@ -618,7 +597,7 @@ export function UserDashboard() {
                       Create Tasks for All Users
                     </Button>
                   )}
-                  {(isPracticeManager || isMasterUser) && (
+                  {canManageUsers && (
                     <>
                       <Button 
                         variant="outline" 
