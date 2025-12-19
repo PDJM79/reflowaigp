@@ -3353,6 +3353,61 @@ export type Database = {
           },
         ]
       }
+      process_diagrams: {
+        Row: {
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          is_ai_enhanced: boolean | null
+          mermaid_text: string
+          practice_id: string
+          process_template_id: string
+          source_hash: string
+        }
+        Insert: {
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          mermaid_text: string
+          practice_id: string
+          process_template_id: string
+          source_hash: string
+        }
+        Update: {
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          mermaid_text?: string
+          practice_id?: string
+          process_template_id?: string
+          source_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_diagrams_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_diagrams_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_diagrams_process_template_id_fkey"
+            columns: ["process_template_id"]
+            isOneToOne: false
+            referencedRelation: "process_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_instances: {
         Row: {
           assignee_id: string | null

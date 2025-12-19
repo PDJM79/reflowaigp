@@ -86,3 +86,6 @@ verify_jwt = true
 
 [functions.send-governance-approval-emails]
 verify_jwt = true
+
+[functions.generate-process-diagram]
+verify_jwt = true
