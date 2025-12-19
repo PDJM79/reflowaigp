@@ -90,30 +90,58 @@ const handler = async (req: Request): Promise<Response> => {
       return errorResponse(req, 'Failed to create user contact details', 400);
     }
 
-    // If creating a practice manager, also create user_practice_roles entry
-    if (role === 'practice_manager') {
-      // Find or create the practice_manager role for this practice
-      const { data: practiceRole } = await supabaseAdmin
-        .from('practice_roles')
+    // Create user_practice_roles entry for the new role system
+    // Import and use ensureUserPracticeRole for consistency
+    try {
+      // Find or create the role for this practice
+      const { data: roleCatalogEntry } = await supabaseAdmin
+        .from('role_catalog')
         .select('id')
-        .eq('practice_id', practiceId)
-        .eq('role_catalog_id', (
-          await supabaseAdmin
-            .from('role_catalog')
-            .select('id')
-            .eq('role_key', 'practice_manager')
-            .single()
-        ).data?.id)
+        .eq('role_key', role)
         .single();
 
-      if (practiceRole) {
-        await supabaseAdmin
-          .from('user_practice_roles')
-          .insert({
-            user_id: createdUser.id,
-            practice_role_id: practiceRole.id
-          });
+      if (roleCatalogEntry) {
+        // Find or create the practice_role
+        let practiceRoleId: string | null = null;
+        
+        const { data: existingPracticeRole } = await supabaseAdmin
+          .from('practice_roles')
+          .select('id')
+          .eq('practice_id', practiceId)
+          .eq('role_catalog_id', roleCatalogEntry.id)
+          .single();
+
+        if (existingPracticeRole) {
+          practiceRoleId = existingPracticeRole.id;
+        } else {
+          // Create the practice role if it doesn't exist
+          const { data: newPracticeRole } = await supabaseAdmin
+            .from('practice_roles')
+            .insert({
+              practice_id: practiceId,
+              role_catalog_id: roleCatalogEntry.id,
+              is_active: true
+            })
+            .select('id')
+            .single();
+          practiceRoleId = newPracticeRole?.id || null;
+        }
+
+        if (practiceRoleId) {
+          await supabaseAdmin
+            .from('user_practice_roles')
+            .insert({
+              user_id: createdUser.id,
+              practice_role_id: practiceRoleId
+            });
+          console.log(`Assigned role ${role} to user ${createdUser.id}`);
+        }
+      } else {
+        console.warn(`Role '${role}' not found in role_catalog`);
       }
+    } catch (roleError) {
+      console.error('Error assigning role:', roleError);
+      // Don't fail the whole operation - user is created, role assignment can be retried
     }
 
     // Return credentials so practice manager can send via their email client

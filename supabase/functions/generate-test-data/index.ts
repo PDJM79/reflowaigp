@@ -81,8 +81,10 @@ serve(async (req) => {
         await supabaseAdmin.from('claim_runs').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('audit_logs').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('leave_policies').delete().eq('practice_id', practice.id);
-        await supabaseAdmin.from('user_roles').delete().eq('practice_id', practice.id);
-        await supabaseAdmin.from('role_assignments').delete().eq('practice_id', practice.id);
+        // Note: Skipping old user_roles and role_assignments tables - using user_practice_roles now
+        await supabaseAdmin.from('user_practice_roles').delete().in('user_id',
+          (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || []
+        );
         
         // Delete user_auth_sensitive and user_contact_details for users in this practice
         const practiceUserIds = (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || [];
@@ -195,19 +197,7 @@ serve(async (req) => {
         console.error('Contact details error for', user.email, contactError);
       }
 
-      // Create user_roles entry
-      const { error: roleError } = await supabaseAdmin
-        .from('user_roles')
-        .insert({
-          user_id: authUser.user.id,
-          role: user.role,
-          practice_id: practice.id,
-          created_by: dbUser.id
-        });
-
-      if (roleError) {
-        console.error('Role error for', user.email, roleError);
-      }
+      // Note: Skipping old user_roles table - using user_practice_roles via ensureUserPracticeRole below
 
       // Create user_practice_roles entry for the new role system
       await ensureUserPracticeRole(supabaseAdmin, dbUser.id, practice.id, user.role);
