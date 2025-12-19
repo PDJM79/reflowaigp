@@ -36,11 +36,33 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    let isCancelled = false;
+    
     const renderDiagram = async () => {
-      if (!mermaidText || !containerRef.current) return;
+      if (!mermaidText) {
+        setLoading(false);
+        return;
+      }
+
+      // Pre-validation: check for basic mermaid structure
+      const hasFlowchart = mermaidText.includes('flowchart') || mermaidText.includes('graph');
+      if (!hasFlowchart) {
+        setError('Invalid diagram format - missing flowchart declaration');
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       setError(null);
+
+      // Add timeout to prevent infinite loading (10 seconds)
+      timeoutId = setTimeout(() => {
+        if (!isCancelled) {
+          setLoading(false);
+          setError('Diagram render timeout - please try regenerating');
+        }
+      }, 10000);
 
       try {
         // Generate unique ID for this render
@@ -49,29 +71,49 @@ export function ProcessFlowChart({ mermaidText, className = '' }: ProcessFlowCha
         // Render the diagram
         const { svg } = await mermaid.render(id, mermaidText);
         
-        // Set the SVG content
-        setSvgContent(svg);
+        if (!isCancelled) {
+          setSvgContent(svg);
+          setError(null);
+        }
       } catch (err) {
         console.error('Mermaid render error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to render diagram');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to render diagram';
         
-        // Try to render a simplified fallback
-        try {
-          const fallbackDiagram = `flowchart TD
+        if (!isCancelled) {
+          setError(errorMessage);
+          
+          // Try to render a simplified fallback
+          try {
+            const fallbackDiagram = `flowchart TD
     A([Process Flow]) --> B[Unable to render full diagram]
-    B --> C([Please try regenerating])`;
-          const fallbackId = `mermaid-fallback-${Date.now()}`;
-          const { svg: fallbackSvg } = await mermaid.render(fallbackId, fallbackDiagram);
-          setSvgContent(fallbackSvg);
-        } catch {
-          setSvgContent('');
+    B --> C([Please try regenerating])
+    style A fill:#fef3c7,stroke:#d97706
+    style C fill:#dbeafe,stroke:#2563eb`;
+            const fallbackId = `mermaid-fallback-${Date.now()}`;
+            const { svg: fallbackSvg } = await mermaid.render(fallbackId, fallbackDiagram);
+            setSvgContent(fallbackSvg);
+          } catch {
+            setSvgContent('');
+          }
         }
       } finally {
-        setLoading(false);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     renderDiagram();
+    
+    return () => {
+      isCancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [mermaidText]);
 
   if (loading) {

@@ -16,6 +16,9 @@ export const buildCorsHeaders = (req: Request): HeadersInit => {
   // Check if origin is a Lovable preview domain
   const isLovablePreview = origin?.endsWith('.lovableproject.com');
 
+  // Check if origin is a Lovable production domain
+  const isLovableProduction = origin?.endsWith('.lovable.app');
+
   // Allow localhost for dev
   const isLocalhost =
     origin?.startsWith('http://localhost:') ||
@@ -25,7 +28,7 @@ export const buildCorsHeaders = (req: Request): HeadersInit => {
   const isInAllowlist = allowed.includes(origin ?? '');
 
   // Determine if we should allow this origin
-  const shouldAllow = isLovablePreview || isLocalhost || isInAllowlist;
+  const shouldAllow = isLovablePreview || isLovableProduction || isLocalhost || isInAllowlist;
 
   console.log(`CORS check: origin=${origin}, allowed=${shouldAllow}`);
 
