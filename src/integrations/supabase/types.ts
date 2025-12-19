@@ -624,7 +624,10 @@ export type Database = {
           ack_due: string
           ack_sent_at: string | null
           assigned_to: string | null
+          category: string | null
           channel: string | null
+          closed_at: string | null
+          complainant_name: string | null
           created_at: string | null
           description: string
           emis_hash: string | null
@@ -635,6 +638,9 @@ export type Database = {
           practice_id: string
           received_at: string
           redactions: Json | null
+          severity: string | null
+          sla_status: string | null
+          sla_timescale: string | null
           status: string | null
           updated_at: string | null
         }
@@ -642,7 +648,10 @@ export type Database = {
           ack_due: string
           ack_sent_at?: string | null
           assigned_to?: string | null
+          category?: string | null
           channel?: string | null
+          closed_at?: string | null
+          complainant_name?: string | null
           created_at?: string | null
           description: string
           emis_hash?: string | null
@@ -653,6 +662,9 @@ export type Database = {
           practice_id: string
           received_at: string
           redactions?: Json | null
+          severity?: string | null
+          sla_status?: string | null
+          sla_timescale?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -660,7 +672,10 @@ export type Database = {
           ack_due?: string
           ack_sent_at?: string | null
           assigned_to?: string | null
+          category?: string | null
           channel?: string | null
+          closed_at?: string | null
+          complainant_name?: string | null
           created_at?: string | null
           description?: string
           emis_hash?: string | null
@@ -671,6 +686,9 @@ export type Database = {
           practice_id?: string
           received_at?: string
           redactions?: Json | null
+          severity?: string | null
+          sla_status?: string | null
+          sla_timescale?: string | null
           status?: string | null
           updated_at?: string | null
         }
