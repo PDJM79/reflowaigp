@@ -56,13 +56,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create user record in users table (use JWT-derived practiceId)
+    // NOTE: is_practice_manager flag is deprecated - use user_practice_roles via ensureUserPracticeRole below
     const { data: createdUser, error: userTableError } = await supabaseAdmin
       .from('users')
       .insert({
         auth_user_id: authUser.user.id,
         name,
         practice_id: practiceId, // Use authenticated user's practice
-        is_practice_manager: role === 'practice_manager'
+        is_practice_manager: role === 'practice_manager' // DEPRECATED: kept for backward compatibility
       })
       .select('id')
       .single();

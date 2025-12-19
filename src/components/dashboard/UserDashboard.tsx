@@ -239,15 +239,39 @@ export function UserDashboard() {
         return;
       }
 
-      // Find the practice manager for this practice
-      const { data: practiceManager } = await supabase
-        .from('users')
-        .select('id')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_practice_manager', true)
-        .single();
+      // Find the practice manager via new role system first
+      const { data: pmViaRole } = await supabase
+        .from('user_practice_roles')
+        .select(`
+          user_id,
+          users!inner(id, practice_id),
+          practice_roles!inner(
+            role_catalog!inner(role_key)
+          )
+        `)
+        .eq('users.practice_id', userData.practice_id)
+        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+        .limit(1)
+        .maybeSingle();
 
-      if (!practiceManager) {
+      let practiceManagerId: string | null = null;
+
+      if (pmViaRole?.users) {
+        practiceManagerId = (pmViaRole.users as any).id;
+      } else {
+        // Fallback to is_practice_manager flag for backward compatibility
+        const { data: fallbackPM } = await supabase
+          .from('users')
+          .select('id')
+          .eq('practice_id', userData.practice_id)
+          .eq('is_practice_manager', true)
+          .limit(1)
+          .maybeSingle();
+        
+        practiceManagerId = fallbackPM?.id || null;
+      }
+
+      if (!practiceManagerId) {
         toast.error('No practice manager found');
         return;
       }
@@ -255,7 +279,7 @@ export function UserDashboard() {
       // Update the task to assign it to the practice manager
       const { error } = await supabase
         .from('process_instances')
-        .update({ assignee_id: practiceManager.id })
+        .update({ assignee_id: practiceManagerId })
         .eq('id', taskId);
 
       if (error) {

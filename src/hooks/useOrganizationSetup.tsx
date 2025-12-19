@@ -18,7 +18,7 @@ export function useOrganizationSetup() {
         // Check if user exists in users table
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('practice_id, is_practice_manager')
+          .select('id, practice_id, is_practice_manager')
           .eq('auth_user_id', user.id)
           .single();
 
@@ -29,8 +29,24 @@ export function useOrganizationSetup() {
           return;
         }
 
+        // Check if user is a practice manager via new role system
+        const { data: pmRole } = await supabase
+          .from('user_practice_roles')
+          .select(`
+            id,
+            practice_roles!inner(
+              role_catalog!inner(role_key)
+            )
+          `)
+          .eq('user_id', userData.id)
+          .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+          .maybeSingle();
+
+        // User is PM if they have the role via new system OR via legacy flag (backward compatibility)
+        const isPracticeManager = !!pmRole || userData.is_practice_manager;
+
         // Non-practice managers never need organization setup
-        if (!userData.is_practice_manager) {
+        if (!isPracticeManager) {
           setNeedsSetup(false);
           setLoading(false);
           return;

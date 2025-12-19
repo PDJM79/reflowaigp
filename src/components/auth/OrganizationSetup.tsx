@@ -236,13 +236,14 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       let currentUserId: string;
 
       if (existingUser) {
+        // NOTE: is_practice_manager flag is deprecated - roles assigned via user_practice_roles below
         const { data: updated, error: updateError } = await supabase
           .from('users')
           .update({
             name: currentUserAssignment?.name || 'Practice Manager',
             role: currentUserAssignment?.roles[0] as any || 'practice_manager',
             practice_id: practice.id,
-            is_practice_manager: isPracticeManager
+            is_practice_manager: isPracticeManager // DEPRECATED: kept for backward compatibility
           })
           .eq('auth_user_id', user.id)
           .select('id')
@@ -251,13 +252,14 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         if (updateError) throw updateError;
         currentUserId = updated.id;
       } else {
+        // NOTE: is_practice_manager flag is deprecated - roles assigned via user_practice_roles below
         const { data: created, error: createError } = await (supabase as any)
           .from('users')
           .insert({
             auth_user_id: user.id,
             name: currentUserAssignment?.name || 'Practice Manager',
             practice_id: practice.id,
-            is_practice_manager: isPracticeManager
+            is_practice_manager: isPracticeManager // DEPRECATED: kept for backward compatibility
           })
           .select('id')
           .single();
