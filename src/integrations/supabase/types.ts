@@ -3163,6 +3163,77 @@ export type Database = {
           },
         ]
       }
+      practice_role_capabilities: {
+        Row: {
+          capability: Database["public"]["Enums"]["capability"]
+          created_at: string | null
+          id: string
+          practice_role_id: string
+        }
+        Insert: {
+          capability: Database["public"]["Enums"]["capability"]
+          created_at?: string | null
+          id?: string
+          practice_role_id: string
+        }
+        Update: {
+          capability?: Database["public"]["Enums"]["capability"]
+          created_at?: string | null
+          id?: string
+          practice_role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_role_capabilities_practice_role_id_fkey"
+            columns: ["practice_role_id"]
+            isOneToOne: false
+            referencedRelation: "practice_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          practice_id: string
+          role_catalog_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id: string
+          role_catalog_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id?: string
+          role_catalog_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_roles_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_roles_role_catalog_id_fkey"
+            columns: ["role_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "role_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_targets: {
         Row: {
           created_at: string | null
@@ -3611,6 +3682,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_catalog: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_capabilities: Database["public"]["Enums"]["capability"][]
+          description: string | null
+          display_name: string
+          id: string
+          role_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          default_capabilities?: Database["public"]["Enums"]["capability"][]
+          description?: string | null
+          display_name: string
+          id?: string
+          role_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_capabilities?: Database["public"]["Enums"]["capability"][]
+          description?: string | null
+          display_name?: string
+          id?: string
+          role_key?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       room_assessments: {
         Row: {
@@ -4484,6 +4588,55 @@ export type Database = {
           },
         ]
       }
+      user_practice_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          practice_id: string
+          practice_role_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          practice_id: string
+          practice_role_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          practice_id?: string
+          practice_role_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_practice_roles_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_practice_roles_practice_role_id_fkey"
+            columns: ["practice_role_id"]
+            isOneToOne: false
+            referencedRelation: "practice_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_practice_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -4643,6 +4796,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      current_practice_id: { Args: never; Returns: string }
       expire_old_notifications: { Args: never; Returns: undefined }
       get_candidate_email_audited: {
         Args: { _candidate_id: string }
@@ -4669,6 +4823,10 @@ export type Database = {
       get_unacknowledged_policies_count: {
         Args: { p_user_id: string }
         Returns: number
+      }
+      get_user_capabilities: {
+        Args: { p_id?: string }
+        Returns: Database["public"]["Enums"]["capability"][]
       }
       get_user_email_audited: { Args: { _user_id: string }; Returns: string }
       get_user_id_from_auth: { Args: never; Returns: string }
@@ -4729,6 +4887,10 @@ export type Database = {
           _roles: Database["public"]["Enums"]["app_role"][]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_capability: {
+        Args: { cap: Database["public"]["Enums"]["capability"]; p_id?: string }
         Returns: boolean
       }
       has_role: {
@@ -4807,6 +4969,44 @@ export type Database = {
         | "reception"
         | "auditor"
         | "group_manager"
+      capability:
+        | "view_policies"
+        | "ack_policies"
+        | "manage_policies"
+        | "approve_policies"
+        | "manage_redactions"
+        | "manage_cleaning"
+        | "complete_cleaning"
+        | "manage_ipc"
+        | "run_ipc_audit"
+        | "manage_fire"
+        | "run_fire_checks"
+        | "manage_hs"
+        | "run_risk_assessment"
+        | "manage_rooms"
+        | "run_room_assessment"
+        | "manage_training"
+        | "view_training"
+        | "upload_certificate"
+        | "manage_appraisals"
+        | "run_appraisal"
+        | "collect_360"
+        | "report_incident"
+        | "manage_incident"
+        | "log_complaint"
+        | "manage_complaint"
+        | "record_script"
+        | "manage_claims"
+        | "manage_medical_requests"
+        | "manage_fridges"
+        | "record_fridge_temp"
+        | "manage_qof"
+        | "run_reports"
+        | "view_dashboards"
+        | "manage_users"
+        | "assign_roles"
+        | "configure_practice"
+        | "configure_notifications"
       clean_frequency: "full" | "spot" | "check" | "periodic" | "touch"
       country_code: "Wales" | "England" | "Scotland"
       evidence_type: "photo" | "note" | "signature"
@@ -5012,6 +5212,45 @@ export const Constants = {
         "reception",
         "auditor",
         "group_manager",
+      ],
+      capability: [
+        "view_policies",
+        "ack_policies",
+        "manage_policies",
+        "approve_policies",
+        "manage_redactions",
+        "manage_cleaning",
+        "complete_cleaning",
+        "manage_ipc",
+        "run_ipc_audit",
+        "manage_fire",
+        "run_fire_checks",
+        "manage_hs",
+        "run_risk_assessment",
+        "manage_rooms",
+        "run_room_assessment",
+        "manage_training",
+        "view_training",
+        "upload_certificate",
+        "manage_appraisals",
+        "run_appraisal",
+        "collect_360",
+        "report_incident",
+        "manage_incident",
+        "log_complaint",
+        "manage_complaint",
+        "record_script",
+        "manage_claims",
+        "manage_medical_requests",
+        "manage_fridges",
+        "record_fridge_temp",
+        "manage_qof",
+        "run_reports",
+        "view_dashboards",
+        "manage_users",
+        "assign_roles",
+        "configure_practice",
+        "configure_notifications",
       ],
       clean_frequency: ["full", "spot", "check", "periodic", "touch"],
       country_code: ["Wales", "England", "Scotland"],
