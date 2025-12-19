@@ -4,9 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePracticeSelection } from '@/hooks/usePracticeSelection';
+import { useRoleCatalog } from '@/hooks/useRoleCatalog';
+import type { PracticeRole } from '@/types/roles';
 
 interface UserManagementDialogProps {
   isOpen: boolean;
@@ -15,30 +20,21 @@ interface UserManagementDialogProps {
   user?: any;
 }
 
-const roleOptions = [
-  { value: 'practice_manager', label: 'Practice Manager', description: 'Full system access and administrative rights' },
-  { value: 'administrator', label: 'Administrator', description: 'Administrative tasks and user management' },
-  { value: 'nurse_lead', label: 'Nurse Lead', description: 'Lead nursing staff, IPC audits' },
-  { value: 'cd_lead_gp', label: 'CD Lead GP', description: 'Clinical governance and quality improvement' },
-  { value: 'estates_lead', label: 'Estates Lead', description: 'Facilities, fire safety, maintenance' },
-  { value: 'ig_lead', label: 'IG Lead', description: 'Information governance, complaints handling' },
-  { value: 'reception_lead', label: 'Reception Lead', description: 'Reception team coordination' },
-  { value: 'gp', label: 'GP', description: 'General practitioner' },
-  { value: 'nurse', label: 'Nurse', description: 'Nursing staff' },
-  { value: 'hca', label: 'HCA', description: 'Healthcare assistant' },
-  { value: 'reception', label: 'Reception', description: 'Reception staff' },
-];
-
 export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserManagementDialogProps) {
   const { user: currentUser } = useAuth();
+  const { selectedPracticeId } = usePracticeSelection();
+  const { practiceRoles, practiceRolesLoading, getActivePracticeRoles } = useRoleCatalog();
+  
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    selectedRoles: [] as string[],
+    selectedPracticeRoleIds: [] as string[],
   });
-  const [existingRoles, setExistingRoles] = useState<string[]>([]);
+  const [existingRoleIds, setExistingRoleIds] = useState<string[]>([]);
+
+  const activePracticeRoles = getActivePracticeRoles();
 
   useEffect(() => {
     if (user) {
@@ -46,7 +42,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: user.name || '',
         email: '',
         password: '',
-        selectedRoles: [],
+        selectedPracticeRoleIds: [],
       });
       fetchUserRoles(user.id);
     } else {
@@ -54,34 +50,38 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: '',
         email: '',
         password: '',
-        selectedRoles: [],
+        selectedPracticeRoleIds: [],
       });
-      setExistingRoles([]);
+      setExistingRoleIds([]);
     }
-  }, [user]);
+  }, [user, isOpen]);
 
   const fetchUserRoles = async (userId: string) => {
+    if (!selectedPracticeId) return;
+
     try {
       const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+        .from('user_practice_roles')
+        .select('practice_role_id')
+        .eq('user_id', userId)
+        .eq('practice_id', selectedPracticeId);
 
       if (error) throw error;
-      const roles = data.map(r => r.role);
-      setExistingRoles(roles);
-      setFormData(prev => ({ ...prev, selectedRoles: roles }));
+      
+      const roleIds = (data || []).map(r => r.practice_role_id);
+      setExistingRoleIds(roleIds);
+      setFormData(prev => ({ ...prev, selectedPracticeRoleIds: roleIds }));
     } catch (error) {
       console.error('Error fetching user roles:', error);
     }
   };
 
-  const handleRoleToggle = (role: string) => {
+  const handleRoleToggle = (practiceRoleId: string) => {
     setFormData(prev => ({
       ...prev,
-      selectedRoles: prev.selectedRoles.includes(role)
-        ? prev.selectedRoles.filter(r => r !== role)
-        : [...prev.selectedRoles, role]
+      selectedPracticeRoleIds: prev.selectedPracticeRoleIds.includes(practiceRoleId)
+        ? prev.selectedPracticeRoleIds.filter(id => id !== practiceRoleId)
+        : [...prev.selectedPracticeRoleIds, practiceRoleId]
     }));
   };
 
@@ -98,28 +98,23 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       return;
     }
 
-    if (formData.selectedRoles.length === 0) {
+    if (formData.selectedPracticeRoleIds.length === 0) {
       toast.error('Please select at least one role');
+      return;
+    }
+
+    if (!selectedPracticeId) {
+      toast.error('No practice selected');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, id')
-        .eq('auth_user_id', currentUser?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
       if (user) {
-        // Update existing user roles
-        await updateUserRoles(user.id, userData.practice_id);
+        await updateUserRoles(user.id);
       } else {
-        // Create new user account
-        await createNewUser(userData.practice_id);
+        await createNewUser();
       }
 
       toast.success(user ? 'User roles updated successfully' : 'User created successfully');
@@ -133,28 +128,31 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  const updateUserRoles = async (userId: string, practiceId: string) => {
+  const updateUserRoles = async (userId: string) => {
+    if (!selectedPracticeId) return;
+
     // Delete removed roles
-    const rolesToRemove = existingRoles.filter(r => !formData.selectedRoles.includes(r));
+    const rolesToRemove = existingRoleIds.filter(id => !formData.selectedPracticeRoleIds.includes(id));
     if (rolesToRemove.length > 0) {
       const { error } = await supabase
-        .from('user_roles')
+        .from('user_practice_roles')
         .delete()
         .eq('user_id', userId)
-        .in('role', rolesToRemove as any);
+        .eq('practice_id', selectedPracticeId)
+        .in('practice_role_id', rolesToRemove);
       if (error) throw error;
     }
 
     // Add new roles
-    const rolesToAdd = formData.selectedRoles.filter(r => !existingRoles.includes(r));
+    const rolesToAdd = formData.selectedPracticeRoleIds.filter(id => !existingRoleIds.includes(id));
     if (rolesToAdd.length > 0) {
       const { error } = await supabase
-        .from('user_roles')
+        .from('user_practice_roles')
         .insert(
-          rolesToAdd.map(role => ({
+          rolesToAdd.map(practiceRoleId => ({
             user_id: userId,
-            role: role as any,
-            practice_id: practiceId,
+            practice_id: selectedPracticeId,
+            practice_role_id: practiceRoleId,
           }))
         );
       if (error) throw error;
@@ -170,34 +168,53 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  const createNewUser = async (practiceId: string) => {
+  const createNewUser = async () => {
+    if (!selectedPracticeId) return;
+
+    // Get primary role for user metadata
+    const primaryRole = activePracticeRoles.find(
+      pr => pr.id === formData.selectedPracticeRoleIds[0]
+    );
+    const roleKey = primaryRole?.role_catalog?.role_key || 'user';
+
     // Call edge function to create user account
     const { data, error } = await supabase.functions.invoke('create-user-accounts', {
       body: {
         email: formData.email,
         name: formData.name,
-        role: formData.selectedRoles[0], // Primary role for user metadata
-        practice_id: practiceId,
+        role: roleKey,
+        practice_id: selectedPracticeId,
         password: formData.password || undefined,
       }
     });
 
     if (error) throw error;
 
-    // Add additional roles to user_roles table
-    if (formData.selectedRoles.length > 1 && data.user_id) {
-      const additionalRoles = formData.selectedRoles.slice(1);
+    // Add roles to user_practice_roles table
+    if (data?.user_id && formData.selectedPracticeRoleIds.length > 0) {
       const { error: rolesError } = await supabase
-        .from('user_roles')
+        .from('user_practice_roles')
         .insert(
-          additionalRoles.map(role => ({
+          formData.selectedPracticeRoleIds.map(practiceRoleId => ({
             user_id: data.user_id,
-            role: role as any,
-            practice_id: practiceId,
+            practice_id: selectedPracticeId,
+            practice_role_id: practiceRoleId,
           }))
         );
       if (rolesError) throw rolesError;
     }
+  };
+
+  const getCategoryColor = (category: string | undefined): string => {
+    const colors: Record<string, string> = {
+      clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      governance: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      it: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      support: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+      pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    };
+    return colors[category || 'support'] || colors.support;
   };
 
   return (
@@ -263,28 +280,62 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
           {/* Role Selection */}
           <div className="space-y-3">
             <Label className="text-base">User Roles * (Select one or more)</Label>
-            <div className="border rounded-lg p-4 space-y-3 max-h-[300px] overflow-y-auto">
-              {roleOptions.map((role) => (
-                <div key={role.value} className="flex items-start space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <Checkbox
-                    id={role.value}
-                    checked={formData.selectedRoles.includes(role.value)}
-                    onCheckedChange={() => handleRoleToggle(role.value)}
-                  />
-                  <div className="flex-1">
-                    <label
-                      htmlFor={role.value}
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      {role.label}
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {role.description}
-                    </p>
-                  </div>
+            {practiceRolesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : activePracticeRoles.length === 0 ? (
+              <div className="border rounded-lg p-4 text-center text-muted-foreground">
+                <p>No roles have been enabled for this practice yet.</p>
+                <p className="text-sm mt-1">Go to Role Management to enable roles.</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-lg p-4">
+                <div className="space-y-3">
+                  {activePracticeRoles.map((practiceRole) => {
+                    const roleInfo = practiceRole.role_catalog;
+                    if (!roleInfo) return null;
+
+                    return (
+                      <div
+                        key={practiceRole.id}
+                        className={`flex items-start space-x-3 p-3 rounded-lg transition-colors cursor-pointer ${
+                          formData.selectedPracticeRoleIds.includes(practiceRole.id)
+                            ? 'bg-primary/10 border border-primary/20'
+                            : 'hover:bg-muted/50 border border-transparent'
+                        }`}
+                        onClick={() => handleRoleToggle(practiceRole.id)}
+                      >
+                        <Checkbox
+                          id={practiceRole.id}
+                          checked={formData.selectedPracticeRoleIds.includes(practiceRole.id)}
+                          onCheckedChange={() => handleRoleToggle(practiceRole.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <label
+                              htmlFor={practiceRole.id}
+                              className="text-sm font-medium leading-none cursor-pointer"
+                            >
+                              {roleInfo.display_name}
+                            </label>
+                            <Badge variant="outline" className={getCategoryColor(roleInfo.category)}>
+                              {roleInfo.category}
+                            </Badge>
+                          </div>
+                          {roleInfo.description && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {roleInfo.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              </ScrollArea>
+            )}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -298,7 +349,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
             </Button>
             <Button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || activePracticeRoles.length === 0}
               className="w-full sm:w-auto min-h-[44px]"
             >
               {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}

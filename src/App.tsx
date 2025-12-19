@@ -41,6 +41,9 @@ import Reports from "./pages/Reports";
 import EmailLogs from "./pages/EmailLogs";
 import EmailReportsSettings from "./pages/EmailReportsSettings";
 
+// Role Management
+import RoleManagement from "./pages/RoleManagement";
+
 // Phase 3 Dashboards
 import ComplianceOverview from "./pages/dashboards/ComplianceOverview";
 import ClinicalGovernance from "./pages/dashboards/ClinicalGovernance";
@@ -106,6 +109,7 @@ const App = () => (
                   <Route path="/fire-safety" element={<FireSafety />} />
                   <Route path="/hr" element={<HR />} />
                   <Route path="/user-management" element={<UserManagement />} />
+                  <Route path="/role-management" element={<RoleManagement />} />
                   <Route path="/staff-self-service" element={<StaffSelfService />} />
                   <Route path="/complaints" element={<Complaints />} />
                   <Route path="/medical-requests" element={<MedicalRequests />} />

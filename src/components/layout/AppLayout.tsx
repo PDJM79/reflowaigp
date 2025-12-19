@@ -98,6 +98,7 @@ export function AppLayout() {
       title: 'People',
       items: [
         { icon: Users, label: 'User Management', path: '/user-management', capabilities: 'manage_users' },
+        { icon: Shield, label: 'Role Management', path: '/role-management', capabilities: 'assign_roles' },
         { icon: Users, label: t('nav.hr'), path: '/hr', capabilities: ['manage_training', 'manage_appraisals'] },
         { icon: Users, label: 'My Information', path: '/staff-self-service', capabilities: 'all' },
         { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', capabilities: ['report_incident', 'manage_incident'] },
