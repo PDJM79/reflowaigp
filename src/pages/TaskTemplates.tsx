@@ -62,7 +62,7 @@ export default function TaskTemplates() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select('practice_id, is_practice_manager')
+        .select('practice_id')
         .eq('auth_user_id', user?.id)
         .single();
 

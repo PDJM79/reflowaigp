@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,12 +39,16 @@ interface Task {
 export default function Reports() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { hasCapability } = useCapabilities();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'timeline'>('timeline');
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Check capability for viewing all tasks
+  const canSeeAllTasks = hasCapability('view_dashboards');
 
   useEffect(() => {
     if (!user) {
@@ -57,21 +62,11 @@ export default function Reports() {
     try {
       const { data: userData } = await supabase
         .from('users')
-        .select(`
-          practice_id, 
-          is_practice_manager,
-          user_roles!inner(role)
-        `)
+        .select('practice_id')
         .eq('auth_user_id', user?.id)
         .single();
 
       if (!userData) return;
-
-      // Administrators and practice managers can see all tasks
-      const userRoles = Array.isArray(userData?.user_roles) 
-        ? userData.user_roles.map((r: any) => r.role) 
-        : [];
-      const canSeeAllTasks = userData.is_practice_manager || userRoles.includes('administrator');
 
       let query = supabase
         .from('tasks')

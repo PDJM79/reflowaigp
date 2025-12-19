@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { BarChart3, Calendar, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,46 +38,19 @@ const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6b7280'];
 export default function AdminReports() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  const canAccessReports = hasCapability('run_reports');
 
   useEffect(() => {
-    checkAdminAccess();
-  }, [user]);
-
-  useEffect(() => {
-    if (isAdmin) {
+    if (!capabilitiesLoading && canAccessReports) {
       fetchReportData();
     }
-  }, [isAdmin, startDate, endDate]);
-
-  const checkAdminAccess = async () => {
-    if (!user) return;
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, is_practice_manager')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      // Check if user is practice manager OR has administrator role via user_roles
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['administrator', 'practice_manager']);
-
-      setIsAdmin(userData.is_practice_manager || (roleData && roleData.length > 0));
-    } catch (error) {
-      console.error('Error checking admin access:', error);
-    }
-  };
+  }, [capabilitiesLoading, canAccessReports, startDate, endDate]);
 
   const fetchReportData = async () => {
     if (!user) return;
@@ -188,7 +162,18 @@ export default function AdminReports() {
     }
   };
 
-  if (!isAdmin) {
+  if (capabilitiesLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canAccessReports) {
     return (
       <div className="min-h-screen bg-background">
         <AppHeader />
@@ -197,7 +182,7 @@ export default function AdminReports() {
             <CardContent className="p-6 text-center">
               <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
               <p className="text-muted-foreground">
-                You need administrator or practice manager privileges to access this page.
+                You need the "run_reports" capability to access this page.
               </p>
               <Button onClick={() => navigate('/')} className="mt-4">
                 Return to Dashboard
