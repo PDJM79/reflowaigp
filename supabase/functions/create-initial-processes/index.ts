@@ -31,12 +31,16 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { error: 'No templates found for this practice' }, 404);
     }
 
-    // Get all users in this practice with their roles from user_roles table
+    // Get all users in this practice with their roles from user_practice_roles -> role_catalog
     const { data: practiceUsers, error: usersError } = await supabase
       .from('users')
       .select(`
         id,
-        user_roles!inner(role)
+        user_practice_roles(
+          practice_roles(
+            role_catalog(role_key)
+          )
+        )
       `)
       .eq('practice_id', practiceId)
       .eq('is_active', true);
@@ -53,18 +57,23 @@ Deno.serve(async (req) => {
     const now = new Date();
     const processInstances = [];
 
+    // Helper to check if user has a specific role
+    const userHasRole = (user: any, roleKey: string): boolean => {
+      return user.user_practice_roles?.some((upr: any) => 
+        upr.practice_roles?.role_catalog?.role_key === roleKey
+      ) ?? false;
+    };
+
     // Create process instances for each template
     for (const template of templates) {
       // Find users with matching roles for this template
       const assignedUsers = practiceUsers.filter(user => 
-        Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === template.responsible_role)
+        userHasRole(user, template.responsible_role)
       );
       
       // If no specific user found, assign to practice manager
       const targetUsers = assignedUsers.length > 0 ? assignedUsers : 
-        practiceUsers.filter(user => 
-          Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === 'practice_manager')
-        );
+        practiceUsers.filter(user => userHasRole(user, 'practice_manager'));
 
       for (const user of targetUsers) {
         // Calculate due date based on frequency
