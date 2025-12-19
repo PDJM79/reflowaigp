@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -14,52 +14,30 @@ import {
   Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { OfflineIndicator } from '@/components/ui/offline-indicator';
+import type { Capability } from '@/types/roles';
+
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  path: string;
+  capabilities?: Capability | Capability[] | 'all';
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['Overview', 'Tasks & Schedule']);
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
-    // Fetch user roles - FIXED: properly join through users table
-    const fetchUserRoles = async () => {
-      // First get internal user ID and is_practice_manager flag
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, is_practice_manager')
-        .eq('auth_user_id', user.id)
-        .single();
-      
-      if (userData) {
-        // Then fetch all roles for this user
-        const { data: rolesData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userData.id);
-        
-        if (rolesData && rolesData.length > 0) {
-          setUserRoles(rolesData.map((r) => r.role));
-        } else if (userData.is_practice_manager) {
-          // Fallback: use is_practice_manager flag if no roles in user_roles table
-          setUserRoles(['practice_manager']);
-        }
-        // If no roles and not practice manager, userRoles stays empty - user sees 'all' nav items only
-      }
-    };
-    
-    fetchUserRoles();
-  }, [user, navigate]);
 
   const handleLogout = async () => {
     await signOut();
@@ -74,72 +52,80 @@ export function AppLayout() {
     );
   };
 
-  const navGroups = [
+  // Navigation groups with capability-based access control
+  const navGroups: NavGroup[] = [
     {
       title: 'Overview',
       items: [
-        { icon: Home, label: t('nav.home'), path: '/', roles: 'all' },
-        { icon: BarChart3, label: 'Dashboards', path: '/dashboards', roles: ['practice_manager'] },
+        { icon: Home, label: t('nav.home'), path: '/', capabilities: 'all' },
+        { icon: BarChart3, label: 'Dashboards', path: '/dashboards', capabilities: 'view_dashboards' },
       ]
     },
     {
       title: 'Tasks & Schedule',
       items: [
-        { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', roles: 'all' },
-        { icon: Calendar, label: t('nav.schedule'), path: '/schedule', roles: ['practice_manager', 'administrator'] },
-        { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', roles: ['practice_manager', 'administrator'] },
+        { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', capabilities: 'all' },
+        { icon: Calendar, label: t('nav.schedule'), path: '/schedule', capabilities: ['configure_practice', 'manage_users'] },
+        { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', capabilities: 'configure_practice' },
       ]
     },
     {
       title: 'Clinical',
       items: [
-        { icon: Pill, label: t('nav.month_end'), path: '/month-end', roles: 'all' },
-        { icon: PoundSterling, label: t('nav.claims'), path: '/claims', roles: ['practice_manager', 'administrator'] },
-        { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', roles: 'all' },
-        { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', roles: ['administrator', 'practice_manager'] },
+        { icon: Pill, label: t('nav.month_end'), path: '/month-end', capabilities: 'record_script' },
+        { icon: PoundSterling, label: t('nav.claims'), path: '/claims', capabilities: 'manage_claims' },
+        { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', capabilities: ['record_fridge_temp', 'manage_fridges'] },
+        { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', capabilities: 'manage_medical_requests' },
       ]
     },
     {
       title: 'Compliance',
       items: [
-        { icon: Shield, label: 'IPC Audits', path: '/ipc', roles: ['nurse_lead', 'practice_manager'] },
-        { icon: BookOpen, label: t('nav.policies'), path: '/policies', roles: 'all' },
-        { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', roles: ['practice_manager', 'ig_lead'] },
+        { icon: Shield, label: 'IPC Audits', path: '/ipc', capabilities: ['manage_ipc', 'run_ipc_audit'] },
+        { icon: BookOpen, label: t('nav.policies'), path: '/policies', capabilities: 'view_policies' },
+        { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', capabilities: ['manage_hs', 'run_risk_assessment'] },
       ]
     },
     {
       title: 'Facilities',
       items: [
-        { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', roles: ['estates_lead', 'practice_manager'] },
-        { icon: Building, label: 'Room Assessments', path: '/room-assessments', roles: ['estates_lead', 'practice_manager'] },
-        { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', roles: ['estates_lead', 'practice_manager'] },
+        { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', capabilities: ['manage_cleaning', 'complete_cleaning'] },
+        { icon: Building, label: 'Room Assessments', path: '/room-assessments', capabilities: ['manage_rooms', 'run_room_assessment'] },
+        { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', capabilities: ['manage_fire', 'run_fire_checks'] },
       ]
     },
     {
       title: 'People',
       items: [
-        { icon: Users, label: 'User Management', path: '/user-management', roles: ['practice_manager', 'administrator'] },
-        { icon: Users, label: t('nav.hr'), path: '/hr', roles: ['practice_manager', 'administrator'] },
-        { icon: Users, label: 'My Information', path: '/staff-self-service', roles: 'all' },
-        { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', roles: 'all' },
-        { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', roles: ['ig_lead', 'practice_manager', 'reception_lead'] },
+        { icon: Users, label: 'User Management', path: '/user-management', capabilities: 'manage_users' },
+        { icon: Users, label: t('nav.hr'), path: '/hr', capabilities: ['manage_training', 'manage_appraisals'] },
+        { icon: Users, label: 'My Information', path: '/staff-self-service', capabilities: 'all' },
+        { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', capabilities: ['report_incident', 'manage_incident'] },
+        { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', capabilities: ['log_complaint', 'manage_complaint'] },
       ]
     },
     {
       title: 'Reports & Admin',
       items: [
-        { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', roles: ['practice_manager', 'ig_lead'] },
+        { icon: BarChart3, label: 'Reports', path: '/reports', capabilities: 'run_reports' },
+        { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', capabilities: 'configure_notifications' },
       ]
     }
   ];
 
-  // Filter groups based on user roles - support multi-role
+  // Check if user has access to a nav item based on capabilities
+  const hasNavAccess = (item: NavItem): boolean => {
+    if (item.capabilities === 'all') return true;
+    if (!item.capabilities) return true;
+    
+    const caps = Array.isArray(item.capabilities) ? item.capabilities : [item.capabilities];
+    return hasAnyCapability(...caps);
+  };
+
+  // Filter groups based on user capabilities
   const visibleNavGroups = navGroups.map(group => ({
     ...group,
-    items: group.items.filter(item => 
-      item.roles === 'all' || 
-      (Array.isArray(item.roles) && item.roles.some(r => userRoles.includes(r)))
-    )
+    items: group.items.filter(hasNavAccess)
   })).filter(group => group.items.length > 0);
 
   const isActive = (path: string) => location.pathname === path;
