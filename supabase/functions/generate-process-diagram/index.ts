@@ -180,7 +180,18 @@ Return the improved Mermaid diagram:`;
     if (enhancedText && enhancedText.includes("flowchart")) {
       // Extract just the mermaid code
       const mermaidMatch = enhancedText.match(/```(?:mermaid)?\s*(flowchart[\s\S]*?)```/);
-      return mermaidMatch ? mermaidMatch[1].trim() : enhancedText;
+      const extractedMermaid = mermaidMatch ? mermaidMatch[1].trim() : enhancedText;
+      
+      // Additional validation: must have proper nodes and connections
+      const hasConnections = extractedMermaid.includes("-->") || extractedMermaid.includes("---");
+      const hasNodes = /\[.*\]|\(.*\)|\{.*\}/.test(extractedMermaid);
+      
+      if (hasConnections && hasNodes) {
+        console.log("AI enhancement validated successfully");
+        return extractedMermaid;
+      }
+      
+      console.log("AI enhancement failed validation, using baseline");
     }
     
     return baselineMermaid;
