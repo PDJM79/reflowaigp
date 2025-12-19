@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { usePracticeSelection } from './usePracticeSelection';
 import type { Capability, UserPracticeRole, PracticeRole, RoleCatalogEntry } from '@/types/roles';
-import { hasCapability as checkCapability } from '@/types/roles';
+import { hasCapability as checkCapability, ALL_CAPABILITIES } from '@/types/roles';
 
 interface CapabilitiesContextType {
   capabilities: Capability[];
@@ -29,6 +29,7 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
   const [userRoles, setUserRoles] = useState<UserPracticeRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPracticeManager, setIsPracticeManager] = useState(false);
 
   const fetchCapabilities = useCallback(async () => {
     if (!user || !selectedPracticeId) {
@@ -42,19 +43,32 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
       setLoading(true);
       setError(null);
 
-      // Get user's internal ID
+      // Get user's internal ID and check is_practice_manager flag
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, is_practice_manager')
         .eq('auth_user_id', user.id)
         .single();
 
       if (userError || !userData) {
         setCapabilities([]);
         setUserRoles([]);
+        setIsPracticeManager(false);
         setLoading(false);
         return;
       }
+
+      // TEMPORARY FALLBACK: Grant all capabilities to practice managers
+      // This ensures existing managers aren't locked out during role migration
+      if (userData.is_practice_manager) {
+        setIsPracticeManager(true);
+        setCapabilities([...ALL_CAPABILITIES]);
+        setUserRoles([]);
+        setLoading(false);
+        return;
+      }
+      
+      setIsPracticeManager(false);
 
       // Fetch user's practice roles with role catalog details
       const { data: rolesData, error: rolesError } = await supabase
