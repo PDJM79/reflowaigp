@@ -5373,8 +5373,6 @@ export type Database = {
           title: string
         }[]
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       user_has_mfa_enabled: { Args: { _user_id: string }; Returns: boolean }
       verify_user_mfa_token: {
         Args: { _token: string; _user_id: string }
