@@ -49,147 +49,88 @@ serve(async (req) => {
 
     console.log("Creating baseline for practice:", practiceId, "from", startDate, "to", endDate);
 
-    // Calculate scores from existing data within the date range
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    // Fetch metrics for the date range
-    const [tasksResult, policiesResult, incidentsResult, fridgeResult, ipcResult, complaintsResult] = await Promise.all([
-      serviceClient.from("tasks").select("*").eq("practice_id", practiceId).gte("due_at", startDate).lte("due_at", endDate),
-      serviceClient.from("policy_documents").select("*").eq("practice_id", practiceId),
-      serviceClient.from("incidents").select("*").eq("practice_id", practiceId).gte("incident_date", startDate).lte("incident_date", endDate),
-      serviceClient.from("fridge_temp_logs").select("*").eq("practice_id", practiceId).gte("log_date", startDate).lte("log_date", endDate),
-      serviceClient.from("ipc_audits").select("*").eq("practice_id", practiceId).gte("audit_date", startDate).lte("audit_date", endDate),
-      serviceClient.from("complaints").select("*").eq("practice_id", practiceId).gte("received_at", startDate).lte("received_at", endDate),
-    ]);
-
-    const tasks = tasksResult.data || [];
-    const policies = policiesResult.data || [];
-    const incidents = incidentsResult.data || [];
-    const fridgeLogs = fridgeResult.data || [];
-    const ipcAudits = ipcResult.data || [];
-    const complaints = complaintsResult.data || [];
-
-    // Calculate driver scores
-    const driverDetails: Array<{ check_type: string; score: number; total: number; passed: number; impact: number }> = [];
+    // If no documents uploaded, baseline is zero for all metrics
+    const hasDocuments = documentIds && documentIds.length > 0;
     
-    // Task completion score
-    const completedTasks = tasks.filter((t: any) => t.status === "complete").length;
-    const taskScore = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "task_completion",
-      score: Math.round(taskScore * 10) / 10,
-      total: tasks.length,
-      passed: completedTasks,
-      impact: Math.round(taskScore * 0.25 * 10) / 10, // 25% weight
-    });
-
-    // Policy review score
-    const activePolicies = policies.filter((p: any) => p.status === "active").length;
-    const policyScore = policies.length > 0 ? (activePolicies / policies.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "policy_review",
-      score: Math.round(policyScore * 10) / 10,
-      total: policies.length,
-      passed: activePolicies,
-      impact: Math.round(policyScore * 0.2 * 10) / 10, // 20% weight
-    });
-
-    // Fridge temp compliance
-    const validFridgeLogs = fridgeLogs.filter((l: any) => l.temperature >= 2 && l.temperature <= 8).length;
-    const fridgeScore = fridgeLogs.length > 0 ? (validFridgeLogs / fridgeLogs.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "fridge_temp",
-      score: Math.round(fridgeScore * 10) / 10,
-      total: fridgeLogs.length,
-      passed: validFridgeLogs,
-      impact: Math.round(fridgeScore * 0.15 * 10) / 10, // 15% weight
-    });
-
-    // IPC compliance
-    const passedIpc = ipcAudits.filter((a: any) => a.overall_result === "pass" || a.score >= 80).length;
-    const ipcScore = ipcAudits.length > 0 ? (passedIpc / ipcAudits.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "ipc_audits",
-      score: Math.round(ipcScore * 10) / 10,
-      total: ipcAudits.length,
-      passed: passedIpc,
-      impact: Math.round(ipcScore * 0.2 * 10) / 10, // 20% weight
-    });
-
-    // Incident management (inverse - fewer is better)
-    const resolvedIncidents = incidents.filter((i: any) => i.status === "closed" || i.status === "resolved").length;
-    const incidentScore = incidents.length > 0 ? (resolvedIncidents / incidents.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "incident_management",
-      score: Math.round(incidentScore * 10) / 10,
-      total: incidents.length,
-      passed: resolvedIncidents,
-      impact: Math.round(incidentScore * 0.1 * 10) / 10, // 10% weight
-    });
-
-    // Complaint SLA adherence
-    const slaMetComplaints = complaints.filter((c: any) => c.sla_status === "met" || c.ack_sent_at).length;
-    const complaintScore = complaints.length > 0 ? (slaMetComplaints / complaints.length) * 100 : 100;
-    driverDetails.push({
-      check_type: "complaint_sla",
-      score: Math.round(complaintScore * 10) / 10,
-      total: complaints.length,
-      passed: slaMetComplaints,
-      impact: Math.round(complaintScore * 0.1 * 10) / 10, // 10% weight
-    });
-
-    // Calculate overall compliance score (weighted average)
-    const complianceScore = driverDetails.reduce((sum, d) => sum + d.impact, 0);
-    
-    // Fit for audit score (stricter - deduct for any failures)
-    let fitForAuditScore = complianceScore;
-    const redFlags: Array<{ type: string; severity: string; description: string; confidence: number }> = [];
-
-    // Check for red flags
-    if (fridgeScore < 100) {
-      const deduction = Math.round((100 - fridgeScore) * 0.1);
-      fitForAuditScore -= deduction;
-      redFlags.push({
-        type: "fridge_temp_breach",
-        severity: fridgeScore < 80 ? "high" : "medium",
-        description: `${fridgeLogs.length - validFridgeLogs} fridge temperature readings out of range`,
-        confidence: 0.95,
-      });
-    }
-
-    if (incidents.filter((i: any) => i.severity === "major" || i.severity === "critical").length > 0) {
-      fitForAuditScore -= 10;
-      redFlags.push({
-        type: "major_incident",
-        severity: "high",
-        description: "Major or critical incidents recorded during period",
-        confidence: 1.0,
-      });
-    }
-
-    if (complaints.filter((c: any) => c.sla_status === "breached").length > 0) {
-      fitForAuditScore -= 5;
-      redFlags.push({
-        type: "sla_breach",
-        severity: "medium",
-        description: "Complaint SLA breaches detected",
-        confidence: 1.0,
-      });
-    }
-
-    fitForAuditScore = Math.max(0, Math.min(100, fitForAuditScore));
-
-    // Get document hashes if any
+    let driverDetails: Array<{ check_type: string; score: number; total: number; passed: number; impact: number }> = [];
+    let complianceScore = 0;
+    let fitForAuditScore = 0;
+    let redFlags: Array<{ type: string; severity: string; description: string; confidence: number }> = [];
     let sourceDocumentHashes: string[] = [];
-    if (documentIds && documentIds.length > 0) {
+
+    if (hasDocuments) {
+      // Calculate scores from uploaded documents
+      const serviceClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      );
+
+      // Get document hashes
       const { data: docs } = await serviceClient
         .from("baseline_documents")
-        .select("file_hash")
+        .select("file_hash, extracted_data")
         .in("id", documentIds);
+      
       sourceDocumentHashes = (docs || []).map((d: any) => d.file_hash);
+
+      // Extract metrics from processed documents
+      const extractedMetrics = (docs || [])
+        .filter((d: any) => d.extracted_data?.metrics)
+        .flatMap((d: any) => d.extracted_data.metrics);
+
+      // Build driver details from extracted data
+      const checkTypes = ['task_completion', 'policy_review', 'fridge_temp', 'ipc_audits', 'incident_management', 'complaint_sla'];
+      const weights = { task_completion: 0.25, policy_review: 0.2, fridge_temp: 0.15, ipc_audits: 0.2, incident_management: 0.1, complaint_sla: 0.1 };
+
+      for (const checkType of checkTypes) {
+        const metric = extractedMetrics.find((m: any) => m.name === checkType);
+        const score = metric?.value || 0;
+        const weight = weights[checkType as keyof typeof weights];
+        
+        driverDetails.push({
+          check_type: checkType,
+          score: Math.round(score * 10) / 10,
+          total: metric?.total || 0,
+          passed: metric?.passed || 0,
+          impact: Math.round(score * weight * 10) / 10,
+        });
+      }
+
+      complianceScore = driverDetails.reduce((sum, d) => sum + d.impact, 0);
+      fitForAuditScore = complianceScore;
+
+      // Check for red flags from document analysis
+      for (const doc of docs || []) {
+        if (doc.extracted_data?.red_flags) {
+          redFlags.push(...doc.extracted_data.red_flags);
+        }
+      }
+
+      // Apply red flag deductions to fit for audit score
+      if (redFlags.some((f: any) => f.severity === 'high')) {
+        fitForAuditScore -= 10;
+      }
+      if (redFlags.some((f: any) => f.type === 'sla_breach')) {
+        fitForAuditScore -= 5;
+      }
+      fitForAuditScore = Math.max(0, Math.min(100, fitForAuditScore));
+    } else {
+      // No documents = zero baseline for all metrics
+      console.log("No documents uploaded - creating zero baseline");
+      
+      const checkTypes = ['task_completion', 'policy_review', 'fridge_temp', 'ipc_audits', 'incident_management', 'complaint_sla'];
+      for (const checkType of checkTypes) {
+        driverDetails.push({
+          check_type: checkType,
+          score: 0,
+          total: 0,
+          passed: 0,
+          impact: 0,
+        });
+      }
+      
+      complianceScore = 0;
+      fitForAuditScore = 0;
     }
 
     // If rebaselining, mark old baseline as superseded
