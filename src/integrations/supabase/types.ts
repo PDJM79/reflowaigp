@@ -211,6 +211,156 @@ export type Database = {
           },
         ]
       }
+      baseline_documents: {
+        Row: {
+          baseline_id: string | null
+          confidence_score: number | null
+          document_end_date: string | null
+          document_start_date: string | null
+          extracted_data: Json | null
+          file_hash: string
+          file_name: string
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          practice_id: string
+          processed_at: string | null
+          processing_error: string | null
+          processing_status: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          baseline_id?: string | null
+          confidence_score?: number | null
+          document_end_date?: string | null
+          document_start_date?: string | null
+          extracted_data?: Json | null
+          file_hash: string
+          file_name: string
+          file_size_bytes?: number | null
+          file_type: string
+          id?: string
+          practice_id: string
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          baseline_id?: string | null
+          confidence_score?: number | null
+          document_end_date?: string | null
+          document_start_date?: string | null
+          extracted_data?: Json | null
+          file_hash?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          practice_id?: string
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baseline_documents_baseline_id_fkey"
+            columns: ["baseline_id"]
+            isOneToOne: false
+            referencedRelation: "baseline_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baseline_documents_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      baseline_snapshots: {
+        Row: {
+          baseline_name: string
+          compliance_score: number
+          created_at: string
+          created_by: string
+          driver_details: Json
+          end_date: string
+          fit_for_audit_score: number
+          id: string
+          model_version: string | null
+          pipeline_version: string | null
+          practice_id: string
+          rebaseline_reason: string | null
+          red_flags: Json
+          replaces_baseline_id: string | null
+          source_document_hashes: string[]
+          start_date: string
+          status: string
+        }
+        Insert: {
+          baseline_name?: string
+          compliance_score: number
+          created_at?: string
+          created_by: string
+          driver_details?: Json
+          end_date: string
+          fit_for_audit_score: number
+          id?: string
+          model_version?: string | null
+          pipeline_version?: string | null
+          practice_id: string
+          rebaseline_reason?: string | null
+          red_flags?: Json
+          replaces_baseline_id?: string | null
+          source_document_hashes?: string[]
+          start_date: string
+          status?: string
+        }
+        Update: {
+          baseline_name?: string
+          compliance_score?: number
+          created_at?: string
+          created_by?: string
+          driver_details?: Json
+          end_date?: string
+          fit_for_audit_score?: number
+          id?: string
+          model_version?: string | null
+          pipeline_version?: string | null
+          practice_id?: string
+          rebaseline_reason?: string | null
+          red_flags?: Json
+          replaces_baseline_id?: string | null
+          source_document_hashes?: string[]
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baseline_snapshots_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baseline_snapshots_replaces_baseline_id_fkey"
+            columns: ["replaces_baseline_id"]
+            isOneToOne: false
+            referencedRelation: "baseline_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_contact_details: {
         Row: {
           candidate_id: string

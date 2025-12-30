@@ -95,3 +95,12 @@ verify_jwt = true
 
 [functions.send-mfa-change-notification]
 verify_jwt = true
+
+[functions.create-baseline]
+verify_jwt = true
+
+[functions.compute-delta]
+verify_jwt = true
+
+[functions.process-baseline-documents]
+verify_jwt = true
