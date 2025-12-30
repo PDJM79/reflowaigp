@@ -377,10 +377,10 @@ export function BaselineCreateDialog({
 
           {/* Warning for low confidence */}
           {uploadedDocs.length === 0 && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30">
-              <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-              <p className="text-xs text-warning">
-                Without uploaded documents, the baseline will be computed from existing digital audit data only.
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border">
+              <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                Without uploaded documents, the baseline will start at 0% for all metrics. Upload historical records to set an accurate starting point.
               </p>
             </div>
           )}
