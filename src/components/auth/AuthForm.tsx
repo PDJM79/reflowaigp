@@ -80,7 +80,7 @@ export function AuthForm() {
           <img 
             src="/images/reflow-logo.png" 
             alt="ReflowAI" 
-            className="h-[400px] w-auto mb-8"
+            className="h-40 w-auto mb-8"
           />
           
           <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
@@ -146,7 +146,7 @@ export function AuthForm() {
           <img 
             src="/images/reflow-logo.png" 
             alt="ReflowAI" 
-            className="h-[400px] w-auto mb-8"
+            className="h-40 w-auto mb-8"
           />
           
           <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
@@ -221,7 +221,7 @@ export function AuthForm() {
           <img 
             src="/images/reflow-logo.png" 
             alt="ReflowAI" 
-            className="h-[400px] w-auto mb-8"
+            className="h-40 w-auto mb-8"
           />
           
           <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
@@ -307,7 +307,7 @@ export function AuthForm() {
         <img 
             src="/images/reflow-logo.png" 
             alt="ReflowAI" 
-            className="h-[400px] w-auto mb-6"
+            className="h-40 w-auto mb-6"
         />
         
         {/* Headline */}
