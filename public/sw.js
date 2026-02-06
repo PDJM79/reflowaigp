@@ -43,7 +43,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip chrome extensions and external URLs
-  if (!url.origin.includes('lovableproject.com') && !url.origin.includes('localhost')) {
+  if (!url.origin.includes('replit.dev') && !url.origin.includes('replit.app') && !url.origin.includes('localhost')) {
     return;
   }
 

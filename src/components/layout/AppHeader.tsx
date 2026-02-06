@@ -23,8 +23,8 @@ export function AppHeader({ children, useLoginStyles = false }: AppHeaderProps) 
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <div className="bg-slate-800/80 dark:bg-slate-900/80 p-1 sm:p-2 rounded-lg flex-shrink-0">
             <img 
-              src="/lovable-uploads/0677a790-976c-4155-b715-06fc3d1155a9.png" 
-              alt="ReflowAI Logo" 
+              src="/icons/app-icon-512.png" 
+              alt="GP Practice Management" 
               className="h-8 sm:h-[4.2rem] w-auto drop-shadow-md"
             />
           </div>
