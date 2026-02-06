@@ -8,8 +8,8 @@ channel = "stable-25_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["node", "./dist/index.cjs"]
-build = ["npm", "run", "build"]
+run = ["node", "dist/index.js"]
+build = ["bash", "-c", "npm run build && npx esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external"]
 
 [workflows]
 runButton = "Project"
