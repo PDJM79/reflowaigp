@@ -28,14 +28,12 @@ export function AppHeader({ children, useLoginStyles = false }: AppHeaderProps) 
               className="h-8 sm:h-[4.2rem] w-auto drop-shadow-md"
             />
           </div>
-          {!isMobile && (
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">
-                GP Surgery Audit & Compliance
-              </h1>
-              <p className="text-xs text-muted-foreground font-medium hidden sm:block">Professional Healthcare Compliance Management</p>
-            </div>
-          )}
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-2xl font-bold text-foreground truncate">
+              GP Surgery Audit & Compliance
+            </h1>
+            <p className="text-xs text-muted-foreground font-medium hidden sm:block">Professional Healthcare Compliance Management</p>
+          </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <NotificationCenter />
