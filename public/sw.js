@@ -1,5 +1,5 @@
-const CACHE_NAME = 'reflowaigp-v1';
-const RUNTIME_CACHE = 'runtime-cache-v1';
+const CACHE_NAME = 'gp-practice-v2';
+const RUNTIME_CACHE = 'runtime-cache-v2';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
