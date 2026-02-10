@@ -145,7 +145,7 @@ export function ReadyForAudit() {
   const { user } = useAuth();
   const practiceId = user?.practiceId;
   const country = (user?.practice?.country || 'England').toLowerCase();
-  const regulatoryBody = country === 'wales' ? 'HIW' : country === 'scotland' ? 'HIS' : 'CQC';
+  const regulatoryBody = country === 'wales' ? 'Health Inspectorate Wales' : country === 'scotland' ? 'Healthcare Improvement Scotland' : 'Care Quality Commission';
 
   const { data: scores, isLoading: scoresLoading } = useQuery({
     queryKey: ['audit-scores', practiceId],
@@ -206,7 +206,7 @@ export function ReadyForAudit() {
               <div className="flex items-center gap-2 mb-1">
                 <CardTitle className="text-2xl">Ready for Audit</CardTitle>
                 <Badge variant="outline" className="text-xs">
-                  {country.charAt(0).toUpperCase() + country.slice(1)} - {regulatoryBody}
+                  Regulator: {regulatoryBody}
                 </Badge>
               </div>
               <CardDescription>

@@ -41,7 +41,7 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
     );
   }
 
-  const regulatoryBody = country === 'wales' ? 'HIW' : country === 'scotland' ? 'HIS' : 'CQC';
+  const regulatoryBody = country === 'wales' ? 'Health Inspectorate Wales' : country === 'scotland' ? 'Healthcare Improvement Scotland' : 'Care Quality Commission';
 
   if (!scoreData?.score) {
     return (

@@ -245,15 +245,15 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">Regulator</Label>
                 <Select value={country} onValueChange={(value: any) => setCountry(value)}>
-                  <SelectTrigger id="country" data-testid="select-country">
-                    <SelectValue placeholder="Select country" />
+                  <SelectTrigger id="country" data-testid="select-regulator">
+                    <SelectValue placeholder="Select regulator" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Wales">Wales (HIW)</SelectItem>
-                    <SelectItem value="England">England (CQC)</SelectItem>
-                    <SelectItem value="Scotland">Scotland (HIS)</SelectItem>
+                    <SelectItem value="Wales">Wales - Health Inspectorate Wales</SelectItem>
+                    <SelectItem value="England">England - Care Quality Commission</SelectItem>
+                    <SelectItem value="Scotland">Scotland - Healthcare Improvement Scotland</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">

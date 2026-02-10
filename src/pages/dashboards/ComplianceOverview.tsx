@@ -73,7 +73,7 @@ export default function ComplianceOverview() {
     
     const exporter = new DashboardPDFExporter({
       title: 'Compliance Overview Dashboard',
-      subtitle: 'HIW/CQC Readiness & Regulatory Compliance Tracking',
+      subtitle: 'Regulatory Readiness & Compliance Tracking',
       dateRange,
     });
 
@@ -140,7 +140,7 @@ export default function ComplianceOverview() {
             <Shield className="h-6 w-6 sm:h-8 sm:w-8" />
             Compliance Overview
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">HIW/CQC readiness tracking</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Regulatory readiness tracking</p>
         </div>
         <Button 
           onClick={handleExportPDF}

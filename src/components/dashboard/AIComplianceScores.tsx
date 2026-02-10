@@ -97,7 +97,7 @@ export function AIComplianceScores() {
           <div className="text-center py-8" data-testid="text-compliance-empty">
             <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">
-              Click "Calculate Scores" to generate AI-powered compliance assessments across HIW, CQC, and QOF frameworks.
+              Click "Calculate Scores" to generate AI-powered compliance assessments across regulatory frameworks.
             </p>
           </div>
         ) : (

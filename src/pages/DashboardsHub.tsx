@@ -15,7 +15,7 @@ export default function DashboardsHub() {
   const dashboards = [
     {
       title: 'Compliance Overview',
-      description: 'HIW/CQC/QOF readiness with regulatory compliance tracking and inspection preparation',
+      description: 'Regulatory readiness with compliance tracking and inspection preparation',
       icon: Shield,
       path: '/dashboards/compliance',
       color: 'text-primary',
@@ -91,7 +91,7 @@ export default function DashboardsHub() {
               <p className="font-medium mb-1">All dashboards support PDF export</p>
               <p className="text-sm text-muted-foreground">
                 Generate inspection-ready evidence packs with comprehensive data, charts, and compliance indicators. 
-                Each dashboard is designed to meet HIW and CQC inspection requirements with clear RAG status indicators 
+                Each dashboard is designed to meet regulatory inspection requirements with clear RAG status indicators 
                 and regulatory framework mapping.
               </p>
             </div>
