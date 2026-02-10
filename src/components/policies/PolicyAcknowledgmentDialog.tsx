@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,61 +18,34 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
   const [loading, setLoading] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
-  // Track policy view when dialog opens
-  const trackPolicyView = async () => {
-    if (!policy || !user) return;
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      await (supabase as any)
-        .from('policy_views')
-        .insert({
-          policy_id: policy.id,
-          user_id: userData.id,
-          version: policy.version || 'unversioned',
-        });
-    } catch (error) {
-      console.error('Error tracking policy view:', error);
-    }
-  };
-
   const handleAcknowledge = async () => {
     if (!acknowledged) {
       toast.error('Please confirm you have read and understood this policy');
       return;
     }
 
+    if (!user?.practiceId) {
+      toast.error('Practice not found');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const response = await fetch(`/api/practices/${user.practiceId}/policies/${policy.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          acknowledgedBy: user.id,
+          acknowledgedAt: new Date().toISOString(),
+        }),
+      });
 
-      if (!userData) throw new Error('User not found');
-
-      // Record acknowledgment
-      const { error } = await supabase
-        .from('policy_acknowledgments')
-        .insert([{
-          policy_id: policy.id,
-          user_id: userData.id,
-          practice_id: userData.practice_id,
-          version_acknowledged: policy.version || 'unversioned',
-          ip_address: null, // Could be captured via API
-          user_agent: navigator.userAgent,
-        }]);
-
-      if (error) throw error;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to record acknowledgment' }));
+        throw new Error(err.error || 'Failed to record acknowledgment');
+      }
 
       toast.success('Policy acknowledged successfully');
       onSuccess();
@@ -81,37 +53,19 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
       setAcknowledged(false);
     } catch (error: any) {
       console.error('Error acknowledging policy:', error);
-      if (error?.code === '23505') {
-        toast.error('You have already acknowledged this version of the policy');
-      } else {
-        toast.error('Failed to record acknowledgment');
-      }
+      toast.error(error.message || 'Failed to record acknowledgment');
     } finally {
       setLoading(false);
     }
   };
 
   const handleViewDocument = async () => {
-    if (!policy.storage_path) {
+    if (!policy.storagePath && !policy.storage_path) {
       toast.error('Document file not available');
       return;
     }
 
-    // Track policy view
-    await trackPolicyView();
-
-    try {
-      const { data, error } = await supabase.storage
-        .from('policy-documents')
-        .createSignedUrl(policy.storage_path, 3600); // 1 hour
-
-      if (error) throw error;
-
-      window.open(data.signedUrl, '_blank');
-    } catch (error) {
-      console.error('Error viewing document:', error);
-      toast.error('Failed to open document');
-    }
+    toast.info('Document viewing is not yet available through the API');
   };
 
   return (
@@ -133,19 +87,19 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
             {policy.version && (
               <p className="text-sm text-muted-foreground">Version: {policy.version}</p>
             )}
-            {policy.effective_from && (
+            {(policy.effectiveFrom || policy.effective_from) && (
               <p className="text-sm text-muted-foreground">
-                Effective from: {new Date(policy.effective_from).toLocaleDateString()}
+                Effective from: {new Date(policy.effectiveFrom || policy.effective_from).toLocaleDateString()}
               </p>
             )}
-            {policy.review_due && (
+            {(policy.reviewDue || policy.review_due) && (
               <p className="text-sm text-muted-foreground">
-                Next review: {new Date(policy.review_due).toLocaleDateString()}
+                Next review: {new Date(policy.reviewDue || policy.review_due).toLocaleDateString()}
               </p>
             )}
           </div>
 
-          {policy.storage_path && (
+          {(policy.storagePath || policy.storage_path) && (
             <Button
               type="button"
               variant="outline"

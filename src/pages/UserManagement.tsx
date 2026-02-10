@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BackButton } from '@/components/ui/back-button';
 import { Plus, Search, UserPlus, Mail, Shield, CheckCircle, XCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UserManagementDialog } from '@/components/admin/UserManagementDialog';
@@ -13,9 +12,10 @@ import { UserManagementDialog } from '@/components/admin/UserManagementDialog';
 interface User {
   id: string;
   name: string;
-  is_active: boolean;
-  created_at: string;
-  user_roles: Array<{ role: string }>;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export default function UserManagement() {
@@ -44,30 +44,18 @@ export default function UserManagement() {
   }, [searchQuery, users]);
 
   const fetchUsers = async () => {
-    if (!user) return;
+    if (!user?.practiceId) return;
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+      const response = await fetch(`/api/practices/${user.practiceId}/users`, {
+        credentials: 'include',
+      });
 
-      if (!userData) return;
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
 
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          name,
-          is_active,
-          created_at,
-          user_roles(role)
-        `)
-        .eq('practice_id', userData.practice_id)
-        .order('name');
-
-      if (error) throw error;
+      const data = await response.json();
       setUsers(data || []);
       setFilteredUsers(data || []);
     } catch (error) {
@@ -79,13 +67,19 @@ export default function UserManagement() {
   };
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
+    if (!user?.practiceId) return;
 
-      if (error) throw error;
+    try {
+      const response = await fetch(`/api/practices/${user.practiceId}/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user status');
+      }
 
       toast.success(currentStatus ? 'User deactivated' : 'User activated');
       fetchUsers();
@@ -117,6 +111,7 @@ export default function UserManagement() {
     { value: 'nurse', label: 'Nurse', color: 'bg-green-100 text-green-800' },
     { value: 'hca', label: 'HCA', color: 'bg-teal-100 text-teal-800' },
     { value: 'reception', label: 'Reception', color: 'bg-pink-100 text-pink-800' },
+    { value: 'cleaner', label: 'Cleaner', color: 'bg-yellow-100 text-yellow-800' },
   ];
 
   const getRoleLabel = (role: string) => {
@@ -130,7 +125,7 @@ export default function UserManagement() {
   if (loading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center justify-center min-h-[400px]" data-testid="loading-spinner">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </div>
@@ -143,19 +138,18 @@ export default function UserManagement() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <BackButton />
-            <h1 className="text-3xl font-bold">User Management</h1>
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">User Management</h1>
           </div>
           <p className="text-muted-foreground">
             Manage user accounts, roles, and permissions for your practice
           </p>
         </div>
-        <Button onClick={handleCreateUser} size="lg">
+        <Button onClick={handleCreateUser} size="lg" data-testid="button-add-user">
           <UserPlus className="h-5 w-5 mr-2" />
           Add New User
         </Button>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
@@ -166,16 +160,16 @@ export default function UserManagement() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
+                data-testid="input-search-users"
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="hover:shadow-lg transition-shadow">
+        {filteredUsers.map((u) => (
+          <Card key={u.id} className="hover:shadow-lg transition-shadow" data-testid={`card-user-${u.id}`}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -183,15 +177,15 @@ export default function UserManagement() {
                     <Shield className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{user.name}</CardTitle>
+                    <CardTitle className="text-lg" data-testid={`text-username-${u.id}`}>{u.name}</CardTitle>
                     <div className="flex items-center gap-2 mt-1">
-                      {user.is_active ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {u.isActive !== false ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid={`status-active-${u.id}`}>
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Active
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200" data-testid={`status-inactive-${u.id}`}>
                           <XCircle className="h-3 w-3 mr-1" />
                           Inactive
                         </Badge>
@@ -202,40 +196,38 @@ export default function UserManagement() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Roles */}
               <div>
-                <p className="text-sm font-medium mb-2">Roles:</p>
+                <p className="text-sm font-medium mb-2">Role:</p>
                 <div className="flex flex-wrap gap-2">
-                  {user.user_roles.length > 0 ? (
-                    user.user_roles.map((r, idx) => (
-                      <Badge key={idx} className={getRoleColor(r.role)}>
-                        {getRoleLabel(r.role)}
-                      </Badge>
-                    ))
+                  {u.role ? (
+                    <Badge className={getRoleColor(u.role)} data-testid={`badge-role-${u.id}`}>
+                      {getRoleLabel(u.role)}
+                    </Badge>
                   ) : (
-                    <span className="text-sm text-muted-foreground">No roles assigned</span>
+                    <span className="text-sm text-muted-foreground">No role assigned</span>
                   )}
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-2 pt-2 border-t">
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => handleEditUser(user)}
+                  onClick={() => handleEditUser(u)}
+                  data-testid={`button-edit-user-${u.id}`}
                 >
                   <Shield className="h-4 w-4 mr-1" />
-                  Edit Roles
+                  Edit User
                 </Button>
                 <Button
-                  variant={user.is_active ? "outline" : "default"}
+                  variant={u.isActive !== false ? "outline" : "default"}
                   size="sm"
                   className="flex-1"
-                  onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                  onClick={() => handleToggleUserStatus(u.id, u.isActive !== false)}
+                  data-testid={`button-toggle-status-${u.id}`}
                 >
-                  {user.is_active ? 'Deactivate' : 'Activate'}
+                  {u.isActive !== false ? 'Deactivate' : 'Activate'}
                 </Button>
               </div>
             </CardContent>
@@ -247,12 +239,12 @@ export default function UserManagement() {
         <Card>
           <CardContent className="py-12 text-center">
             <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No users found</h3>
+            <h3 className="text-lg font-semibold mb-2" data-testid="text-no-users">No users found</h3>
             <p className="text-muted-foreground mb-4">
               {searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first user'}
             </p>
             {!searchQuery && (
-              <Button onClick={handleCreateUser}>
+              <Button onClick={handleCreateUser} data-testid="button-add-first-user">
                 <Plus className="h-4 w-4 mr-2" />
                 Add New User
               </Button>

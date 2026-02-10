@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Loader2, TrendingUp, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
@@ -14,72 +13,19 @@ export function ComplaintThemeAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { data: latestAnalysis, refetch } = useQuery({
-    queryKey: ['complaint-themes', user?.id],
+    queryKey: ['complaint-themes', user?.practiceId],
     queryFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return null;
-
-      const { data, error } = await (supabase as any)
-        .from('complaints_themes')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching analysis:', error);
-      }
-
-      return data;
+      return null;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User practice not found');
-
-      // Analyze last 3 months
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 3);
-
-      const { data, error } = await supabase.functions.invoke('analyze-complaint-themes', {
-        body: {
-          practiceId: userData.practice_id,
-          dateRange: {
-            start: startDate.toISOString().split('T')[0],
-            end: endDate.toISOString().split('T')[0],
-          },
-        },
-      });
-
-      if (error) throw error;
-
       toast({
-        title: 'Analysis Complete',
-        description: 'AI-powered complaint theme analysis has been generated.',
-      });
-
-      refetch();
-    } catch (error: any) {
-      console.error('Error analyzing complaints:', error);
-      toast({
-        title: 'Analysis Failed',
-        description: error.message || 'Failed to analyze complaint themes. Please try again.',
+        title: 'Feature Unavailable',
+        description: 'AI complaint theme analysis is not yet available through the API.',
         variant: 'destructive',
       });
     } finally {
@@ -124,7 +70,6 @@ export function ComplaintThemeAnalysis() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Sentiment Overview */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 border rounded-lg text-center">
                 <p className="text-2xl font-bold text-success">{sentiment.positive}%</p>
@@ -140,7 +85,6 @@ export function ComplaintThemeAnalysis() {
               </div>
             </div>
 
-            {/* Themes */}
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Key Themes</h4>
               {themes.map((theme: any, index: number) => (
@@ -167,7 +111,6 @@ export function ComplaintThemeAnalysis() {
               ))}
             </div>
 
-            {/* Insights */}
             {insights && (
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium text-sm mb-2">AI Insights</h4>
@@ -175,7 +118,6 @@ export function ComplaintThemeAnalysis() {
               </div>
             )}
 
-            {/* Recommendations */}
             {recommendations.length > 0 && (
               <div>
                 <h4 className="font-medium text-sm mb-2">Recommendations</h4>
@@ -190,7 +132,6 @@ export function ComplaintThemeAnalysis() {
               </div>
             )}
 
-            {/* Analysis metadata */}
             <p className="text-xs text-muted-foreground text-center">
               Last analyzed: {new Date((latestAnalysis as any).created_at).toLocaleDateString()}
             </p>

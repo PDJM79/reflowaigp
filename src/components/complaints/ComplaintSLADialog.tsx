@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -26,30 +25,33 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
 
   const sendResponseMutation = useMutation({
     mutationFn: async (data: { notes: string }) => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) throw new Error('Practice not found');
 
       const updateData: any = {};
       
       if (actionType === 'acknowledgment') {
-        updateData.acknowledgment_sent_at = new Date().toISOString();
-        updateData.acknowledgment_sent_by = userData?.id;
-        updateData.acknowledgment_notes = data.notes;
+        updateData.acknowledgmentSentAt = new Date().toISOString();
+        updateData.acknowledgmentSentBy = user.id;
+        updateData.acknowledgmentNotes = data.notes;
       } else {
-        updateData.final_response_sent_at = new Date().toISOString();
-        updateData.final_response_sent_by = userData?.id;
-        updateData.resolution_notes = data.notes;
+        updateData.finalResponseSentAt = new Date().toISOString();
+        updateData.finalResponseSentBy = user.id;
+        updateData.resolutionNotes = data.notes;
       }
 
-      const { error } = await (supabase as any)
-        .from('complaints')
-        .update(updateData)
-        .eq('id', complaint.id);
-      
-      if (error) throw error;
+      const response = await fetch(`/api/practices/${user.practiceId}/complaints/${complaint.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to send response' }));
+        throw new Error(err.error || 'Failed to send response');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -77,8 +79,8 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
 
   const getSLAStatus = () => {
     const dueDate = actionType === 'acknowledgment' 
-      ? complaint.acknowledgment_due_date 
-      : complaint.final_response_due_date;
+      ? complaint.acknowledgment_due_date || complaint.acknowledgmentDueDate
+      : complaint.final_response_due_date || complaint.finalResponseDueDate;
     
     const today = new Date();
     const due = new Date(dueDate);
@@ -96,6 +98,11 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
   const slaStatus = getSLAStatus();
   const StatusIcon = slaStatus.icon;
 
+  const acknowledgmentDueDate = complaint.acknowledgment_due_date || complaint.acknowledgmentDueDate;
+  const finalResponseDueDate = complaint.final_response_due_date || complaint.finalResponseDueDate;
+  const complainantName = complaint.complainant_name || complaint.complainantName;
+  const receivedDate = complaint.received_date || complaint.receivedDate;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -106,16 +113,15 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
         </DialogHeader>
 
         <div className="space-y-4 sm:space-y-6">
-          {/* Complaint Details */}
           <div className="p-4 border rounded-lg bg-muted/50">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm sm:text-base">
               <div>
                 <p className="font-medium">Complainant</p>
-                <p className="text-muted-foreground">{complaint.complainant_name}</p>
+                <p className="text-muted-foreground">{complainantName}</p>
               </div>
               <div>
                 <p className="font-medium">Received</p>
-                <p className="text-muted-foreground">{new Date(complaint.received_date).toLocaleDateString()}</p>
+                <p className="text-muted-foreground">{new Date(receivedDate).toLocaleDateString()}</p>
               </div>
               <div>
                 <p className="font-medium">Category</p>
@@ -127,8 +133,8 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
                   <p className="text-muted-foreground">
                     {new Date(
                       actionType === 'acknowledgment' 
-                        ? complaint.acknowledgment_due_date 
-                        : complaint.final_response_due_date
+                        ? acknowledgmentDueDate
+                        : finalResponseDueDate
                     ).toLocaleDateString()}
                   </p>
                   <Badge variant={slaStatus.variant} className="flex items-center gap-1">
@@ -140,7 +146,6 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
             </div>
           </div>
 
-          {/* Response Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="notes" className="text-base">

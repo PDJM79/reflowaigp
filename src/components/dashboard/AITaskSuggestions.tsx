@@ -2,47 +2,53 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, Lightbulb } from 'lucide-react';
+import { Sparkles, Loader2, Lightbulb, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useQuery } from '@tanstack/react-query';
 
 export function AITaskSuggestions() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [stubMessage, setStubMessage] = useState('');
 
   const handleGenerateSuggestions = async () => {
+    if (!user?.practiceId) return;
+
     setIsGenerating(true);
+    setStubMessage('');
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User practice not found');
-
-      const { data, error } = await supabase.functions.invoke('suggest-tasks', {
-        body: { practiceId: userData.practice_id },
+      const response = await fetch(`/api/practices/${user.practiceId}/ai/suggest-tasks`, {
+        credentials: 'include',
       });
 
-      if (error) throw error;
+      if (response.status === 404) {
+        setStubMessage('AI task suggestions are not yet available. This feature will be enabled in a future update.');
+        toast({
+          title: 'Feature Coming Soon',
+          description: 'AI task suggestions will be available in a future update.',
+        });
+        return;
+      }
 
+      if (!response.ok) {
+        throw new Error('Failed to generate suggestions');
+      }
+
+      const data = await response.json();
       setSuggestions(data.suggestions || []);
       
       toast({
         title: 'Suggestions Generated',
-        description: `${data.suggestions.length} AI-powered task suggestions ready.`,
+        description: `${(data.suggestions || []).length} AI-powered task suggestions ready.`,
       });
     } catch (error: any) {
       console.error('Error generating suggestions:', error);
+      setStubMessage('AI task suggestions are not yet available. This feature will be enabled in a future update.');
       toast({
-        title: 'Generation Failed',
-        description: error.message || 'Failed to generate suggestions. Please try again.',
-        variant: 'destructive',
+        title: 'Feature Coming Soon',
+        description: 'AI task suggestions will be available in a future update.',
       });
     } finally {
       setIsGenerating(false);
@@ -50,8 +56,8 @@ export function AITaskSuggestions() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card data-testid="card-ai-task-suggestions">
+      <CardHeader className="flex flex-row items-center justify-between gap-1">
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-primary" />
           AI Task Suggestions
@@ -60,6 +66,7 @@ export function AITaskSuggestions() {
           onClick={handleGenerateSuggestions}
           disabled={isGenerating}
           size="sm"
+          data-testid="button-get-suggestions"
         >
           {isGenerating ? (
             <>
@@ -75,8 +82,13 @@ export function AITaskSuggestions() {
         </Button>
       </CardHeader>
       <CardContent>
-        {suggestions.length === 0 ? (
-          <div className="text-center py-8">
+        {stubMessage ? (
+          <div className="text-center py-8" data-testid="text-ai-suggestions-stub">
+            <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">{stubMessage}</p>
+          </div>
+        ) : suggestions.length === 0 ? (
+          <div className="text-center py-8" data-testid="text-ai-suggestions-empty">
             <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">
               Click "Get Suggestions" to receive AI-powered task recommendations based on your practice's current status.
@@ -85,10 +97,10 @@ export function AITaskSuggestions() {
         ) : (
           <div className="space-y-3">
             {suggestions.map((suggestion: any, index: number) => (
-              <div key={index} className="p-4 border rounded-lg space-y-2">
+              <div key={index} className="p-4 border rounded-lg space-y-2" data-testid={`card-suggestion-${index}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="font-medium">{suggestion.title}</h4>
+                    <h4 className="font-medium" data-testid={`text-suggestion-title-${index}`}>{suggestion.title}</h4>
                     <p className="text-sm text-muted-foreground mt-1">{suggestion.reasoning}</p>
                   </div>
                   <Badge 
@@ -99,6 +111,7 @@ export function AITaskSuggestions() {
                         ? 'bg-warning ml-2'
                         : 'bg-success ml-2'
                     }
+                    data-testid={`badge-suggestion-priority-${index}`}
                   >
                     {suggestion.priority}
                   </Badge>

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -19,27 +18,17 @@ export default function IncidentsList() {
   const isMobile = useIsMobile();
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
+  const practiceId = user?.practiceId || '';
+
   const { data: incidents = [], isLoading, refetch } = useQuery<any[]>({
-    queryKey: ['incidents', user?.id],
+    queryKey: ['incidents', practiceId],
     queryFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return [];
-
-      const { data, error } = await supabase
-        .from('incidents' as any)
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('incident_date', { ascending: false });
-
-      if (error) throw error;
-      return data as any[];
+      if (!practiceId) return [];
+      const res = await fetch(`/api/practices/${practiceId}/incidents`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch incidents');
+      return res.json();
     },
-    enabled: !!user?.id,
+    enabled: !!practiceId,
   });
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
@@ -50,37 +39,15 @@ export default function IncidentsList() {
     enabled: isMobile,
   });
 
-  const { data: trends } = useQuery<any[]>({
-    queryKey: ['incident-trends', user?.id],
-    queryFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return [];
-
-      const { data, error } = await supabase
-        .from('incident_trends' as any)
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('month', { ascending: false })
-        .limit(6);
-
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user?.id,
-  });
-
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical':
         return 'bg-red-500 text-white';
       case 'major':
+      case 'high':
         return 'bg-orange-500 text-white';
       case 'moderate':
+      case 'medium':
         return 'bg-yellow-500 text-white';
       default:
         return 'bg-green-500 text-white';
@@ -131,20 +98,20 @@ export default function IncidentsList() {
             onClick={() => setReportDialogOpen(true)}
             size={isMobile ? 'lg' : 'default'}
             className="w-full sm:w-auto min-h-[44px]"
+            data-testid="button-report-incident"
           >
             <Plus className="h-4 w-4 mr-2" />
             Report Incident
           </Button>
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 sm:gap-4">
           <Card className="touch-manipulation">
             <CardHeader className="pb-2 sm:pb-3">
               <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold">{totalIncidents}</div>
+              <div className="text-2xl sm:text-3xl font-bold" data-testid="text-total-incidents">{totalIncidents}</div>
               <p className="text-xs text-muted-foreground hidden sm:block">All time</p>
             </CardContent>
           </Card>
@@ -154,7 +121,7 @@ export default function IncidentsList() {
               <CardTitle className="text-xs sm:text-sm font-medium">Open</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold">{openIncidents}</div>
+              <div className="text-2xl sm:text-3xl font-bold" data-testid="text-open-incidents">{openIncidents}</div>
               <p className="text-xs text-muted-foreground hidden sm:block">Active</p>
             </CardContent>
           </Card>
@@ -164,13 +131,12 @@ export default function IncidentsList() {
               <CardTitle className="text-xs sm:text-sm font-medium">Critical</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-red-600">{criticalIncidents}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-600" data-testid="text-critical-incidents">{criticalIncidents}</div>
               <p className="text-xs text-muted-foreground hidden sm:block">Priority</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Incidents Table */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">Incident Reports</CardTitle>
@@ -189,6 +155,7 @@ export default function IncidentsList() {
                 <Button 
                   onClick={() => setReportDialogOpen(true)}
                   className="min-h-[44px]"
+                  data-testid="button-report-first-incident"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Report First Incident
@@ -200,11 +167,12 @@ export default function IncidentsList() {
                   <div 
                     key={incident.id} 
                     className="border rounded-lg p-4 space-y-3 touch-manipulation active:bg-accent"
+                    data-testid={`card-incident-${incident.id}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm">
-                          {format(new Date(incident.incident_date), 'dd/MM/yyyy HH:mm')}
+                          {incident.dateOccurred ? format(new Date(incident.dateOccurred), 'dd/MM/yyyy HH:mm') : 'N/A'}
                         </p>
                         <p className="text-xs text-muted-foreground">{incident.location}</p>
                       </div>
@@ -213,9 +181,11 @@ export default function IncidentsList() {
                       </Badge>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        {incident.category.replace(/_/g, ' ')}
-                      </Badge>
+                      {incident.category && (
+                        <Badge variant="outline">
+                          {incident.category.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
                       <Badge className={getStatusColor(incident.status)}>
                         {incident.status.replace(/_/g, ' ')}
                       </Badge>
@@ -241,14 +211,16 @@ export default function IncidentsList() {
                   </TableHeader>
                   <TableBody>
                     {incidents.map((incident) => (
-                      <TableRow key={incident.id}>
+                      <TableRow key={incident.id} data-testid={`row-incident-${incident.id}`}>
                         <TableCell className="whitespace-nowrap">
-                          {format(new Date(incident.incident_date), 'dd/MM/yyyy HH:mm')}
+                          {incident.dateOccurred ? format(new Date(incident.dateOccurred), 'dd/MM/yyyy HH:mm') : 'N/A'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {incident.category.replace(/_/g, ' ')}
-                          </Badge>
+                          {incident.category && (
+                            <Badge variant="outline">
+                              {incident.category.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>{incident.location}</TableCell>
                         <TableCell>
@@ -270,46 +242,6 @@ export default function IncidentsList() {
             )}
           </CardContent>
         </Card>
-
-        {/* Trends (if available) */}
-        {trends && trends.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Incident Trends
-              </CardTitle>
-              <CardDescription>Monthly incident statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {trends.map((trend) => (
-                  <div key={trend.month} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div>
-                      <p className="font-medium">
-                        {format(new Date(trend.month), 'MMMM yyyy')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {trend.category.replace(/_/g, ' ')} - {trend.severity}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{trend.incident_count} incidents</p>
-                      <p className="text-xs text-muted-foreground">
-                        {trend.resolved_count} resolved ({Math.round((trend.resolved_count / trend.incident_count) * 100)}%)
-                      </p>
-                      {trend.avg_resolution_days && (
-                        <p className="text-xs text-muted-foreground">
-                          Avg: {trend.avg_resolution_days} days
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <IncidentReportDialog

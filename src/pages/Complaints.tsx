@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,34 +22,23 @@ export default function Complaints() {
   const [dialogAction, setDialogAction] = useState<'acknowledgment' | 'final_response'>('acknowledgment');
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const practiceId = user?.practiceId || '';
+
   useEffect(() => {
     if (!user) {
       navigate('/');
     }
   }, [user, navigate]);
 
-  // Fetch complaints with new SLA fields
   const { data: complaints = [], isLoading, refetch } = useQuery({
-    queryKey: ['complaints', user?.id],
+    queryKey: ['complaints', practiceId],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return [];
-
-      const { data } = await (supabase as any)
-        .from('complaints')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('received_date', { ascending: false })
-        .limit(50);
-
-      return data || [];
+      if (!practiceId) return [];
+      const res = await fetch(`/api/practices/${practiceId}/complaints`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch complaints');
+      return res.json();
     },
-    enabled: !!user?.id,
+    enabled: !!practiceId,
   });
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
@@ -61,10 +49,10 @@ export default function Complaints() {
     enabled: isMobile,
   });
 
-  const needsAck = complaints.filter((c: any) => !c.acknowledgment_sent_at);
-  const needsFinal = complaints.filter((c: any) => c.acknowledgment_sent_at && !c.final_response_sent_at);
-  const overdueComplaints = complaints.filter((c: any) => c.sla_status === 'overdue');
-  const atRiskComplaints = complaints.filter((c: any) => c.sla_status === 'at_risk');
+  const needsAck = complaints.filter((c: any) => !c.ackSentAt);
+  const needsFinal = complaints.filter((c: any) => c.ackSentAt && !c.finalSentAt);
+  const overdueComplaints = complaints.filter((c: any) => c.status === 'overdue');
+  const atRiskComplaints = complaints.filter((c: any) => c.status === 'at_risk');
 
   const handleSendAcknowledgment = (complaint: any) => {
     setSelectedComplaint(complaint);
@@ -79,18 +67,16 @@ export default function Complaints() {
   };
 
   const getSLABadge = (complaint: any) => {
-    switch (complaint.sla_status) {
-      case 'completed':
-        return <Badge className="bg-success">Completed</Badge>;
-      case 'on_track':
-        return <Badge variant="secondary">On Track</Badge>;
-      case 'at_risk':
-        return <Badge className="bg-warning">At Risk</Badge>;
-      case 'overdue':
-        return <Badge variant="destructive">Overdue</Badge>;
-      default:
-        return null;
+    if (complaint.finalSentAt) {
+      return <Badge className="bg-success">Completed</Badge>;
     }
+    if (complaint.status === 'overdue') {
+      return <Badge variant="destructive">Overdue</Badge>;
+    }
+    if (complaint.status === 'at_risk') {
+      return <Badge className="bg-warning">At Risk</Badge>;
+    }
+    return <Badge variant="secondary">Open</Badge>;
   };
 
   return (
@@ -121,7 +107,7 @@ export default function Complaints() {
           </div>
           <p className="text-muted-foreground">Track and manage patient complaints with SLA monitoring</p>
         </div>
-        <Button>
+        <Button data-testid="button-log-complaint">
           <Plus className="h-4 w-4 mr-2" />
           Log Complaint
         </Button>
@@ -133,7 +119,7 @@ export default function Complaints() {
             <CardTitle className="text-sm font-medium">Needs ACK</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{needsAck.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-needs-ack-count">{needsAck.length}</div>
             <p className="text-xs text-muted-foreground">48hr deadline</p>
           </CardContent>
         </Card>
@@ -143,7 +129,7 @@ export default function Complaints() {
             <CardTitle className="text-sm font-medium">Needs Final</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{needsFinal.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-needs-final-count">{needsFinal.length}</div>
             <p className="text-xs text-muted-foreground">30-day deadline</p>
           </CardContent>
         </Card>
@@ -156,7 +142,7 @@ export default function Complaints() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{overdueComplaints.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-overdue-count">{overdueComplaints.length}</div>
           </CardContent>
         </Card>
 
@@ -168,7 +154,7 @@ export default function Complaints() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{atRiskComplaints.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-at-risk-count">{atRiskComplaints.length}</div>
           </CardContent>
         </Card>
 
@@ -177,15 +163,13 @@ export default function Complaints() {
             <CardTitle className="text-sm font-medium">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{complaints.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-total-complaints">{complaints.length}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* SLA Tracker */}
       <ComplaintSLATracker />
 
-      {/* AI Theme Analysis */}
       <ComplaintThemeAnalysis />
 
       {isLoading ? (
@@ -205,47 +189,36 @@ export default function Complaints() {
           <CardContent>
             <div className="space-y-3">
               {complaints.map((complaint: any) => (
-                <div key={complaint.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                <div key={complaint.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow" data-testid={`card-complaint-${complaint.id}`}>
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         {getSLABadge(complaint)}
-                        {complaint.category && (
+                        {complaint.channel && (
                           <Badge variant="outline" className="capitalize">
-                            {complaint.category.replace('_', ' ')}
-                          </Badge>
-                        )}
-                        {complaint.ai_sentiment && (
-                          <Badge 
-                            variant="outline"
-                            className={
-                              complaint.ai_sentiment === 'very_negative' ? 'border-destructive text-destructive' :
-                              complaint.ai_sentiment === 'negative' ? 'border-warning text-warning' :
-                              complaint.ai_sentiment === 'positive' ? 'border-success text-success' : ''
-                            }
-                          >
-                            {complaint.ai_sentiment.replace('_', ' ')}
+                            {complaint.channel.replace('_', ' ')}
                           </Badge>
                         )}
                       </div>
-                      <p className="font-medium">{complaint.complainant_name}</p>
                       <p className="text-sm text-muted-foreground line-clamp-2">{complaint.description}</p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      {!complaint.acknowledgment_sent_at && (
+                      {!complaint.ackSentAt && (
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => handleSendAcknowledgment(complaint)}
+                          data-testid={`button-send-ack-${complaint.id}`}
                         >
                           <Send className="h-4 w-4 mr-1" />
                           Send ACK
                         </Button>
                       )}
-                      {complaint.acknowledgment_sent_at && !complaint.final_response_sent_at && (
+                      {complaint.ackSentAt && !complaint.finalSentAt && (
                         <Button 
                           size="sm"
                           onClick={() => handleSendFinalResponse(complaint)}
+                          data-testid={`button-final-response-${complaint.id}`}
                         >
                           <FileText className="h-4 w-4 mr-1" />
                           Final Response
@@ -256,31 +229,26 @@ export default function Complaints() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      Received: {new Date(complaint.received_date).toLocaleDateString()}
+                      Received: {complaint.receivedAt ? new Date(complaint.receivedAt).toLocaleDateString() : 'N/A'}
                     </span>
-                    {complaint.acknowledgment_sent_at ? (
+                    {complaint.ackSentAt ? (
                       <span className="flex items-center gap-1 text-success">
                         <CheckCircle className="h-3 w-3" />
-                        ACK: {new Date(complaint.acknowledgment_sent_at).toLocaleDateString()}
+                        ACK: {new Date(complaint.ackSentAt).toLocaleDateString()}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
-                        ACK Due: {new Date(complaint.acknowledgment_due_date).toLocaleDateString()}
+                        ACK Due: {complaint.ackDue ? new Date(complaint.ackDue).toLocaleDateString() : 'N/A'}
                       </span>
                     )}
-                    {complaint.final_response_sent_at ? (
+                    {complaint.finalSentAt ? (
                       <span className="flex items-center gap-1 text-success">
                         <CheckCircle className="h-3 w-3" />
-                        Final: {new Date(complaint.final_response_sent_at).toLocaleDateString()}
+                        Final: {new Date(complaint.finalSentAt).toLocaleDateString()}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
-                        Final Due: {new Date(complaint.final_response_due_date).toLocaleDateString()}
-                      </span>
-                    )}
-                    {complaint.working_days_to_complete && (
-                      <span className="flex items-center gap-1">
-                        Resolved in {complaint.working_days_to_complete} working days
+                        Final Due: {complaint.finalDue ? new Date(complaint.finalDue).toLocaleDateString() : 'N/A'}
                       </span>
                     )}
                   </div>
@@ -291,7 +259,6 @@ export default function Complaints() {
         </Card>
       )}
 
-      {/* SLA Dialog */}
       {selectedComplaint && (
         <ComplaintSLADialog
           open={dialogOpen}

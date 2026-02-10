@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -23,11 +22,14 @@ interface Task {
   module: string;
   status: string;
   priority: string;
-  due_at: string;
-  assigned_to_user_id: string;
-  assigned_to_role: string;
-  requires_photo: boolean;
-  created_at: string;
+  dueAt: string;
+  assigneeId: string;
+  completedAt: string;
+  createdAt: string;
+  assigned_to_user_id?: string;
+  due_at?: string;
+  assigned_to_role?: string;
+  requires_photo?: boolean;
   assignedUser?: {
     name: string;
   } | null;
@@ -49,7 +51,8 @@ export default function TasksList() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  const practiceId = user?.practiceId || '';
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -65,48 +68,14 @@ export default function TasksList() {
       return;
     }
     fetchTasks();
-  }, [user, navigate, selectedModule, selectedStatus, selectedPriority, showMyTasks]);
+  }, [user, navigate]);
 
   const fetchTasks = async () => {
+    if (!practiceId) return;
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-      setCurrentUserId(userData.id);
-
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name),
-          task_templates(title)
-        `)
-        .eq('practice_id', userData.practice_id)
-        .order('due_at', { ascending: true });
-
-      if (selectedModule !== 'all') {
-        query = query.eq('module', selectedModule);
-      }
-
-      if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus);
-      }
-
-      if (selectedPriority !== 'all') {
-        query = query.eq('priority', selectedPriority);
-      }
-
-      if (showMyTasks) {
-        query = query.eq('assigned_to_user_id', userData.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      const data = await res.json();
       setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -116,16 +85,20 @@ export default function TasksList() {
   };
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+    const matchesModule = selectedModule === 'all' || task.module === selectedModule;
+    const matchesStatus = selectedStatus === 'all' || task.status === selectedStatus;
+    const matchesPriority = selectedPriority === 'all' || task.priority === selectedPriority;
+    const matchesMy = !showMyTasks || task.assigneeId === user?.id;
+    return matchesSearch && matchesModule && matchesStatus && matchesPriority && matchesMy;
   });
 
-  const openTasks = filteredTasks.filter(t => t.status === 'open');
+  const openTasks = filteredTasks.filter(t => t.status === 'open' || t.status === 'pending');
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
   const completedTasks = filteredTasks.filter(t => t.status === 'complete');
   const overdueTasks = filteredTasks.filter(t => 
-    t.status !== 'complete' && new Date(t.due_at) < new Date()
+    t.status !== 'complete' && t.dueAt && new Date(t.dueAt) < new Date()
   );
 
   return (
@@ -160,6 +133,7 @@ export default function TasksList() {
           }}
           size={isMobile ? 'lg' : 'default'}
           className="w-full sm:w-auto min-h-[44px]"
+          data-testid="button-create-task"
         >
           <Plus className="h-4 w-4 mr-2" />
           {t('tasks.create')}
@@ -172,7 +146,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">Open Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{openTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-open-tasks-count">{openTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="touch-manipulation">
@@ -180,7 +154,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">In Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{inProgressTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-in-progress-count">{inProgressTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="touch-manipulation">
@@ -188,7 +162,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{completedTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-completed-count">{completedTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="border-destructive touch-manipulation col-span-2 sm:col-span-1">
@@ -199,7 +173,7 @@ export default function TasksList() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold text-destructive">{overdueTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-destructive" data-testid="text-overdue-count">{overdueTasks.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -221,12 +195,13 @@ export default function TasksList() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 min-h-[44px]"
+                  data-testid="input-search-tasks"
                 />
               </div>
             </div>
 
             <Select value={selectedModule} onValueChange={setSelectedModule}>
-              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]">
+              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]" data-testid="select-module">
                 <SelectValue placeholder="All Modules" />
               </SelectTrigger>
               <SelectContent>
@@ -246,7 +221,7 @@ export default function TasksList() {
             </Select>
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]" data-testid="select-status">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +233,7 @@ export default function TasksList() {
             </Select>
 
             <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]" data-testid="select-priority">
                 <SelectValue placeholder="All Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -274,6 +249,7 @@ export default function TasksList() {
               onClick={() => setShowMyTasks(!showMyTasks)}
               size={isMobile ? 'lg' : 'default'}
               className="w-full sm:w-auto min-h-[44px]"
+              data-testid="button-my-tasks"
             >
               <User className="h-4 w-4 mr-2" />
               My Tasks
@@ -297,7 +273,7 @@ export default function TasksList() {
             <TaskCard
               key={task.id}
               task={task}
-              isMyTask={task.assigned_to_user_id === currentUserId}
+              isMyTask={task.assigneeId === user?.id}
               onRefresh={fetchTasks}
             />
           ))}

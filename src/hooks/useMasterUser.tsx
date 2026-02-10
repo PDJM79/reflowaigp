@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useContext, createContext } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 
 interface MasterUserContextType {
@@ -28,23 +27,31 @@ export function MasterUserProvider({ children }: { children: React.ReactNode }) 
 
     const checkMasterUser = async () => {
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('is_master_user')
-          .eq('auth_user_id', user.id)
-          .single();
+        if (!user.practiceId) {
+          setLoading(false);
+          return;
+        }
 
-        if (data) {
-          setIsMasterUser(data.is_master_user || false);
+        const response = await fetch(`/api/practices/${user.practiceId}/users`, {
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const users = await response.json();
+          const currentUser = users.find((u: any) => u.authUserId === user.id || u.auth_user_id === user.id);
           
-          // If master user, check for stored practice selection
-          if (data.is_master_user) {
-            const storedPracticeId = sessionStorage.getItem('master_selected_practice_id');
-            const storedPracticeName = sessionStorage.getItem('master_selected_practice_name');
-            
-            if (storedPracticeId && storedPracticeName) {
-              setSelectedPracticeId(storedPracticeId);
-              setSelectedPracticeName(storedPracticeName);
+          if (currentUser) {
+            const masterStatus = currentUser.isMasterUser || currentUser.is_master_user || false;
+            setIsMasterUser(masterStatus);
+
+            if (masterStatus) {
+              const storedPracticeId = sessionStorage.getItem('master_selected_practice_id');
+              const storedPracticeName = sessionStorage.getItem('master_selected_practice_name');
+              
+              if (storedPracticeId && storedPracticeName) {
+                setSelectedPracticeId(storedPracticeId);
+                setSelectedPracticeName(storedPracticeName);
+              }
             }
           }
         }

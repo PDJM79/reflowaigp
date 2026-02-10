@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -27,52 +26,39 @@ type Task = {
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [userRole, setUserRole] = useState<string>('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchUserAndTasks = async () => {
-      // Get user and role
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      // Get user's primary role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-      if (userData && roleData) {
-        setUserRole(roleData.role);
-
-        // Fetch tasks assigned to this user
-        const { data: tasksData } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('assigned_to_user_id', userData.id)
-          .order('due_at', { ascending: true });
-
-        setTasks(tasksData || []);
-      }
-      setLoading(false);
-    };
-
-    fetchUserAndTasks();
-  }, [user]);
-
+  const userRole = user?.role || '';
   const isManager = userRole === 'practice_manager' || userRole === 'administrator' || userRole === 'group_manager';
 
-  // Filter tasks for current month, completed, and timed out
+  useEffect(() => {
+    if (!user?.practiceId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchTasks = async () => {
+      try {
+        const response = await fetch(`/api/practices/${user.practiceId}/tasks`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const tasksData = await response.json();
+          setTasks(tasksData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [user]);
+
   const currentMonthTasks = tasks.filter(task => 
-    isThisMonth(new Date(task.due_at)) && 
+    task.due_at && isThisMonth(new Date(task.due_at)) && 
     !['closed', 'submitted'].includes(task.status)
   );
 
@@ -81,32 +67,33 @@ export default function Dashboard() {
   );
 
   const timedOutTasks = tasks.filter(task => 
-    isPast(new Date(task.due_at)) && 
+    task.due_at && isPast(new Date(task.due_at)) && 
     !['closed', 'submitted'].includes(task.status)
   );
 
   const getStatusBadge = (task: Task) => {
+    if (!task.due_at) return <Badge variant="secondary">{t('tasks.on_track')}</Badge>;
     const dueDate = new Date(task.due_at);
     const now = new Date();
     const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (task.status === 'overdue' || (isPast(dueDate) && task.status !== 'closed')) {
-      return <Badge variant="destructive">{t('tasks.status.overdue')}</Badge>;
+      return <Badge variant="destructive" data-testid={`badge-status-overdue-${task.id}`}>{t('tasks.status.overdue')}</Badge>;
     }
     
     if (daysUntilDue <= 2) {
-      return <Badge className="bg-orange-500">{t('tasks.due_soon')}</Badge>;
+      return <Badge className="bg-orange-500" data-testid={`badge-status-due-soon-${task.id}`}>{t('tasks.due_soon')}</Badge>;
     }
 
-    return <Badge variant="secondary">{t('tasks.on_track')}</Badge>;
+    return <Badge variant="secondary" data-testid={`badge-status-on-track-${task.id}`}>{t('tasks.on_track')}</Badge>;
   };
 
   const TaskCard = ({ task }: { task: Task }) => (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow" data-testid={`card-task-${task.id}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
-            <CardTitle className="text-lg">{task.title}</CardTitle>
+            <CardTitle className="text-lg" data-testid={`text-task-title-${task.id}`}>{task.title}</CardTitle>
             <CardDescription>{task.description}</CardDescription>
           </div>
           {getStatusBadge(task)}
@@ -117,7 +104,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>{format(new Date(task.due_at), 'PPP')}</span>
+              <span>{task.due_at ? format(new Date(task.due_at), 'PPP') : 'No due date'}</span>
             </div>
             <Badge variant="outline">{task.module}</Badge>
             {task.requires_photo && (
@@ -126,8 +113,8 @@ export default function Dashboard() {
           </div>
           
           <div className="flex gap-2">
-            <Button size="sm" className="flex-1">Complete Task</Button>
-            <Button size="sm" variant="outline">
+            <Button size="sm" className="flex-1" data-testid={`button-complete-task-${task.id}`}>Complete Task</Button>
+            <Button size="sm" variant="outline" data-testid={`button-send-back-${task.id}`}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Send Back
             </Button>
@@ -139,7 +126,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen" data-testid="dashboard-loading">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">{t('app.loading')}</p>
@@ -148,12 +135,11 @@ export default function Dashboard() {
     );
   }
 
-  // Manager/Admin Dashboard
   if (isManager) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-6 space-y-6" data-testid="dashboard-manager">
         <div>
-          <h1 className="text-3xl font-bold">{t('home.welcome')}</h1>
+          <h1 className="text-3xl font-bold" data-testid="text-welcome">{t('home.welcome')}</h1>
           <p className="text-muted-foreground">Practice Manager Dashboard</p>
         </div>
 
@@ -163,7 +149,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Due This Week</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold" data-testid="text-due-this-week">12</div>
               <p className="text-xs text-muted-foreground">+3 from last week</p>
             </CardContent>
           </Card>
@@ -173,7 +159,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">5</div>
+              <div className="text-2xl font-bold text-destructive" data-testid="text-overdue-tasks">5</div>
               <p className="text-xs text-muted-foreground">Requires attention</p>
             </CardContent>
           </Card>
@@ -183,19 +169,16 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">87%</div>
+              <div className="text-2xl font-bold" data-testid="text-completion-rate">87%</div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Ready for Audit Section */}
         <ReadyForAudit />
 
-        {/* Policies Needing Acknowledgment */}
         <PoliciesNeedingAcknowledgment />
 
-        {/* AI Components */}
         <div className="grid gap-6 md:grid-cols-2">
           <AITaskSuggestions />
           <AIComplianceScores />
@@ -214,28 +197,26 @@ export default function Dashboard() {
     );
   }
 
-  // Standard User Dashboard
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6" data-testid="dashboard-user">
       <div>
-        <h1 className="text-3xl font-bold">{t('home.welcome')}</h1>
+        <h1 className="text-3xl font-bold" data-testid="text-welcome">{t('home.welcome')}</h1>
         <p className="text-muted-foreground">{t('home.my_todos')}</p>
       </div>
 
-      {/* Policies Widget for Standard Users */}
       <PoliciesNeedingAcknowledgment />
 
       <Tabs defaultValue="current" className="w-full">
         <TabsList>
-          <TabsTrigger value="current">
+          <TabsTrigger value="current" data-testid="tab-current-tasks">
             <Clock className="h-4 w-4 mr-2" />
             {t('home.my_todos')} ({currentMonthTasks.length})
           </TabsTrigger>
-          <TabsTrigger value="completed">
+          <TabsTrigger value="completed" data-testid="tab-completed-tasks">
             <CheckCircle2 className="h-4 w-4 mr-2" />
             {t('home.completed')} ({completedTasks.length})
           </TabsTrigger>
-          <TabsTrigger value="timedout">
+          <TabsTrigger value="timedout" data-testid="tab-timedout-tasks">
             <XCircle className="h-4 w-4 mr-2" />
             {t('home.timed_out')} ({timedOutTasks.length})
           </TabsTrigger>

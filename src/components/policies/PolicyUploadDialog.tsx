@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,44 +54,36 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
       return;
     }
 
+    if (!user?.practiceId) {
+      toast.error('Practice not found');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
-      // Upload file to storage
-      const filePath = `${userData.practice_id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('policy-documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Create policy document record
-      const { error: insertError } = await supabase
-        .from('policy_documents')
-        .insert([{
-          practice_id: userData.practice_id,
+      const response = await fetch(`/api/practices/${user.practiceId}/policies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           title: formData.title,
-          version: formData.version,
-          owner_role: formData.owner_role || null as any,
-          effective_from: formData.effective_from || null,
-          review_due: formData.review_due || null,
-          storage_path: filePath,
-          file_size: file.size,
-          file_mime_type: file.type,
-          uploaded_by: userData.id,
+          version: formData.version || null,
+          ownerRole: formData.owner_role || null,
+          effectiveFrom: formData.effective_from || null,
+          reviewDue: formData.review_due || null,
+          fileSize: file.size,
+          fileMimeType: file.type,
+          uploadedBy: user.id,
           status: 'active',
           source: 'manual_upload',
-        }]);
+        }),
+      });
 
-      if (insertError) throw insertError;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to upload policy' }));
+        throw new Error(err.error || 'Failed to upload policy');
+      }
 
       toast.success('Policy uploaded successfully');
       onSuccess();
@@ -105,9 +96,9 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
         effective_from: '',
         review_due: '',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading policy:', error);
-      toast.error('Failed to upload policy');
+      toast.error(error.message || 'Failed to upload policy');
     } finally {
       setLoading(false);
     }

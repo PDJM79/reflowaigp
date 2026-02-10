@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -51,12 +50,12 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
         title: template.title || '',
         description: template.description || '',
         module: template.module || '',
-        default_assignee_role: template.default_assignee_role || '',
-        requires_photo: template.requires_photo || false,
-        sla_type: template.sla_type || '',
-        due_rule: template.due_rule || '',
-        evidence_tags: template.evidence_tags || [],
-        allowed_roles: template.allowed_roles || [],
+        default_assignee_role: template.defaultAssigneeRole || template.default_assignee_role || '',
+        requires_photo: template.requiresPhoto || template.requires_photo || false,
+        sla_type: template.slaType || template.sla_type || '',
+        due_rule: template.dueRule || template.due_rule || '',
+        evidence_tags: template.evidenceTags || template.evidence_tags || [],
+        allowed_roles: template.allowedRoles || template.allowed_roles || [],
       });
     } else {
       setFormData({
@@ -104,58 +103,56 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.practiceId) {
+      toast.error('Practice not found');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const validatedData = templateSchema.parse(formData);
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
       const templateData = {
-        practice_id: userData.practice_id,
         title: validatedData.title,
         description: validatedData.description || '',
         module: validatedData.module,
-        default_assignee_role: validatedData.default_assignee_role as any,
-        requires_photo: validatedData.requires_photo,
-        sla_type: validatedData.sla_type || null,
-        due_rule: validatedData.due_rule || null,
-        evidence_tags: formData.evidence_tags.length > 0 ? formData.evidence_tags : null,
-        allowed_roles: formData.allowed_roles.length > 0 ? formData.allowed_roles as any : null,
+        defaultAssigneeRole: validatedData.default_assignee_role,
+        requiresPhoto: validatedData.requires_photo,
+        slaType: validatedData.sla_type || null,
+        dueRule: validatedData.due_rule || null,
+        evidenceTags: formData.evidence_tags.length > 0 ? formData.evidence_tags : null,
+        allowedRoles: formData.allowed_roles.length > 0 ? formData.allowed_roles : null,
       };
 
-      if (template?.id) {
-        const { error } = await supabase
-          .from('task_templates')
-          .update(templateData)
-          .eq('id', template.id);
+      const templateId = template?.id;
+      const url = templateId
+        ? `/api/practices/${user.practiceId}/process-templates/${templateId}`
+        : `/api/practices/${user.practiceId}/process-templates`;
+      const method = templateId ? 'PATCH' : 'POST';
 
-        if (error) throw error;
-        toast.success('Template updated successfully');
-      } else {
-        const { error } = await supabase
-          .from('task_templates')
-          .insert([templateData]);
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(templateData),
+      });
 
-        if (error) throw error;
-        toast.success('Template created successfully');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to save template' }));
+        throw new Error(err.error || 'Failed to save template');
       }
 
+      toast.success(templateId ? 'Template updated successfully' : 'Template created successfully');
       onSuccess();
     } catch (error) {
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
           toast.error(err.message);
         });
-      } else {
+      } else if (error instanceof Error) {
         console.error('Error saving template:', error);
-        toast.error('Failed to save template');
+        toast.error(error.message || 'Failed to save template');
       }
     } finally {
       setLoading(false);

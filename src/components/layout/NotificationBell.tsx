@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -17,9 +17,9 @@ type Notification = {
   title: string;
   message: string;
   priority: string;
-  action_url: string | null;
-  created_at: string;
-  is_read: boolean;
+  actionUrl: string | null;
+  createdAt: string;
+  isRead: boolean;
 };
 
 type PolicyNotification = {
@@ -29,20 +29,9 @@ type PolicyNotification = {
   days_overdue: number;
 };
 
-type PolicyDoc = {
-  id: string;
-  title: string | null;
-  version: string | null;
-  effective_from: string | null;
-};
-
-type PolicyAck = {
-  policy_id: string;
-  version_acknowledged: string;
-};
-
 export function NotificationBell() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [policyNotifications, setPolicyNotifications] = useState<PolicyNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -50,112 +39,68 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    fetchNotifications();
-    fetchPolicyNotifications();
+    if (user?.practiceId && user?.id) {
+      fetchNotifications();
+      fetchPolicyNotifications();
 
-    // Subscribe to new notifications
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'policy_acknowledgments',
-        },
-        () => {
-          fetchPolicyNotifications();
-        }
-      )
-      .subscribe();
+      const interval = setInterval(() => {
+        fetchNotifications();
+        fetchPolicyNotifications();
+      }, 60000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => clearInterval(interval);
+    }
+  }, [user?.practiceId, user?.id]);
 
   const fetchNotifications = async () => {
+    if (!user?.practiceId || !user?.id) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch(`/api/practices/${user.practiceId}/users/${user.id}/notifications/unread`, {
+        credentials: 'include',
+      });
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
+      if (!response.ok) return;
 
-      if (!userData) return;
-
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userData.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (data) {
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.is_read).length);
-      }
+      const data = await response.json();
+      const items = (data || []).slice(0, 10);
+      setNotifications(items);
+      setUnreadCount(items.filter((n: Notification) => !n.isRead).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
   };
 
   const fetchPolicyNotifications = async () => {
+    if (!user?.practiceId) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch(`/api/practices/${user.practiceId}/policies`, {
+        credentials: 'include',
+      });
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+      if (!response.ok) return;
 
-      if (!userData) return;
+      const policiesData = await response.json();
 
-      // Use type-safe wrapper to bypass TS inference issues
-      const policiesResult = await (supabase as any)
-        .from('policy_documents')
-        .select('id, title, version, effective_from')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_active', true);
+      if (!policiesData || policiesData.length === 0) {
+        setPolicyNotifications([]);
+        setPolicyCount(0);
+        return;
+      }
 
-      const acknowledgementsResult = await (supabase as any)
-        .from('policy_acknowledgments')
-        .select('policy_id, version_acknowledged')
-        .eq('user_id', userData.id);
+      const activePolicies = (policiesData || []).filter((p: any) => 
+        p.status === 'active' || p.isActive
+      );
 
-      const policiesData = policiesResult.data as PolicyDoc[] | null;
-      const acknowledgementsData = acknowledgementsResult.data as PolicyAck[] | null;
-
-      if (!policiesData) return;
-
-      const acknowledgedMap = new Map((acknowledgementsData || []).map(a => [`${a.policy_id}-${a.version_acknowledged}`, true]));
-
-      const unacknowledged: PolicyNotification[] = policiesData
-        .filter(p => !acknowledgedMap.has(`${p.id}-${p.version}`))
-        .map(p => ({
+      const unacknowledged: PolicyNotification[] = activePolicies
+        .slice(0, 5)
+        .map((p: any) => ({
           id: p.id,
           title: p.title || 'Untitled Policy',
           version: p.version || '1.0',
-          days_overdue: Math.floor((Date.now() - new Date(p.effective_from || 0).getTime()) / (1000 * 60 * 60 * 24))
-        }))
-        .sort((a, b) => b.days_overdue - a.days_overdue)
-        .slice(0, 5);
+          days_overdue: Math.floor((Date.now() - new Date(p.effectiveFrom || p.effective_from || 0).getTime()) / (1000 * 60 * 60 * 24))
+        }));
 
       setPolicyNotifications(unacknowledged);
       setPolicyCount(unacknowledged.length);
@@ -165,18 +110,24 @@ export function NotificationBell() {
   };
 
   const markAsRead = async (notificationId: string) => {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', notificationId);
+    if (!user?.practiceId) return;
 
-    fetchNotifications();
+    try {
+      await fetch(`/api/practices/${user.practiceId}/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   const handleNotificationClick = async (notification: Notification) => {
     await markAsRead(notification.id);
-    if (notification.action_url) {
-      navigate(notification.action_url);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
     }
     setOpen(false);
   };
@@ -214,7 +165,6 @@ export function NotificationBell() {
           <div className="space-y-4">
             <h4 className="font-semibold">Notifications</h4>
             
-            {/* Policy Notifications Section */}
             {policyNotifications.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -260,7 +210,6 @@ export function NotificationBell() {
               <Separator />
             )}
 
-            {/* System Notifications Section */}
             {notifications.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -272,7 +221,7 @@ export function NotificationBell() {
                     <div
                       key={notification.id}
                       className={`p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors ${
-                        !notification.is_read ? 'bg-accent/50' : ''
+                        !notification.isRead ? 'bg-accent/50' : ''
                       }`}
                       onClick={() => handleNotificationClick(notification)}
                     >
@@ -285,7 +234,7 @@ export function NotificationBell() {
                             {notification.message}
                           </p>
                         </div>
-                        {!notification.is_read && (
+                        {!notification.isRead && (
                           <div className={`w-2 h-2 rounded-full ${getPriorityColor(notification.priority)}`} />
                         )}
                       </div>

@@ -3,9 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 interface UserManagementDialogProps {
@@ -27,6 +26,7 @@ const roleOptions = [
   { value: 'nurse', label: 'Nurse', description: 'Nursing staff' },
   { value: 'hca', label: 'HCA', description: 'Healthcare assistant' },
   { value: 'reception', label: 'Reception', description: 'Reception staff' },
+  { value: 'cleaner', label: 'Cleaner', description: 'Cleaning staff' },
 ];
 
 export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserManagementDialogProps) {
@@ -36,9 +36,8 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     name: '',
     email: '',
     password: '',
-    selectedRoles: [] as string[],
+    role: '',
   });
-  const [existingRoles, setExistingRoles] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -46,44 +45,17 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: user.name || '',
         email: '',
         password: '',
-        selectedRoles: [],
+        role: user.role || '',
       });
-      fetchUserRoles(user.id);
     } else {
       setFormData({
         name: '',
         email: '',
         password: '',
-        selectedRoles: [],
+        role: '',
       });
-      setExistingRoles([]);
     }
   }, [user]);
-
-  const fetchUserRoles = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-
-      if (error) throw error;
-      const roles = data.map(r => r.role);
-      setExistingRoles(roles);
-      setFormData(prev => ({ ...prev, selectedRoles: roles }));
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-    }
-  };
-
-  const handleRoleToggle = (role: string) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedRoles: prev.selectedRoles.includes(role)
-        ? prev.selectedRoles.filter(r => r !== role)
-        : [...prev.selectedRoles, role]
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,31 +70,54 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       return;
     }
 
-    if (formData.selectedRoles.length === 0) {
-      toast.error('Please select at least one role');
+    if (!formData.role) {
+      toast.error('Please select a role');
+      return;
+    }
+
+    if (!currentUser?.practiceId) {
+      toast.error('Practice not found');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, id')
-        .eq('auth_user_id', currentUser?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
       if (user) {
-        // Update existing user roles
-        await updateUserRoles(user.id, userData.practice_id);
+        const response = await fetch(`/api/practices/${currentUser.practiceId}/users/${user.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: formData.name,
+            role: formData.role,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to update user');
+        }
       } else {
-        // Create new user account
-        await createNewUser(userData.practice_id);
+        const response = await fetch(`/api/practices/${currentUser.practiceId}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password || undefined,
+            role: formData.role,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create user');
+        }
       }
 
-      toast.success(user ? 'User roles updated successfully' : 'User created successfully');
+      toast.success(user ? 'User updated successfully' : 'User created successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -133,87 +128,19 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  const updateUserRoles = async (userId: string, practiceId: string) => {
-    // Delete removed roles
-    const rolesToRemove = existingRoles.filter(r => !formData.selectedRoles.includes(r));
-    if (rolesToRemove.length > 0) {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-        .in('role', rolesToRemove as any);
-      if (error) throw error;
-    }
-
-    // Add new roles
-    const rolesToAdd = formData.selectedRoles.filter(r => !existingRoles.includes(r));
-    if (rolesToAdd.length > 0) {
-      const { error } = await supabase
-        .from('user_roles')
-        .insert(
-          rolesToAdd.map(role => ({
-            user_id: userId,
-            role: role as any,
-            practice_id: practiceId,
-          }))
-        );
-      if (error) throw error;
-    }
-
-    // Update name if changed
-    if (formData.name !== user.name) {
-      const { error } = await supabase
-        .from('users')
-        .update({ name: formData.name })
-        .eq('id', userId);
-      if (error) throw error;
-    }
-  };
-
-  const createNewUser = async (practiceId: string) => {
-    // Call edge function to create user account
-    const { data, error } = await supabase.functions.invoke('create-user-accounts', {
-      body: {
-        email: formData.email,
-        name: formData.name,
-        role: formData.selectedRoles[0], // Primary role for user metadata
-        practice_id: practiceId,
-        password: formData.password || undefined,
-      }
-    });
-
-    if (error) throw error;
-
-    // Add additional roles to user_roles table
-    if (formData.selectedRoles.length > 1 && data.user_id) {
-      const additionalRoles = formData.selectedRoles.slice(1);
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .insert(
-          additionalRoles.map(role => ({
-            user_id: data.user_id,
-            role: role as any,
-            practice_id: practiceId,
-          }))
-        );
-      if (rolesError) throw rolesError;
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">
-            {user ? 'Edit User Roles' : 'Create New User'}
+          <DialogTitle className="text-lg sm:text-xl" data-testid="text-dialog-title">
+            {user ? 'Edit User' : 'Create New User'}
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
-            {user ? 'Update roles and permissions for this user' : 'Add a new user account with roles and permissions'}
+            {user ? 'Update details and role for this user' : 'Add a new user account with a role'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-user-management">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-base">Full Name *</Label>
@@ -224,6 +151,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                 placeholder="Enter full name"
                 className="h-11"
                 required
+                data-testid="input-user-name"
               />
             </div>
 
@@ -239,6 +167,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                     placeholder="user@example.com"
                     className="h-11"
                     required
+                    data-testid="input-user-email"
                   />
                 </div>
 
@@ -251,6 +180,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Leave blank to auto-generate"
                     className="h-11"
+                    data-testid="input-user-password"
                   />
                   <p className="text-sm text-muted-foreground">
                     If left blank, a secure password will be generated automatically
@@ -260,31 +190,27 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
             )}
           </div>
 
-          {/* Role Selection */}
           <div className="space-y-3">
-            <Label className="text-base">User Roles * (Select one or more)</Label>
-            <div className="border rounded-lg p-4 space-y-3 max-h-[300px] overflow-y-auto">
-              {roleOptions.map((role) => (
-                <div key={role.value} className="flex items-start space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <Checkbox
-                    id={role.value}
-                    checked={formData.selectedRoles.includes(role.value)}
-                    onCheckedChange={() => handleRoleToggle(role.value)}
-                  />
-                  <div className="flex-1">
-                    <label
-                      htmlFor={role.value}
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      {role.label}
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {role.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Label className="text-base">User Role *</Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value) => setFormData({ ...formData, role: value })}
+              data-testid="select-user-role"
+            >
+              <SelectTrigger className="h-11" data-testid="select-trigger-role">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {roleOptions.map((role) => (
+                  <SelectItem key={role.value} value={role.value} data-testid={`select-role-${role.value}`}>
+                    <div className="flex flex-col">
+                      <span>{role.label}</span>
+                      <span className="text-xs text-muted-foreground">{role.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -293,6 +219,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
               variant="outline" 
               onClick={onClose}
               className="w-full sm:w-auto min-h-[44px]"
+              data-testid="button-cancel"
             >
               Cancel
             </Button>
@@ -300,6 +227,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
               type="submit" 
               disabled={loading}
               className="w-full sm:w-auto min-h-[44px]"
+              data-testid="button-submit"
             >
               {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
             </Button>

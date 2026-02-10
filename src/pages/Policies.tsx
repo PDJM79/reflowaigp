@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,11 +24,9 @@ export default function Policies() {
   const [ackDialogOpen, setAckDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [selectedPolicyForTracker, setSelectedPolicyForTracker] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [checkingReviews, setCheckingReviews] = useState(false);
-  const [sendingEmails, setSendingEmails] = useState(false);
-  const [sendingAckReminders, setSendingAckReminders] = useState(false);
-  const [sendingEscalations, setSendingEscalations] = useState(false);
+
+  const practiceId = user?.practiceId || '';
+  const canUpload = user?.isPracticeManager || user?.role === 'practice_manager';
 
   useEffect(() => {
     if (!user) {
@@ -37,57 +34,16 @@ export default function Policies() {
       return;
     }
     fetchPolicies();
-    fetchUserRoles();
   }, [user, navigate]);
 
-  const fetchUserRoles = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_roles(role)')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (userData?.user_roles) {
-        const roles = Array.isArray(userData.user_roles) 
-          ? userData.user_roles.map((r: any) => r.role)
-          : [(userData.user_roles as any).role];
-        setUserRoles(roles);
-      }
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-    }
-  };
-
   const fetchPolicies = async () => {
+    if (!practiceId) return;
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const res = await fetch(`/api/practices/${practiceId}/policies`, { credentials: 'include' });
 
-      if (!userData) return;
-
-      const { data, error } = await supabase
-        .from('policy_documents')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      if (!res.ok) throw new Error('Failed to fetch policies');
+      const data = await res.json();
       setPolicies(data || []);
-
-      // Fetch user's acknowledgments
-      const { data: acks } = await supabase
-        .from('policy_acknowledgments')
-        .select('policy_id, version_acknowledged')
-        .eq('user_id', userData.id);
-
-      const ackSet = new Set(
-        acks?.map(a => `${a.policy_id}_${a.version_acknowledged}`) || []
-      );
-      setMyAcknowledgments(ackSet);
     } catch (error) {
       console.error('Error fetching policies:', error);
     } finally {
@@ -100,12 +56,10 @@ export default function Policies() {
   );
 
   const activePolicies = policies.filter(p => p.status === 'active');
-  const dueForReview = activePolicies.filter(p => p.review_due && new Date(p.review_due) < new Date());
+  const dueForReview = activePolicies.filter(p => p.nextReviewDate && new Date(p.nextReviewDate) < new Date());
   const needsMyAcknowledgment = activePolicies.filter(p => 
     !myAcknowledgments.has(`${p.id}_${p.version || 'unversioned'}`)
   );
-
-  const canUpload = userRoles.includes('practice_manager') || userRoles.includes('ig_lead');
 
   const handleAcknowledgeClick = (policy: any) => {
     setSelectedPolicy(policy);
@@ -117,125 +71,19 @@ export default function Policies() {
   };
 
   const handleCheckPolicyReviews = async () => {
-    setCheckingReviews(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('policy-review-reminders');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        toast.success('Policy Review Check Complete', {
-          description: `Checked ${data.policies_checked} policies. Created ${data.notifications_created} notification(s) for ${data.practices_affected} practice(s).`
-        });
-      } else {
-        toast.error('Check failed', {
-          description: data?.error || 'Unknown error occurred'
-        });
-      }
-    } catch (error) {
-      console.error('Error checking policy reviews:', error);
-      toast.error('Failed to check policy reviews', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-    } finally {
-      setCheckingReviews(false);
-    }
+    toast.info('Policy review check is not available in this mode.');
   };
 
   const handleSendEmailReminders = async () => {
-    setSendingEmails(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-policy-review-emails');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        if (data.emails_sent === 0) {
-          toast.info('No Email Reminders Needed', {
-            description: data.message || 'No overdue policies found that require email notifications.'
-          });
-        } else {
-          toast.success('Email Reminders Sent Successfully', {
-            description: `Sent ${data.emails_sent} email(s) to managers about ${data.overdue_policies} overdue policy review(s) across ${data.practices_affected} practice(s).`
-          });
-        }
-      } else {
-        toast.error('Failed to send emails', {
-          description: data?.error || 'Unknown error occurred'
-        });
-      }
-    } catch (error) {
-      console.error('Error sending email reminders:', error);
-      toast.error('Failed to send email reminders', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-    } finally {
-      setSendingEmails(false);
-    }
+    toast.info('Email reminders are not available in this mode.');
   };
 
   const handleSendAcknowledgmentReminders = async () => {
-    setSendingAckReminders(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-policy-acknowledgment-reminders');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        if (data.emails_sent === 0) {
-          toast.info('No Acknowledgment Reminders Needed', {
-            description: 'All staff have acknowledged their required policies.'
-          });
-        } else {
-          toast.success('Acknowledgment Reminders Sent Successfully', {
-            description: `Sent ${data.emails_sent} reminder(s) to staff about ${data.policies_checked} policy acknowledgment(s).`
-          });
-        }
-      } else {
-        toast.error('Failed to send acknowledgment reminders', {
-          description: data?.error || 'Unknown error occurred'
-        });
-      }
-    } catch (error) {
-      console.error('Error sending acknowledgment reminders:', error);
-      toast.error('Failed to send acknowledgment reminders', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-    } finally {
-      setSendingAckReminders(false);
-    }
+    toast.info('Acknowledgment reminders are not available in this mode.');
   };
 
   const handleSendEscalationEmails = async () => {
-    setSendingEscalations(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-policy-escalation-emails');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        if (data.emails_sent === 0) {
-          toast.info('No Escalations Needed', {
-            description: 'No staff have exceeded the 21-day acknowledgment deadline.'
-          });
-        } else {
-          toast.success('Escalation Emails Sent Successfully', {
-            description: `Sent ${data.emails_sent} escalation(s) to managers about staff who haven't acknowledged policies after 21 days.`
-          });
-        }
-      } else {
-        toast.error('Failed to send escalation emails', {
-          description: data?.error || 'Unknown error occurred'
-        });
-      }
-    } catch (error) {
-      console.error('Error sending escalation emails:', error);
-      toast.error('Failed to send escalation emails', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-    } finally {
-      setSendingEscalations(false);
-    }
+    toast.info('Escalation emails are not available in this mode.');
   };
 
   return (
@@ -256,6 +104,7 @@ export default function Policies() {
             <Button 
               variant="outline" 
               onClick={() => navigate('/policies/review-history')}
+              data-testid="button-review-history"
             >
               <FileText className="h-4 w-4 mr-2" />
               Review History
@@ -263,37 +112,37 @@ export default function Policies() {
             <Button 
               variant="outline" 
               onClick={handleCheckPolicyReviews}
-              disabled={checkingReviews}
+              data-testid="button-check-reviews"
             >
               <Bell className="h-4 w-4 mr-2" />
-              {checkingReviews ? 'Checking...' : 'Check Policy Reviews Now'}
+              Check Policy Reviews Now
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendEmailReminders}
-              disabled={sendingEmails}
+              data-testid="button-send-email-reminders"
             >
               <Mail className="h-4 w-4 mr-2" />
-              {sendingEmails ? 'Sending Emails...' : 'Send Email Reminders Now'}
+              Send Email Reminders Now
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendAcknowledgmentReminders}
-              disabled={sendingAckReminders}
+              data-testid="button-send-ack-reminders"
             >
               <Clock className="h-4 w-4 mr-2" />
-              {sendingAckReminders ? 'Sending Reminders...' : 'Send Acknowledgment Reminders'}
+              Send Acknowledgment Reminders
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendEscalationEmails}
-              disabled={sendingEscalations}
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              data-testid="button-send-escalations"
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
-              {sendingEscalations ? 'Sending Escalations...' : 'Send Escalation Emails'}
+              Send Escalation Emails
             </Button>
-            <Button onClick={() => setUploadDialogOpen(true)}>
+            <Button onClick={() => setUploadDialogOpen(true)} data-testid="button-upload-policy">
               <Upload className="h-4 w-4 mr-2" />
               Upload Policy
             </Button>
@@ -307,7 +156,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Active Policies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activePolicies.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-active-policies-count">{activePolicies.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Currently in effect</p>
           </CardContent>
         </Card>
@@ -317,7 +166,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Due for Review</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{dueForReview.length}</div>
+            <div className="text-3xl font-bold text-orange-600" data-testid="text-due-review-count">{dueForReview.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Require attention</p>
           </CardContent>
         </Card>
@@ -327,7 +176,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Needs My Acknowledgment</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{needsMyAcknowledgment.length}</div>
+            <div className="text-3xl font-bold text-blue-600" data-testid="text-needs-ack-count">{needsMyAcknowledgment.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Require your review</p>
           </CardContent>
         </Card>
@@ -337,7 +186,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{policies.length}</div>
+            <div className="text-3xl font-bold" data-testid="text-total-policies-count">{policies.length}</div>
             <p className="text-sm text-muted-foreground mt-1">All policies</p>
           </CardContent>
         </Card>
@@ -353,6 +202,7 @@ export default function Policies() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
+                data-testid="input-search-policies"
               />
             </div>
           </div>
@@ -363,7 +213,7 @@ export default function Policies() {
         <div className="text-center py-8">Loading policies...</div>
       ) : selectedPolicyForTracker ? (
         <div className="space-y-4">
-          <Button variant="outline" onClick={() => setSelectedPolicyForTracker(null)}>
+          <Button variant="outline" onClick={() => setSelectedPolicyForTracker(null)} data-testid="button-back-to-policies">
             ← Back to Policies
           </Button>
           <PolicyStaffTracker policyId={selectedPolicyForTracker} />
@@ -371,8 +221,8 @@ export default function Policies() {
       ) : (
         <Tabs defaultValue="all" className="w-full">
           <TabsList>
-            <TabsTrigger value="all">All Policies</TabsTrigger>
-            <TabsTrigger value="needs_ack">
+            <TabsTrigger value="all" data-testid="tab-all-policies">All Policies</TabsTrigger>
+            <TabsTrigger value="needs_ack" data-testid="tab-needs-ack">
               Needs My Acknowledgment {needsMyAcknowledgment.length > 0 && `(${needsMyAcknowledgment.length})`}
             </TabsTrigger>
           </TabsList>
@@ -391,7 +241,7 @@ export default function Policies() {
                 ) : (
                   <div className="space-y-3">
                     {filteredPolicies.map((policy) => {
-                      const isOverdue = policy.review_due && new Date(policy.review_due) < new Date();
+                      const isOverdue = policy.nextReviewDate && new Date(policy.nextReviewDate) < new Date();
                       const needsAck = !myAcknowledgments.has(`${policy.id}_${policy.version || 'unversioned'}`);
                       return (
                         <div
@@ -399,6 +249,7 @@ export default function Policies() {
                           className={`p-4 border rounded-lg ${
                             isOverdue ? 'border-orange-300 bg-orange-50' : ''
                           }`}
+                          data-testid={`card-policy-${policy.id}`}
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
@@ -429,15 +280,9 @@ export default function Policies() {
                                 )}
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                                {policy.owner_role && (
-                                  <p>Owner: {policy.owner_role}</p>
-                                )}
-                                {policy.effective_from && (
-                                  <p>Effective: {new Date(policy.effective_from).toLocaleDateString()}</p>
-                                )}
-                                {policy.review_due && (
+                                {policy.nextReviewDate && (
                                   <p className={isOverdue ? 'text-orange-600 font-medium' : ''}>
-                                    Review Due: {new Date(policy.review_due).toLocaleDateString()}
+                                    Review Due: {new Date(policy.nextReviewDate).toLocaleDateString()}
                                   </p>
                                 )}
                               </div>
@@ -448,6 +293,7 @@ export default function Policies() {
                                   variant="default" 
                                   size="sm"
                                   onClick={() => handleAcknowledgeClick(policy)}
+                                  data-testid={`button-acknowledge-${policy.id}`}
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-2" />
                                   Acknowledge
@@ -458,6 +304,7 @@ export default function Policies() {
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => handleViewStaffTracker(policy.id)}
+                                  data-testid={`button-staff-status-${policy.id}`}
                                 >
                                   <Users className="h-4 w-4 mr-2" />
                                   Staff Status
@@ -506,6 +353,7 @@ export default function Policies() {
                             variant="default" 
                             size="sm"
                             onClick={() => handleAcknowledgeClick(policy)}
+                            data-testid={`button-acknowledge-needed-${policy.id}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-2" />
                             Acknowledge

@@ -6,67 +6,41 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, Search, Clock, User, Filter } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
-interface ProcessInstance {
+interface ProcessTemplate {
   id: string;
-  status: string;
-  due_at: string;
-  created_at: string;
-  period_start: string;
-  period_end: string;
-  process_templates: {
-    name: string;
-    responsible_role: string;
-    frequency: string;
-  };
-  users: {
-    name: string;
-  };
+  name: string;
+  module: string;
+  description: string;
+  frequency: string;
+  responsibleRole: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export default function AllProcesses() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [processes, setProcesses] = useState<ProcessInstance[]>([]);
-  const [filteredProcesses, setFilteredProcesses] = useState<ProcessInstance[]>([]);
+  const [templates, setTemplates] = useState<ProcessTemplate[]>([]);
+  const [filteredTemplates, setFilteredTemplates] = useState<ProcessTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  const practiceId = user?.practiceId || '';
+
   useEffect(() => {
-    if (!user) return;
+    if (!user || !practiceId) return;
 
     const fetchProcesses = async () => {
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (!userData) return;
-
-        const { data: processInstances } = await supabase
-          .from('process_instances')
-          .select(`
-            *,
-            process_templates!inner (
-              name,
-              responsible_role,
-              frequency
-          ),
-          users!assignee_id (
-            name
-          )
-        `)
-        .eq('practice_id', userData.practice_id)
-          .order('created_at', { ascending: false });
-
-        setProcesses(processInstances || []);
-        setFilteredProcesses(processInstances || []);
+        const res = await fetch(`/api/practices/${practiceId}/process-templates`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to fetch process templates');
+        const data = await res.json();
+        setTemplates(data || []);
+        setFilteredTemplates(data || []);
       } catch (error) {
         console.error('Error fetching processes:', error);
       } finally {
@@ -75,42 +49,29 @@ export default function AllProcesses() {
     };
 
     fetchProcesses();
-  }, [user]);
+  }, [user, practiceId]);
 
   useEffect(() => {
-    let filtered = processes;
+    let filtered = templates;
 
-    // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(process => 
-        process.process_templates?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        process.users?.name.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(template => 
+        template.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        template.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        template.responsibleRole?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Filter by status
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(process => process.status === statusFilter);
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(template => template.isActive);
+      } else if (statusFilter === 'inactive') {
+        filtered = filtered.filter(template => !template.isActive);
+      }
     }
 
-    setFilteredProcesses(filtered);
-  }, [processes, searchTerm, statusFilter]);
-
-  const getStatusBadge = (status: string, dueAt: string) => {
-    if (status === 'complete') return 'green';
-    if (status === 'in_progress') return 'amber';
-    if (new Date(dueAt) < new Date()) return 'red';
-    return 'amber';
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'complete': return 'Complete';
-      case 'in_progress': return 'In Progress';
-      case 'pending': return 'Pending';
-      default: return status;
-    }
-  };
+    setFilteredTemplates(filtered);
+  }, [templates, searchTerm, statusFilter]);
 
   if (loading) {
     return (
@@ -129,7 +90,7 @@ export default function AllProcesses() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" onClick={() => navigate('/')}>
+          <Button variant="outline" onClick={() => navigate('/')} data-testid="button-back-dashboard">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
@@ -141,7 +102,6 @@ export default function AllProcesses() {
           </div>
         </div>
 
-        {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -155,10 +115,11 @@ export default function AllProcesses() {
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search processes or assignees..."
+                    placeholder="Search processes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
+                    data-testid="input-search-processes"
                   />
                 </div>
               </div>
@@ -167,78 +128,71 @@ export default function AllProcesses() {
                   variant={statusFilter === 'all' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setStatusFilter('all')}
+                  data-testid="button-filter-all"
                 >
                   All
                 </Button>
                 <Button
-                  variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                  variant={statusFilter === 'active' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter('pending')}
+                  onClick={() => setStatusFilter('active')}
+                  data-testid="button-filter-active"
                 >
-                  Pending
+                  Active
                 </Button>
                 <Button
-                  variant={statusFilter === 'in_progress' ? 'default' : 'outline'}
+                  variant={statusFilter === 'inactive' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter('in_progress')}
+                  onClick={() => setStatusFilter('inactive')}
+                  data-testid="button-filter-inactive"
                 >
-                  In Progress
-                </Button>
-                <Button
-                  variant={statusFilter === 'complete' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setStatusFilter('complete')}
-                >
-                  Complete
+                  Inactive
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Processes List */}
         <Card>
           <CardHeader>
-            <CardTitle>Processes ({filteredProcesses.length})</CardTitle>
+            <CardTitle>Process Templates ({filteredTemplates.length})</CardTitle>
             <CardDescription>
-              Click on any process to view details and manage steps
+              View all audit process templates
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredProcesses.length > 0 ? (
-                filteredProcesses.map((process) => (
+              {filteredTemplates.length > 0 ? (
+                filteredTemplates.map((template) => (
                   <div 
-                    key={process.id}
+                    key={template.id}
                     className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => navigate(`/task/${process.id}`)}
+                    data-testid={`card-process-${template.id}`}
                   >
                     <div className="flex items-center gap-4">
-                      <RAGBadge status={getStatusBadge(process.status, process.due_at)} />
+                      <RAGBadge status={template.isActive ? 'green' : 'red'} />
                       <div>
-                        <h3 className="font-medium">{process.process_templates?.name}</h3>
+                        <h3 className="font-medium">{template.name}</h3>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Due: {new Date(process.due_at).toLocaleDateString()}
-                          </span>
-                          <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {process.users?.name || 'Unassigned'}
+                            {template.responsibleRole || 'Unassigned'}
                           </span>
                           <Badge variant="outline" className="text-xs">
-                            {process.process_templates?.frequency}
+                            {template.frequency}
                           </Badge>
+                          {template.module && (
+                            <Badge variant="outline" className="text-xs">
+                              {template.module}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">
-                        {getStatusText(process.status)}
+                        {template.isActive ? 'Active' : 'Inactive'}
                       </Badge>
-                      <Button size="sm" variant="outline">
-                        View Details
-                      </Button>
                     </div>
                   </div>
                 ))

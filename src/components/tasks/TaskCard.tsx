@@ -6,7 +6,7 @@ import { Calendar, User, AlertCircle, CheckCircle, Clock, ArrowRight, CheckCircl
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { triggerHaptic } from '@/lib/haptics';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -32,22 +32,26 @@ interface TaskCardProps {
 
 export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const [isCompleting, setIsCompleting] = useState(false);
 
   const handleCompleteTask = async () => {
     if (task.status === 'complete') return;
+    if (!user?.practiceId) return;
     
     setIsCompleting(true);
     triggerHaptic('medium');
 
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: 'complete' })
-        .eq('id', task.id);
+      const response = await fetch(`/api/practices/${user.practiceId}/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'complete' }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to complete task');
 
       toast.success('Task completed!');
       triggerHaptic('success');
@@ -113,7 +117,6 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
         transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
       }}
     >
-      {/* Swipe Action Background */}
       {isMobile && task.status !== 'complete' && (
         <div 
           className="absolute inset-0 bg-success flex items-center px-6 rounded-lg"

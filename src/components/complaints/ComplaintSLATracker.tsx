@@ -2,41 +2,66 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export const ComplaintSLATracker = () => {
   const { user } = useAuth();
 
-  const { data: analytics } = useQuery({
-    queryKey: ['complaints-analytics', user?.id],
+  const { data: complaints } = useQuery({
+    queryKey: ['complaints', user?.practiceId],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) return [];
 
-      if (!userData?.practice_id) return null;
+      const response = await fetch(`/api/practices/${user.practiceId}/complaints`, {
+        credentials: 'include',
+      });
 
-      const { data } = await (supabase as any)
-        .from('complaints_analytics')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .single();
-
-      return data;
+      if (!response.ok) return [];
+      return response.json();
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
-  if (!analytics) {
+  if (!complaints || complaints.length === 0) {
     return null;
   }
 
-  const slaCompliance = analytics.within_sla_count 
-    ? Math.round((analytics.within_sla_count / analytics.completed_count) * 100)
+  const completedComplaints = complaints.filter((c: any) => c.status === 'resolved' || c.status === 'closed');
+  const completedCount = completedComplaints.length;
+
+  const withinSlaCount = completedComplaints.filter((c: any) => {
+    const finalResponseDueDate = c.finalResponseDueDate || c.final_response_due_date;
+    const resolvedAt = c.finalResponseSentAt || c.final_response_sent_at || c.updatedAt;
+    if (!finalResponseDueDate || !resolvedAt) return false;
+    return new Date(resolvedAt) <= new Date(finalResponseDueDate);
+  }).length;
+
+  const slaCompliance = completedCount > 0
+    ? Math.round((withinSlaCount / completedCount) * 100)
     : 0;
+
+  const now = new Date();
+
+  const ackOverdueCount = complaints.filter((c: any) => {
+    const ackSentAt = c.acknowledgmentSentAt || c.acknowledgment_sent_at;
+    const ackDueDate = c.acknowledgmentDueDate || c.acknowledgment_due_date;
+    return !ackSentAt && ackDueDate && new Date(ackDueDate) < now;
+  }).length;
+
+  const responseOverdueCount = complaints.filter((c: any) => {
+    const finalSentAt = c.finalResponseSentAt || c.final_response_sent_at;
+    const finalDueDate = c.finalResponseDueDate || c.final_response_due_date;
+    return !finalSentAt && finalDueDate && new Date(finalDueDate) < now;
+  }).length;
+
+  const totalDays = completedComplaints.reduce((sum: number, c: any) => {
+    const received = c.receivedDate || c.received_date;
+    const resolved = c.finalResponseSentAt || c.final_response_sent_at || c.updatedAt;
+    if (!received || !resolved) return sum;
+    const days = Math.ceil((new Date(resolved).getTime() - new Date(received).getTime()) / (1000 * 60 * 60 * 24));
+    return sum + days;
+  }, 0);
+  const avgCompletionDays = completedCount > 0 ? Math.round(totalDays / completedCount) : 0;
 
   return (
     <div className="grid gap-4 md:grid-cols-4">
@@ -47,12 +72,12 @@ export const ComplaintSLATracker = () => {
         <CardContent>
           <div className="text-3xl font-bold">{slaCompliance}%</div>
           <p className="text-xs text-muted-foreground">
-            {analytics.within_sla_count} of {analytics.completed_count} within 30 days
+            {withinSlaCount} of {completedCount} within 30 days
           </p>
         </CardContent>
       </Card>
 
-      <Card className={analytics.ack_overdue_count > 0 ? 'border-warning' : ''}>
+      <Card className={ackOverdueCount > 0 ? 'border-warning' : ''}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Clock className="h-4 w-4 text-warning" />
@@ -60,12 +85,12 @@ export const ComplaintSLATracker = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold">{analytics.ack_overdue_count}</div>
+          <div className="text-3xl font-bold">{ackOverdueCount}</div>
           <p className="text-xs text-muted-foreground">Needs 48hr acknowledgment</p>
         </CardContent>
       </Card>
 
-      <Card className={analytics.response_overdue_count > 0 ? 'border-destructive' : ''}>
+      <Card className={responseOverdueCount > 0 ? 'border-destructive' : ''}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -73,7 +98,7 @@ export const ComplaintSLATracker = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold">{analytics.response_overdue_count}</div>
+          <div className="text-3xl font-bold">{responseOverdueCount}</div>
           <p className="text-xs text-muted-foreground">Past 30-day deadline</p>
         </CardContent>
       </Card>
@@ -86,7 +111,7 @@ export const ComplaintSLATracker = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold">{analytics.avg_completion_days || 0}</div>
+          <div className="text-3xl font-bold">{avgCompletionDays}</div>
           <p className="text-xs text-muted-foreground">Working days</p>
         </CardContent>
       </Card>

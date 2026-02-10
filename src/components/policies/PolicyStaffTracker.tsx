@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Users } from 'lucide-react';
@@ -28,56 +27,30 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
   }, [policyId]);
 
   const fetchStaffAcknowledgments = async () => {
+    if (!user?.practiceId) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const [usersResponse, policyResponse] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/policies/${policyId}`, { credentials: 'include' }),
+      ]);
 
-      if (!userData) return;
+      if (!usersResponse.ok || !policyResponse.ok) {
+        throw new Error('Failed to fetch data');
+      }
 
-      // Get all active staff in the practice
-      const { data: allStaff, error: staffError } = await supabase
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_active', true);
+      const allUsers = await usersResponse.json();
+      const policy = await policyResponse.json();
 
-      if (staffError) throw staffError;
-
-      // Get policy details
-      const { data: policy } = await supabase
-        .from('policy_documents')
-        .select('version')
-        .eq('id', policyId)
-        .single();
-
-      // Get acknowledgments for this policy
-      const { data: acknowledgments, error: ackError } = await supabase
-        .from('policy_acknowledgments')
-        .select('user_id, acknowledged_at, version_acknowledged')
-        .eq('policy_id', policyId)
-        .eq('version_acknowledged', policy?.version || 'unversioned');
-
-      if (ackError) throw ackError;
-
-      const acknowledgedUserIds = new Set(acknowledgments?.map(a => a.user_id) || []);
-      
-      const acknowledged = (allStaff || [])
-        .filter(staff => acknowledgedUserIds.has(staff.id))
-        .map(staff => ({
-          ...staff,
-          acknowledgedAt: acknowledgments?.find(a => a.user_id === staff.id)?.acknowledged_at,
-        }));
-
-      const notAcknowledged = (allStaff || [])
-        .filter(staff => !acknowledgedUserIds.has(staff.id));
+      const activeStaff = (allUsers || []).filter((u: any) => u.isActive !== false);
 
       setStaffData({
-        acknowledged,
-        notAcknowledged,
-        totalStaff: allStaff?.length || 0,
+        acknowledged: [],
+        notAcknowledged: activeStaff,
+        totalStaff: activeStaff.length,
       });
     } catch (error) {
       console.error('Error fetching staff acknowledgments:', error);
@@ -133,7 +106,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {staffData.notAcknowledged.map((staff) => (
+              {staffData.notAcknowledged.map((staff: any) => (
                 <div key={staff.id} className="flex items-center justify-between p-2 border rounded">
                   <p className="font-medium text-sm">{staff.name}</p>
                   <Badge variant="outline" className="text-orange-600 border-orange-600">
@@ -156,7 +129,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {staffData.acknowledged.map((staff) => (
+              {staffData.acknowledged.map((staff: any) => (
                 <div key={staff.id} className="flex items-center justify-between p-2 border rounded">
                   <div>
                     <p className="font-medium text-sm">{staff.name}</p>

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,31 +49,32 @@ export function IncidentReportDialog({ open, onOpenChange }: IncidentReportDialo
 
   const createIncidentMutation = useMutation({
     mutationFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) throw new Error('Practice not found');
 
-      if (!userData) throw new Error('User not found');
-
-      const { error } = await supabase
-        .from('incidents' as any)
-        .insert({
-          practice_id: userData.practice_id,
-          incident_date: formData.incident_date,
+      const response = await fetch(`/api/practices/${user.practiceId}/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          incidentDate: formData.incident_date,
           location: formData.location,
           category: formData.category,
           severity: formData.severity,
           description: formData.description,
-          immediate_action_taken: formData.immediate_action_taken,
-          people_involved: formData.people_involved.split(',').map(p => p.trim()).filter(Boolean),
+          immediateActionTaken: formData.immediate_action_taken,
+          peopleInvolved: formData.people_involved.split(',').map(p => p.trim()).filter(Boolean),
           witnesses: formData.witnesses.split(',').map(w => w.trim()).filter(Boolean),
-          reported_by: userData.id,
+          reportedBy: user.id,
           status: 'reported',
-        } as any);
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to report incident' }));
+        throw new Error(err.error || 'Failed to report incident');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast.success('Incident reported successfully', {

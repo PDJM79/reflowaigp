@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, AlertCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
@@ -15,71 +15,44 @@ type UnacknowledgedPolicy = {
   days_overdue: number;
 };
 
-type PolicyDoc = {
-  id: string;
-  title: string | null;
-  version: string | null;
-  effective_from: string | null;
-};
-
-type PolicyAck = {
-  policy_id: string;
-  version_acknowledged: string;
-};
-
 export function PoliciesNeedingAcknowledgment() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [policies, setPolicies] = useState<UnacknowledgedPolicy[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUnacknowledgedPolicies();
-  }, []);
+    if (!user?.practiceId) {
+      setLoading(false);
+      return;
+    }
+    fetchPolicies();
+  }, [user?.practiceId]);
 
-  const fetchUnacknowledgedPolicies = async () => {
+  const fetchPolicies = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch(`/api/practices/${user!.practiceId}/policies`, {
+        credentials: 'include',
+      });
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+      if (!response.ok) {
+        setPolicies([]);
+        setLoading(false);
+        return;
+      }
 
-      if (!userData) return;
+      const policiesData = await response.json();
 
-      // Use type-safe wrapper to bypass TS inference issues
-      const policiesResult = await (supabase as any)
-        .from('policy_documents')
-        .select('id, title, version, effective_from')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_active', true);
-
-      const acknowledgementsResult = await (supabase as any)
-        .from('policy_acknowledgments')
-        .select('policy_id, version_acknowledged')
-        .eq('user_id', userData.id);
-
-      const policiesData = policiesResult.data as PolicyDoc[] | null;
-      const acknowledgementsData = acknowledgementsResult.data as PolicyAck[] | null;
-
-      if (!policiesData) return;
-
-      const acknowledgedMap = new Map(
-        (acknowledgementsData || []).map(a => [`${a.policy_id}-${a.version_acknowledged}`, true])
-      );
-
-      const unacknowledged: UnacknowledgedPolicy[] = policiesData
-        .filter(p => !acknowledgedMap.has(`${p.id}-${p.version}`))
-        .map(p => ({
+      const unacknowledged: UnacknowledgedPolicy[] = (policiesData || [])
+        .filter((p: any) => p.isActive !== false)
+        .map((p: any) => ({
           id: p.id,
           title: p.title || 'Untitled Policy',
           version: p.version || '1.0',
-          effective_date: p.effective_from || new Date().toISOString(),
-          days_overdue: Math.floor((Date.now() - new Date(p.effective_from || 0).getTime()) / (1000 * 60 * 60 * 24))
+          effective_date: p.effectiveFrom || p.effective_from || new Date().toISOString(),
+          days_overdue: Math.floor((Date.now() - new Date(p.effectiveFrom || p.effective_from || 0).getTime()) / (1000 * 60 * 60 * 24))
         }))
-        .sort((a, b) => b.days_overdue - a.days_overdue);
+        .sort((a: UnacknowledgedPolicy, b: UnacknowledgedPolicy) => b.days_overdue - a.days_overdue);
 
       setPolicies(unacknowledged);
     } catch (error) {
@@ -92,7 +65,7 @@ export function PoliciesNeedingAcknowledgment() {
 
   if (loading) {
     return (
-      <Card>
+      <Card data-testid="card-policies-loading">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -110,7 +83,7 @@ export function PoliciesNeedingAcknowledgment() {
 
   if (policies.length === 0) {
     return (
-      <Card>
+      <Card data-testid="card-policies-empty">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -123,7 +96,7 @@ export function PoliciesNeedingAcknowledgment() {
             <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-3 mb-3">
               <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-sm text-muted-foreground">All policies have been acknowledged</p>
+            <p className="text-sm text-muted-foreground" data-testid="text-policies-all-acknowledged">All policies have been acknowledged</p>
           </div>
         </CardContent>
       </Card>
@@ -131,25 +104,25 @@ export function PoliciesNeedingAcknowledgment() {
   }
 
   return (
-    <Card>
+    <Card data-testid="card-policies-needing-acknowledgment">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
           Policies Needing Acknowledgment
-          <Badge variant="destructive" className="ml-auto">{policies.length}</Badge>
+          <Badge variant="destructive" className="ml-auto" data-testid="badge-policies-count">{policies.length}</Badge>
         </CardTitle>
         <CardDescription>Please review and acknowledge these policies</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {policies.slice(0, 3).map((policy) => (
-            <div key={policy.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+            <div key={policy.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors" data-testid={`card-policy-${policy.id}`}>
               <div className="flex items-start gap-3 flex-1">
                 <div className="rounded-full bg-orange-100 dark:bg-orange-900/20 p-2 mt-0.5">
                   <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="space-y-1 flex-1 min-w-0">
-                  <p className="font-medium text-sm leading-none truncate">{policy.title}</p>
+                  <p className="font-medium text-sm leading-none truncate" data-testid={`text-policy-title-${policy.id}`}>{policy.title}</p>
                   <p className="text-xs text-muted-foreground">
                     Version {policy.version}
                     {policy.days_overdue > 0 && (
@@ -158,13 +131,13 @@ export function PoliciesNeedingAcknowledgment() {
                   </p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => navigate('/policies')} className="ml-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={() => navigate('/policies')} className="ml-2 shrink-0" data-testid={`button-review-policy-${policy.id}`}>
                 Review
               </Button>
             </div>
           ))}
           {policies.length > 3 && (
-            <Button variant="ghost" className="w-full" onClick={() => navigate('/policies')}>
+            <Button variant="ghost" className="w-full" onClick={() => navigate('/policies')} data-testid="button-view-all-policies">
               View all {policies.length} policies
             </Button>
           )}

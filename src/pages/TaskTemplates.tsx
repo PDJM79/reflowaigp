@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,16 +12,15 @@ import { TaskTemplateDialog } from '@/components/tasks/TaskTemplateDialog';
 
 interface TaskTemplate {
   id: string;
-  title: string;
+  name: string;
   description: string;
   module: string;
-  default_assignee_role: string;
-  requires_photo: boolean;
-  sla_type: string;
-  due_rule: string;
-  allowed_roles: string[];
-  evidence_tags: string[];
-  created_at: string;
+  responsibleRole: string;
+  frequency: string;
+  steps: any;
+  evidenceHint: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export default function TaskTemplates() {
@@ -35,6 +33,8 @@ export default function TaskTemplates() {
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+
+  const practiceId = user?.practiceId || '';
 
   const modules = [
     'month_end',
@@ -59,22 +59,11 @@ export default function TaskTemplates() {
   }, [user, navigate]);
 
   const fetchTemplates = async () => {
+    if (!practiceId) return;
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, is_practice_manager')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data, error } = await supabase
-        .from('task_templates')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${practiceId}/process-templates`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch templates');
+      const data = await res.json();
       setTemplates(data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -88,12 +77,14 @@ export default function TaskTemplates() {
     if (!confirm('Are you sure you want to delete this template?')) return;
 
     try {
-      const { error } = await supabase
-        .from('task_templates')
-        .delete()
-        .eq('id', id);
+      const res = await fetch(`/api/practices/${practiceId}/process-templates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: false }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error('Failed to delete template');
 
       toast.success('Template deleted successfully');
       fetchTemplates();
@@ -105,32 +96,22 @@ export default function TaskTemplates() {
 
   const handleDuplicate = async (template: TaskTemplate) => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const res = await fetch(`/api/practices/${practiceId}/process-templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: `${template.name} (Copy)`,
+          description: template.description,
+          module: template.module,
+          responsibleRole: template.responsibleRole,
+          frequency: template.frequency,
+          steps: template.steps,
+          evidenceHint: template.evidenceHint,
+        }),
+      });
 
-      if (!userData) return;
-
-      const { id, created_at, ...templateData } = template;
-
-      const { error } = await supabase
-        .from('task_templates')
-        .insert([{
-          title: `${template.title} (Copy)`,
-          description: templateData.description,
-          module: templateData.module,
-          default_assignee_role: templateData.default_assignee_role as any,
-          requires_photo: templateData.requires_photo,
-          sla_type: templateData.sla_type,
-          due_rule: templateData.due_rule,
-          evidence_tags: templateData.evidence_tags as any,
-          allowed_roles: templateData.allowed_roles as any,
-          practice_id: userData.practice_id,
-        }]);
-
-      if (error) throw error;
+      if (!res.ok) throw new Error('Failed to duplicate template');
 
       toast.success('Template duplicated successfully');
       fetchTemplates();
@@ -141,7 +122,7 @@ export default function TaskTemplates() {
   };
 
   const filteredTemplates = templates.filter((template) => {
-    const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = template.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesModule = selectedModule === 'all' || template.module === selectedModule;
     return matchesSearch && matchesModule;
@@ -157,7 +138,7 @@ export default function TaskTemplates() {
         <Button onClick={() => {
           setEditingTemplate(null);
           setShowDialog(true);
-        }}>
+        }} data-testid="button-create-template">
           <Plus className="h-4 w-4 mr-2" />
           {t('taskTemplates.create')}
         </Button>
@@ -177,6 +158,7 @@ export default function TaskTemplates() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
+                  data-testid="input-search-templates"
                 />
               </div>
             </div>
@@ -184,6 +166,7 @@ export default function TaskTemplates() {
               value={selectedModule}
               onChange={(e) => setSelectedModule(e.target.value)}
               className="px-3 py-2 border rounded-md"
+              data-testid="select-module-filter"
             >
               <option value="all">{t('taskTemplates.allModules')}</option>
               {modules.map((module) => (
@@ -212,45 +195,32 @@ export default function TaskTemplates() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className="hover:shadow-lg transition-shadow">
+            <Card key={template.id} className="hover:shadow-lg transition-shadow" data-testid={`card-template-${template.id}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{template.title}</CardTitle>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
                     <CardDescription className="line-clamp-2">
                       {template.description}
                     </CardDescription>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{t(`modules.${template.module}`)}</Badge>
-                  {template.requires_photo && (
-                    <Badge variant="secondary">Photo Required</Badge>
+                  {template.module && (
+                    <Badge variant="outline">{t(`modules.${template.module}`)}</Badge>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Default Assignee:</span>
-                    <span className="font-medium">{template.default_assignee_role}</span>
+                    <span className="text-muted-foreground">Responsible Role:</span>
+                    <span className="font-medium">{template.responsibleRole}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">SLA Type:</span>
-                    <span className="font-medium">{template.sla_type || 'None'}</span>
+                    <span className="text-muted-foreground">Frequency:</span>
+                    <span className="font-medium">{template.frequency || 'None'}</span>
                   </div>
-                  {template.evidence_tags && template.evidence_tags.length > 0 && (
-                    <div>
-                      <span className="text-muted-foreground">Evidence Tags:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {template.evidence_tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2 mt-4">
                   <Button
@@ -261,6 +231,7 @@ export default function TaskTemplates() {
                       setEditingTemplate(template);
                       setShowDialog(true);
                     }}
+                    data-testid={`button-edit-${template.id}`}
                   >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
@@ -269,6 +240,7 @@ export default function TaskTemplates() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDuplicate(template)}
+                    data-testid={`button-duplicate-${template.id}`}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -276,6 +248,7 @@ export default function TaskTemplates() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(template.id)}
+                    data-testid={`button-delete-${template.id}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
