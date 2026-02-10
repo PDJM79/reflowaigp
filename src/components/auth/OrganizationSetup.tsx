@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,10 +39,14 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   );
   
   const [loading, setLoading] = useState(false);
+  const lastCardRef = useRef<HTMLDivElement>(null);
 
-  const addRoleAssignment = () => {
-    setRoleAssignments([...roleAssignments, { email: '', name: '', password: '', roles: [] }]);
-  };
+  const addRoleAssignment = useCallback(() => {
+    setRoleAssignments(prev => [...prev, { email: '', name: '', password: '', roles: [] }]);
+    setTimeout(() => {
+      lastCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }, []);
 
   const removeRoleAssignment = (index: number) => {
     if (roleAssignments.length > 1) {
@@ -281,7 +285,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {roleAssignments.map((assignment, index) => (
-                <Card key={index} className="p-4 border-2">
+                <Card key={index} className="p-4 border-2" ref={index === roleAssignments.length - 1 ? lastCardRef : undefined}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-semibold">Team Member {index + 1}</Label>
@@ -383,6 +387,16 @@ Best regards`);
                   </div>
                 </Card>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-dashed"
+                onClick={addRoleAssignment}
+                data-testid="button-add-another-person"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Another Person
+              </Button>
             </CardContent>
           </Card>
 
