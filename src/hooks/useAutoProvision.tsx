@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface AutoProvisionParams {
@@ -9,16 +8,23 @@ interface AutoProvisionParams {
 export function useAutoProvision() {
   return useMutation({
     mutationFn: async ({ practice_id }: AutoProvisionParams) => {
-      const { data, error } = await supabase.functions.invoke('auto-provision-practice', {
-        body: { practice_id },
+      const response = await fetch(`/api/practices/${practice_id}/auto-provision`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ practice_id }),
       });
 
-      if (error) throw error;
-      return data;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Auto-provision failed');
+      }
+
+      return response.json();
     },
     onSuccess: (data) => {
       toast.success('Practice auto-provisioned successfully', {
-        description: `Created ${data.templates_created} templates and ${data.reminders_created} scheduled reminders`,
+        description: `Created ${data.templates_created || 0} templates and ${data.reminders_created || 0} scheduled reminders`,
       });
     },
     onError: (error: Error) => {

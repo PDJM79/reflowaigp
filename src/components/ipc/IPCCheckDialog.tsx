@@ -5,9 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileUpload } from "@/components/evidence/FileUpload";
 
 interface IPCCheckDialogProps {
   auditId: string;
@@ -40,33 +38,9 @@ export function IPCCheckDialog({ auditId, open, onOpenChange, onSuccess }: IPCCh
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { error } = await supabase
-        .from('ipc_checks')
-        .insert([{
-          audit_id: auditId,
-          practice_id: userData.practice_id,
-          section: formData.section,
-          area: formData.area,
-          item: formData.item,
-          response: formData.response,
-          comments: formData.comments || null,
-          photo_url: formData.photo_url || null
-        }]);
-
-      if (error) throw error;
-
-      toast.success('IPC check recorded successfully');
+      toast("This feature will be available in a future update", {
+        description: "IPC check recording is coming soon"
+      });
       setFormData({
         section: 'General',
         area: '',

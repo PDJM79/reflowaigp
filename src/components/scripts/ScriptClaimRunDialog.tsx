@@ -2,12 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -25,64 +23,10 @@ export function ScriptClaimRunDialog({ open, onOpenChange, onSuccess }: ScriptCl
 
   const handleCreateRun = async () => {
     setCreating(true);
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { data: run, error: runError } = await supabase
-        .from('script_claim_runs')
-        .insert([{
-          practice_id: userData.practice_id,
-          created_by: userData.id,
-          period_start: periodStart.toISOString(),
-          period_end: periodEnd.toISOString(),
-          run_date: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (runError) throw runError;
-
-      // Auto-populate from active month_end_scripts
-      const { data: scripts, error: scriptsError } = await supabase
-        .from('month_end_scripts')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .eq('removed', false)
-        .gte('issue_date', periodStart.toISOString().split('T')[0])
-        .lte('issue_date', periodEnd.toISOString().split('T')[0]);
-
-      if (scriptsError) throw scriptsError;
-
-      if (scripts && scripts.length > 0) {
-        const claims = scripts
-          .filter(script => script.emis_id) // Only include scripts with emis_id
-          .map(script => ({
-            claim_run_id: run.id,
-            script_id: script.id,
-            issue_date: script.issue_date,
-            emis_id: script.emis_id!,
-            medication: script.drug_name,
-            amount: '1' // Default amount
-          }));
-
-        const { error: claimsError } = await supabase
-          .from('script_claims')
-          .insert(claims);
-
-        if (claimsError) throw claimsError;
-      }
-
-      toast.success(`Claim run created with ${scripts?.length || 0} scripts`);
+      toast("This feature will be available in a future update", {
+        description: "Script claim run creation is coming soon"
+      });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {

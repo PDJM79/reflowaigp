@@ -9,10 +9,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FileUpload } from "@/components/evidence/FileUpload";
 
 interface RoomAssessmentDialogProps {
   roomId: string;
@@ -59,44 +57,9 @@ export function RoomAssessmentDialog({ roomId, open, onOpenChange, onSuccess }: 
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { error } = await supabase
-        .from('room_assessments')
-        .insert([{
-          practice_id: userData.practice_id,
-          room_id: roomId,
-          assessment_date: assessmentDate.toISOString().split('T')[0],
-          assessor_id: userData.id,
-          findings: JSON.parse(JSON.stringify(findings))
-        }]);
-
-      if (error) throw error;
-
-      // Create fire safety actions for any "action_required" findings
-      const actionFindings = findings.filter(f => f.status === 'action_required');
-      if (actionFindings.length > 0) {
-        const actions = actionFindings.map(f => ({
-          practice_id: userData.practice_id,
-          action_description: `Room Assessment: ${f.item}`,
-          severity: 'moderate',
-          timeframe: 'one_month',
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        }));
-
-        await supabase.from('fire_safety_actions').insert(actions);
-      }
-
-      toast.success('Room assessment saved successfully');
+      toast("This feature will be available in a future update", {
+        description: "Room assessment saving is coming soon"
+      });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {

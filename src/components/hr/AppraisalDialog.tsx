@@ -8,7 +8,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -39,57 +38,9 @@ export function AppraisalDialog({ employeeId, open, onOpenChange, onSuccess }: A
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const ratings = {
-        teamwork: formData.teamwork_rating,
-        communication: formData.communication_rating,
-        skills: formData.skills_rating,
-        attendance: formData.attendance_rating
-      };
-
-      const { data: appraisal, error } = await supabase
-        .from('hr_appraisals')
-        .insert([{
-          practice_id: userData.practice_id,
-          employee_id: employeeId,
-          reviewer_id: userData.id,
-          period_start: formData.period_start.toISOString().split('T')[0],
-          period_end: formData.period_end.toISOString().split('T')[0],
-          jd_changes: formData.jd_changes || null,
-          achievements: formData.achievements || null,
-          challenges: formData.challenges || null,
-          support_needs: formData.support_needs || null,
-          ratings: ratings
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Auto-generate HR actions from support needs
-      if (formData.support_needs) {
-        await supabase.from('hr_actions').insert([{
-          practice_id: userData.practice_id,
-          employee_id: employeeId,
-          source: 'appraisal',
-          source_id: appraisal.id,
-          action_description: `Appraisal Support Need: ${formData.support_needs}`,
-          due_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          status: 'open'
-        }]);
-      }
-
-      toast.success('Appraisal saved successfully');
+      toast("This feature will be available in a future update", {
+        description: "Appraisal saving is coming soon"
+      });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {

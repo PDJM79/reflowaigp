@@ -1,15 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 
 interface IPCActionDialogProps {
   submissionId: string;
@@ -33,8 +29,7 @@ const TIMEFRAMES = [
 ];
 
 export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionDialogProps) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     action_description: '',
     severity: 'medium',
@@ -42,70 +37,20 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
     assigned_to_role: '',
   });
 
-  // Fetch available users
-  const { data: users = [] } = useQuery({
-    queryKey: ['users-for-assignment', user?.id],
-    queryFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return [];
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', userData.practice_id)
-        .eq('is_active', true);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: open && !!user?.id,
-  });
-
-  const createActionMutation = useMutation({
-    mutationFn: async () => {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
-      // Calculate due date based on severity
-      const severity = SEVERITIES.find(s => s.value === formData.severity);
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + (severity?.days || 90));
-
-      const { error } = await supabase
-        .from('ipc_actions' as any)
-        .insert({
-          submission_id: submissionId,
-          practice_id: userData.practice_id,
-          action_description: formData.action_description,
-          severity: formData.severity,
-          timeframe: formData.timeframe,
-          assigned_to_role: formData.assigned_to_role || null,
-          due_date: dueDate.toISOString().split('T')[0],
-          status: 'open',
-        } as any);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('IPC action created');
-      queryClient.invalidateQueries({ queryKey: ['ipc-actions'] });
+  const handleCreate = async () => {
+    setSaving(true);
+    try {
+      toast("This feature will be available in a future update", {
+        description: "IPC action creation is coming soon"
+      });
       resetForm();
       onOpenChange(false);
-    },
-    onError: (error: Error) => {
-      toast.error('Failed to create action', { description: error.message });
-    },
-  });
+    } catch (error: any) {
+      toast.error('Failed to create action');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -207,11 +152,11 @@ export function IPCActionDialog({ submissionId, open, onOpenChange }: IPCActionD
             Cancel
           </Button>
           <Button
-            onClick={() => createActionMutation.mutate()}
-            disabled={!formData.action_description || createActionMutation.isPending}
+            onClick={handleCreate}
+            disabled={!formData.action_description || saving}
             className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
           >
-            {createActionMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Action
           </Button>
         </DialogFooter>

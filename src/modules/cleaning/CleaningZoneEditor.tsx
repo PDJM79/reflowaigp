@@ -1,18 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Plus, Pencil, Trash2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { ZoneTypeIcon } from "@/components/cleaning/ZoneTypeIcon";
 
 export function CleaningZoneEditor() {
-  const [zones, setZones] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [zones] = useState<any[]>([]);
   const [editingZone, setEditingZone] = useState<any>(null);
   const [formData, setFormData] = useState({
     zone_name: '',
@@ -21,81 +19,11 @@ export function CleaningZoneEditor() {
     is_active: true
   });
 
-  useEffect(() => {
-    fetchZones();
-  }, []);
-
-  const fetchZones = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { data, error } = await supabase
-        .from('cleaning_zones')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('zone_name');
-
-      if (error) throw error;
-      setZones(data || []);
-    } catch (error: any) {
-      console.error('Error fetching zones:', error);
-      toast.error('Failed to load zones');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      if (editingZone) {
-        const { error } = await supabase
-          .from('cleaning_zones')
-          .update(formData)
-          .eq('id', editingZone.id);
-
-        if (error) throw error;
-        toast.success('Zone updated successfully');
-      } else {
-        const { error } = await supabase
-          .from('cleaning_zones')
-          .insert({
-            ...formData,
-            practice_id: userData.practice_id
-          });
-
-        if (error) throw error;
-        toast.success('Zone created successfully');
-      }
-
-      setFormData({ zone_name: '', zone_type: 'clinical', floor: '', is_active: true });
-      setEditingZone(null);
-      fetchZones();
-    } catch (error: any) {
-      console.error('Error saving zone:', error);
-      toast.error(error.message || 'Failed to save zone');
-    }
+    toast("This feature will be available in a future update", {
+      description: "Cleaning zone management is coming soon"
+    });
   };
 
   const handleEdit = (zone: any) => {
@@ -108,25 +36,11 @@ export function CleaningZoneEditor() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this zone?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('cleaning_zones')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success('Zone deleted successfully');
-      fetchZones();
-    } catch (error: any) {
-      console.error('Error deleting zone:', error);
-      toast.error(error.message || 'Failed to delete zone');
-    }
+  const handleDelete = async (_id: string) => {
+    toast("This feature will be available in a future update", {
+      description: "Cleaning zone management is coming soon"
+    });
   };
-
-  if (loading) return <p>Loading zones...</p>;
 
   return (
     <div className="space-y-6">
@@ -207,52 +121,60 @@ export function CleaningZoneEditor() {
           <CardTitle>Zones ({zones.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Zone Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Floor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {zones.map((zone) => (
-                <TableRow key={zone.id}>
-                  <TableCell className="font-medium">{zone.zone_name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <ZoneTypeIcon type={zone.zone_type} className="h-4 w-4" />
-                      <span className="capitalize">{zone.zone_type}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{zone.floor || '—'}</TableCell>
-                  <TableCell>
-                    <span className={zone.is_active ? 'text-green-600' : 'text-gray-400'}>
-                      {zone.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(zone)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(zone.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          {zones.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No cleaning zones configured yet.</p>
+              <p className="text-sm mt-1">This feature will be available in a future update.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Zone Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Floor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {zones.map((zone) => (
+                  <TableRow key={zone.id}>
+                    <TableCell className="font-medium">{zone.zone_name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <ZoneTypeIcon type={zone.zone_type} className="h-4 w-4" />
+                        <span className="capitalize">{zone.zone_type}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{zone.floor || '-'}</TableCell>
+                    <TableCell>
+                      <span className={zone.is_active ? 'text-green-600' : 'text-gray-400'}>
+                        {zone.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(zone)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(zone.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

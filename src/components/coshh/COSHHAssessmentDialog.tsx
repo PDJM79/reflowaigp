@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -59,45 +58,9 @@ export function COSHHAssessmentDialog({ open, onOpenChange, onSuccess, assessmen
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const payload = {
-        practice_id: userData.practice_id,
-        substance_name: formData.substance_name,
-        manufacturer: formData.manufacturer,
-        hazard_sheet_url: formData.hazard_sheet_url || null,
-        risk_level: formData.risk_level,
-        usage_description: formData.usage_description,
-        hazard_flags: formData.hazard_flags,
-        routes: formData.routes,
-        ppe: formData.ppe,
-        emergency_controls: formData.emergency_controls
-      };
-
-      if (assessment) {
-        const { error } = await supabase
-          .from('coshh_assessments')
-          .update(payload)
-          .eq('id', assessment.id);
-        if (error) throw error;
-        toast.success('COSHH assessment updated');
-      } else {
-        const { error } = await supabase
-          .from('coshh_assessments')
-          .insert([payload]);
-        if (error) throw error;
-        toast.success('COSHH assessment created');
-      }
-
+      toast("This feature will be available in a future update", {
+        description: "COSHH assessment management is coming soon"
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {

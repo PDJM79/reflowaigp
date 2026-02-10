@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Wand2 } from "lucide-react";
 
@@ -45,24 +44,9 @@ export function TrainingCatalogueDialog({ open, onOpenChange, onSuccess, trainin
   const handleSeedCatalogue = async () => {
     setSeeding(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { error } = await supabase.functions.invoke('seed-training-catalogue', {
-        body: { practiceId: userData.practice_id }
+      toast("This feature will be available in a future update", {
+        description: "Training catalogue seeding is coming soon"
       });
-
-      if (error) throw error;
-
-      toast.success('Training catalogue seeded with NHS defaults');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -76,43 +60,9 @@ export function TrainingCatalogueDialog({ open, onOpenChange, onSuccess, trainin
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const payload = {
-        practice_id: userData.practice_id,
-        key: formData.key,
-        title: formData.title,
-        level: formData.level || null,
-        recurrence_months: formData.recurrence_months,
-        certificate_required: formData.certificate_required,
-        audience_roles: formData.audience_roles,
-        tags: formData.tags
-      };
-
-      if (trainingType) {
-        const { error } = await supabase
-          .from('training_types')
-          .update(payload)
-          .eq('id', trainingType.id);
-        if (error) throw error;
-        toast.success('Training type updated');
-      } else {
-        const { error } = await supabase
-          .from('training_types')
-          .insert([payload]);
-        if (error) throw error;
-        toast.success('Training type created');
-      }
-
+      toast("This feature will be available in a future update", {
+        description: "Training type management is coming soon"
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -133,7 +83,7 @@ export function TrainingCatalogueDialog({ open, onOpenChange, onSuccess, trainin
         {!trainingType && (
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-              🎯 Want to start with NHS standard training requirements?
+              Want to start with NHS standard training requirements?
             </p>
             <Button
               variant="outline"

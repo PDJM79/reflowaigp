@@ -24,7 +24,7 @@ export const usePracticeSelection = () => {
 
   const fetchPractices = async () => {
     try {
-      const response = await fetch('/api/practices');
+      const response = await fetch('/api/practices', { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Failed to fetch practices');
       }

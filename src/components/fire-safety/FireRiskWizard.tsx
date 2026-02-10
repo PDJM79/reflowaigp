@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 
@@ -51,37 +50,9 @@ export function FireRiskWizard({ open, onOpenChange, onSuccess }: FireRiskWizard
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const nextReviewDate = new Date();
-      nextReviewDate.setFullYear(nextReviewDate.getFullYear() + 1);
-
-      const { error } = await supabase
-        .from('fire_risk_assessments_v2')
-        .insert([{
-          practice_id: userData.practice_id,
-          assessment_date: new Date().toISOString().split('T')[0],
-          next_review_date: nextReviewDate.toISOString().split('T')[0],
-          assessor_name: formData.assessor_name,
-          assessor_role: formData.assessor_role,
-          premises: formData.premises,
-          hazards: formData.hazards,
-          maintenance: formData.maintenance,
-          emergency_plan: formData.emergency_plan
-        }]);
-
-      if (error) throw error;
-
-      toast.success('Fire Risk Assessment created successfully');
+      toast("Fire risk data will be available soon", {
+        description: "This feature will be available in a future update"
+      });
       onSuccess();
       onOpenChange(false);
       setStep(1);

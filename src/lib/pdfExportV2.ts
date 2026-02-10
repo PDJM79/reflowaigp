@@ -12,7 +12,6 @@ export class UpdatePackPDFExporter {
     this.pageWidth = this.doc.internal.pageSize.getWidth();
   }
 
-  // Add practice header
   addPracticeHeader(practiceName: string, dateRange?: string) {
     this.doc.setFontSize(18);
     this.doc.setFont('helvetica', 'bold');
@@ -31,7 +30,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 10;
   }
 
-  // Add section title
   addSectionTitle(title: string) {
     this.checkPageBreak(15);
     this.doc.setFontSize(14);
@@ -40,7 +38,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 8;
   }
 
-  // Add subsection title
   addSubsectionTitle(title: string) {
     this.checkPageBreak(10);
     this.doc.setFontSize(12);
@@ -49,7 +46,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 6;
   }
 
-  // Add paragraph text
   addParagraph(text: string) {
     this.checkPageBreak(20);
     this.doc.setFontSize(10);
@@ -59,7 +55,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += lines.length * 5 + 4;
   }
 
-  // Add table
   addTable(headers: string[], rows: any[][], columnStyles?: any) {
     this.checkPageBreak(40);
     
@@ -77,7 +72,6 @@ export class UpdatePackPDFExporter {
     });
   }
 
-  // Add key-value pairs
   addKeyValuePairs(pairs: Array<{ key: string; value: string }>) {
     this.checkPageBreak(pairs.length * 6 + 10);
     this.doc.setFontSize(10);
@@ -95,7 +89,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 4;
   }
 
-  // Add bullet list
   addBulletList(items: string[]) {
     this.checkPageBreak(items.length * 6 + 10);
     this.doc.setFontSize(10);
@@ -111,7 +104,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 4;
   }
 
-  // Add signature section
   addSignatureSection(signers: Array<{ role: string; name?: string; date?: string }>) {
     this.checkPageBreak(40);
     this.doc.setFontSize(11);
@@ -138,7 +130,6 @@ export class UpdatePackPDFExporter {
     });
   }
 
-  // Add RAG status badge
   addRAGIndicator(status: 'red' | 'amber' | 'green', label: string) {
     this.checkPageBreak(10);
     
@@ -159,7 +150,6 @@ export class UpdatePackPDFExporter {
     this.yPosition += 7;
   }
 
-  // Check if we need a page break
   private checkPageBreak(requiredSpace: number) {
     const pageHeight = this.doc.internal.pageSize.getHeight();
     if (this.yPosition + requiredSpace > pageHeight - this.margin) {
@@ -168,47 +158,34 @@ export class UpdatePackPDFExporter {
     }
   }
 
-  // Save the PDF
   save(filename: string) {
     this.doc.save(filename);
   }
 
-  // Get the PDF as blob (for upload to storage)
   getBlob(): Blob {
     return this.doc.output('blob');
   }
 }
 
-// Fire Emergency Pack PDF Generator
-export async function generateFireEmergencyPackPDF(assessmentId: string, supabase: any) {
+export async function generateFireEmergencyPackPDF(data: {
+  practiceName: string;
+  assessment: any;
+  actions: any[];
+}) {
   const exporter = new UpdatePackPDFExporter();
-
-  // Fetch assessment data
-  const { data: assessment } = await supabase
-    .from('fire_risk_assessments_v2')
-    .select('*, practices(name)')
-    .eq('id', assessmentId)
-    .single();
-
-  // Fetch actions
-  const { data: actions } = await supabase
-    .from('fire_actions')
-    .select('*')
-    .eq('assessment_id', assessmentId)
-    .order('severity', { ascending: false });
+  const { assessment, actions } = data;
 
   if (!assessment) {
     throw new Error('Assessment not found');
   }
 
   exporter.addPracticeHeader(
-    assessment.practices?.name || 'Unknown Practice',
+    data.practiceName,
     `Assessment Date: ${new Date(assessment.assessment_date).toLocaleDateString()}`
   );
 
   exporter.addSectionTitle('Fire Emergency Pack');
 
-  // FRA Summary
   exporter.addSubsectionTitle('Fire Risk Assessment Summary');
   exporter.addKeyValuePairs([
     { key: 'Assessment Date', value: new Date(assessment.assessment_date).toLocaleDateString() },
@@ -216,21 +193,18 @@ export async function generateFireEmergencyPackPDF(assessmentId: string, supabas
     { key: 'Overall Risk', value: assessment.overall_risk_level || 'N/A' },
   ]);
 
-  // Premises Information
   if (assessment.premises) {
     exporter.addSubsectionTitle('Premises Information');
     const premises = typeof assessment.premises === 'string' ? JSON.parse(assessment.premises) : assessment.premises;
     exporter.addParagraph(JSON.stringify(premises, null, 2));
   }
 
-  // Emergency Plan
   if (assessment.emergency_plan) {
     exporter.addSubsectionTitle('Fire Emergency Plan');
     const plan = typeof assessment.emergency_plan === 'string' ? JSON.parse(assessment.emergency_plan) : assessment.emergency_plan;
     exporter.addParagraph(JSON.stringify(plan, null, 2));
   }
 
-  // Actions Table
   if (actions && actions.length > 0) {
     exporter.addSubsectionTitle('Fire Safety Actions');
     const actionRows = actions.map((action: any) => [
@@ -253,31 +227,14 @@ export async function generateFireEmergencyPackPDF(assessmentId: string, supabas
   return exporter.save(`Fire_Emergency_Pack_${new Date(assessment.assessment_date).toISOString().split('T')[0]}.pdf`);
 }
 
-// Claims Pack PDF Generator
-export async function generateClaimsPackPDF(claimRunId: string, supabase: any) {
+export async function generateClaimsPackPDF(data: {
+  practiceName: string;
+  claimRun: any;
+  claims: any[];
+  reviewLogs: any[];
+}) {
   const exporter = new UpdatePackPDFExporter();
-
-  // Fetch claim run data
-  const { data: claimRun } = await supabase
-    .from('script_claim_runs')
-    .select('*, practices(name)')
-    .eq('id', claimRunId)
-    .single();
-
-  // Fetch claims
-  const { data: claims } = await supabase
-    .from('script_claims')
-    .select('*')
-    .eq('claim_run_id', claimRunId)
-    .order('issue_date', { ascending: true });
-
-  // Fetch review checklist
-  const { data: reviewLogs } = await supabase
-    .from('claim_review_logs')
-    .select('*')
-    .eq('claim_run_id', claimRunId)
-    .order('reviewed_at', { ascending: false })
-    .limit(1);
+  const { claimRun, claims, reviewLogs } = data;
 
   if (!claimRun) {
     throw new Error('Claim run not found');
@@ -287,13 +244,12 @@ export async function generateClaimsPackPDF(claimRunId: string, supabase: any) {
   const periodEnd = new Date(claimRun.period_end);
 
   exporter.addPracticeHeader(
-    claimRun.practices?.name || 'Unknown Practice',
+    data.practiceName,
     `Period: ${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`
   );
 
   exporter.addSectionTitle('Enhanced Service Claims Pack');
 
-  // Claim Summary
   exporter.addSubsectionTitle('Claim Run Summary');
   exporter.addKeyValuePairs([
     { key: 'Run Date', value: new Date(claimRun.run_date).toLocaleDateString() },
@@ -302,19 +258,17 @@ export async function generateClaimsPackPDF(claimRunId: string, supabase: any) {
     { key: 'Total Scripts', value: claims?.length.toString() || '0' },
   ]);
 
-  // Review Checklist Status
   if (reviewLogs && reviewLogs.length > 0) {
     exporter.addSubsectionTitle('Manual Review Checklist');
     const checklist = reviewLogs[0].checklist || {};
     exporter.addBulletList([
-      `Patient notes reviewed: ${checklist.patient_notes_reviewed ? '✓' : '✗'}`,
-      `Blood results checked: ${checklist.blood_results_checked ? '✓' : '✗'}`,
-      `Clinical coding verified: ${checklist.clinical_coding_verified ? '✓' : '✗'}`,
-      `Claim form 1.3 completed: ${checklist.claim_form_completed ? '✓' : '✗'}`,
+      `Patient notes reviewed: ${checklist.patient_notes_reviewed ? 'Yes' : 'No'}`,
+      `Blood results checked: ${checklist.blood_results_checked ? 'Yes' : 'No'}`,
+      `Clinical coding verified: ${checklist.clinical_coding_verified ? 'Yes' : 'No'}`,
+      `Claim form 1.3 completed: ${checklist.claim_form_completed ? 'Yes' : 'No'}`,
     ]);
   }
 
-  // Claims Table
   if (claims && claims.length > 0) {
     exporter.addSubsectionTitle('Script Claims - Form 1.3');
     const claimRows = claims.map((claim: any) => [
@@ -337,7 +291,6 @@ export async function generateClaimsPackPDF(claimRunId: string, supabase: any) {
   return exporter.save(`Claims_Pack_${periodStart.toISOString().split('T')[0]}_to_${periodEnd.toISOString().split('T')[0]}.pdf`);
 }
 
-// IPC Statement PDF Generator
 export function generateIPCStatementPDF(data: {
   practiceName: string;
   period: string;
@@ -384,7 +337,6 @@ export function generateIPCStatementPDF(data: {
   return exporter;
 }
 
-// HR Appraisal Report PDF Generator
 export function generateAppraisalReportPDF(data: {
   practiceName: string;
   employee: any;
@@ -437,7 +389,7 @@ export function generateAppraisalReportPDF(data: {
   }
 
   if (data.feedback360 && data.feedback360.length > 0) {
-    exporter.addSubsectionTitle('360° Feedback Summary');
+    exporter.addSubsectionTitle('360 Feedback Summary');
     exporter.addParagraph(`Received ${data.feedback360.length} anonymous feedback responses.`);
   }
 
@@ -459,7 +411,6 @@ export function generateAppraisalReportPDF(data: {
   return exporter;
 }
 
-// Training Matrix PDF Generator
 export function generateTrainingMatrixPDF(data: {
   practiceName: string;
   employees: any[];
@@ -473,7 +424,6 @@ export function generateTrainingMatrixPDF(data: {
   
   exporter.addParagraph(`This matrix shows training compliance status for ${data.employees.length} employees across ${data.trainingTypes.length} training types.`);
   
-  // Create matrix table
   const headers = ['Employee', ...data.trainingTypes.map((t: any) => t.title)];
   const rows = data.employees.map((emp: any) => {
     const row = [emp.name];
@@ -493,7 +443,7 @@ export function generateTrainingMatrixPDF(data: {
         } else if (daysUntilExpiry < 90) {
           row.push(`${daysUntilExpiry}d`);
         } else {
-          row.push('✓');
+          row.push('OK');
         }
       } else {
         row.push('-');
@@ -505,12 +455,12 @@ export function generateTrainingMatrixPDF(data: {
   
   exporter.addTable(headers, rows, {
     0: { cellWidth: 40 },
-    ...Object.fromEntries(data.trainingTypes.map((_, i) => [i + 1, { cellWidth: 'auto' }]))
+    ...Object.fromEntries(data.trainingTypes.map((_: any, i: number) => [i + 1, { cellWidth: 'auto' }]))
   });
   
   exporter.addSubsectionTitle('Legend');
   exporter.addBulletList([
-    '✓ - Training current',
+    'OK - Training current',
     'XXd - Expiring in XX days (less than 90 days)',
     'EXPIRED - Training has expired',
     '- - No record'
@@ -519,7 +469,6 @@ export function generateTrainingMatrixPDF(data: {
   return exporter;
 }
 
-// DBS Register PDF Generator
 export function generateDBSRegisterPDF(data: {
   practiceName: string;
   employees: any[];
@@ -569,7 +518,6 @@ export function generateDBSRegisterPDF(data: {
   return exporter;
 }
 
-// Cleaning Logs PDF Generator
 export function generateCleaningLogsPDF(data: {
   practiceName: string;
   period: string;
@@ -628,7 +576,6 @@ export function generateCleaningLogsPDF(data: {
   return exporter;
 }
 
-// Room Assessment PDF Generator
 export function generateRoomAssessmentPDF(data: {
   practiceName: string;
   room: any;
@@ -669,14 +616,6 @@ export function generateRoomAssessmentPDF(data: {
   } else {
     exporter.addParagraph('No detailed findings recorded for this assessment.');
   }
-
-  exporter.addSubsectionTitle('Compliance Notes');
-  exporter.addBulletList([
-    'Room assessments must be completed annually',
-    'All "Action Required" items are tracked in the Fire Safety action register',
-    'Assessment records are retained for audit purposes',
-    'Next assessment due: ' + (data.assessment.next_due_date ? new Date(data.assessment.next_due_date).toLocaleDateString() : 'Not set')
-  ]);
 
   exporter.addSignatureSection([
     { role: 'Assessor', name: '', date: '' },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,14 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Pencil, Trash2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { FrequencyBadge } from "@/components/cleaning/FrequencyBadge";
 
 export function CleaningTaskLibrary() {
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tasks] = useState<any[]>([]);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [formData, setFormData] = useState({
     task_name: '',
@@ -23,81 +21,11 @@ export function CleaningTaskLibrary() {
     is_active: true
   });
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  const fetchTasks = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { data, error } = await supabase
-        .from('cleaning_tasks')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('task_name');
-
-      if (error) throw error;
-      setTasks(data || []);
-    } catch (error: any) {
-      console.error('Error fetching tasks:', error);
-      toast.error('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      if (editingTask) {
-        const { error } = await supabase
-          .from('cleaning_tasks')
-          .update(formData)
-          .eq('id', editingTask.id);
-
-        if (error) throw error;
-        toast.success('Task updated successfully');
-      } else {
-        const { error } = await supabase
-          .from('cleaning_tasks')
-          .insert({
-            ...formData,
-            practice_id: userData.practice_id
-          });
-
-        if (error) throw error;
-        toast.success('Task created successfully');
-      }
-
-      setFormData({ task_name: '', description: '', frequency: 'full', periodic_rule: '', is_active: true });
-      setEditingTask(null);
-      fetchTasks();
-    } catch (error: any) {
-      console.error('Error saving task:', error);
-      toast.error(error.message || 'Failed to save task');
-    }
+    toast("This feature will be available in a future update", {
+      description: "Cleaning task management is coming soon"
+    });
   };
 
   const handleEdit = (task: any) => {
@@ -111,25 +39,11 @@ export function CleaningTaskLibrary() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('cleaning_tasks')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success('Task deleted successfully');
-      fetchTasks();
-    } catch (error: any) {
-      console.error('Error deleting task:', error);
-      toast.error(error.message || 'Failed to delete task');
-    }
+  const handleDelete = async (_id: string) => {
+    toast("This feature will be available in a future update", {
+      description: "Cleaning task management is coming soon"
+    });
   };
-
-  if (loading) return <p>Loading tasks...</p>;
 
   return (
     <div className="space-y-6">
@@ -220,45 +134,45 @@ export function CleaningTaskLibrary() {
           <CardTitle>Task Library ({tasks.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Task Name</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">{task.task_name}</TableCell>
-                  <TableCell>
-                    <FrequencyBadge frequency={task.frequency} />
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                    {task.description || '—'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(task)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(task.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          {tasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No cleaning tasks configured yet.</p>
+              <p className="text-sm mt-1">This feature will be available in a future update.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Task Name</TableHead>
+                  <TableHead>Frequency</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {tasks.map((task) => (
+                  <TableRow key={task.id}>
+                    <TableCell className="font-medium">{task.task_name}</TableCell>
+                    <TableCell>
+                      <FrequencyBadge frequency={task.frequency} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                      {task.description || '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(task)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(task.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Feedback360DialogProps {
@@ -39,7 +38,6 @@ export function Feedback360Dialog({ appraisalId, employeeName, open, onOpenChang
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check all questions answered
     if (Object.keys(responses).length < QUESTIONS.length) {
       toast.error('Please answer all questions');
       return;
@@ -48,21 +46,9 @@ export function Feedback360Dialog({ appraisalId, employeeName, open, onOpenChang
     setSaving(true);
 
     try {
-      const feedbackEntries = QUESTIONS
-        .filter((_, index) => responses[index.toString()]) // Only answered questions
-        .map((question, index) => ({
-          appraisal_id: appraisalId,
-          question,
-          response: responses[index.toString()]
-        }));
-
-      const { error } = await supabase
-        .from('hr_360_feedback')
-        .insert(feedbackEntries);
-
-      if (error) throw error;
-
-      toast.success('360° feedback submitted successfully');
+      toast("This feature will be available in a future update", {
+        description: "360 feedback submission is coming soon"
+      });
       setResponses({});
       onOpenChange(false);
       onSuccess?.();
@@ -78,7 +64,7 @@ export function Feedback360Dialog({ appraisalId, employeeName, open, onOpenChang
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>360° Feedback for {employeeName}</DialogTitle>
+          <DialogTitle>360 Feedback for {employeeName}</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Your responses are anonymous. Please provide honest feedback.
           </p>
