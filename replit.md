@@ -17,7 +17,9 @@ A comprehensive GP practice management system for NHS practices across Wales, En
 - Implemented practice-based multi-tenant isolation at storage layer
 - All CRUD operations enforce practiceId boundaries
 - Express routes restructured with /api/practices/:practiceId prefix pattern
-- Added "Cleaner" role to the system
+- Added "Cleaner", "Estates Lead", and "IG Lead" roles to the system
+- Converted all user-visible text from American English to British English (Organisation, Analyse, Customise, Acknowledgement, etc.)
+- Added /setup route for direct access to Organisation Setup screen
 
 ## Project Architecture
 
