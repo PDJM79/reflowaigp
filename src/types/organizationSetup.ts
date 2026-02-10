@@ -8,12 +8,13 @@ export interface RoleEmailAssignment {
 }
 
 export interface TaskScheduleConfig {
-  templateId?: string; // For existing templates, undefined for new ones
+  templateId?: string;
   templateName: string;
   responsibleRole: string;
+  assignedTo: string;
   frequency: 'twice_daily' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annually';
-  startDate: string; // ISO date string
-  slaHours: number; // Hours after due date to complete
+  startDate: string;
+  slaHours: number;
 }
 
 export interface OrganizationSetupData {
