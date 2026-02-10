@@ -102,8 +102,8 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
     
     if (!organizationName.trim()) {
       toast({
-        title: "Organization name required",
-        description: "Please enter your organization name",
+        title: "Organisation name required",
+        description: "Please enter your organisation name",
         variant: "destructive",
       });
       return;
@@ -202,7 +202,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       }
 
       toast({
-        title: "Organization setup complete",
+        title: "Organisation setup complete",
         description: `Your practice has been set up with ${filledAssignments.length} team members and ${taskSchedules.length} task templates`,
       });
 
@@ -211,7 +211,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       console.error('Setup error:', error);
       toast({
         title: "Setup failed",
-        description: error.message || "Failed to set up organization",
+        description: error.message || "Failed to set up organisation",
         variant: "destructive",
       });
     } finally {
@@ -224,15 +224,15 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       <AppHeader />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Organization Name and Country */}
+          {/* Organisation Name and Country */}
           <Card>
             <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>Enter your organization details and select your country</CardDescription>
+              <CardTitle>Organisation Details</CardTitle>
+              <CardDescription>Enter your organisation details and select your country</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="orgName">Organization/Practice Name</Label>
+                <Label htmlFor="orgName">Organisation/Practice Name</Label>
                 <Input
                   id="orgName"
                   type="text"

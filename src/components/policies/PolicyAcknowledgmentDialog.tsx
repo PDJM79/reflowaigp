@@ -43,8 +43,8 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
       });
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Failed to record acknowledgment' }));
-        throw new Error(err.error || 'Failed to record acknowledgment');
+        const err = await response.json().catch(() => ({ error: 'Failed to record acknowledgement' }));
+        throw new Error(err.error || 'Failed to record acknowledgement');
       }
 
       toast.success('Policy acknowledged successfully');
@@ -53,7 +53,7 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
       setAcknowledged(false);
     } catch (error: any) {
       console.error('Error acknowledging policy:', error);
-      toast.error(error.message || 'Failed to record acknowledgment');
+      toast.error(error.message || 'Failed to record acknowledgement');
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
                 I confirm that I have read and understood this policy
               </label>
               <p className="text-sm text-muted-foreground">
-                Your acknowledgment will be recorded with a timestamp for audit purposes
+                Your acknowledgement will be recorded with a timestamp for audit purposes
               </p>
             </div>
           </div>

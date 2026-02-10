@@ -135,7 +135,7 @@ export default function AdminReports() {
               Back to Calendar
             </Button>
             <h1 className="text-3xl font-bold">Audit Reports</h1>
-            <p className="text-muted-foreground">Analyze task performance</p>
+            <p className="text-muted-foreground">Analyse task performance</p>
           </div>
         </div>
 

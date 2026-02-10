@@ -169,7 +169,7 @@ export function NotificationBell() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <FileText className="h-4 w-4" />
-                  <span>Policies Needing Acknowledgment</span>
+                  <span>Policies Needing Acknowledgement</span>
                   <Badge variant="destructive" className="ml-auto">
                     {policyCount}
                   </Badge>

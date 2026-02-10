@@ -231,10 +231,10 @@ export default function ComplaintsPatientExperience() {
             <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
-                <p className="font-medium text-sm sm:text-base">48-Hour Acknowledgment</p>
+                <p className="font-medium text-sm sm:text-base">48-Hour Acknowledgement</p>
               </div>
               <p className="text-2xl sm:text-3xl font-bold">1.2 days</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Average acknowledgment time</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Average acknowledgement time</p>
             </div>
 
             <div className="p-3 sm:p-4 border rounded-lg touch-manipulation">

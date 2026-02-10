@@ -53,10 +53,10 @@ export function ComplaintThemeAnalysis() {
           {isAnalyzing ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Analyzing...
+              Analysing...
             </>
           ) : (
-            'Analyze Complaints'
+            'Analyse Complaints'
           )}
         </Button>
       </CardHeader>
@@ -65,7 +65,7 @@ export function ComplaintThemeAnalysis() {
           <div className="text-center py-8">
             <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">
-              No AI analysis available yet. Click "Analyze Complaints" to generate insights.
+              No AI analysis available yet. Click "Analyse Complaints" to generate insights.
             </p>
           </div>
         ) : (
@@ -133,7 +133,7 @@ export function ComplaintThemeAnalysis() {
             )}
 
             <p className="text-xs text-muted-foreground text-center">
-              Last analyzed: {new Date((latestAnalysis as any).created_at).toLocaleDateString()}
+              Last analysed: {new Date((latestAnalysis as any).created_at).toLocaleDateString()}
             </p>
           </div>
         )}

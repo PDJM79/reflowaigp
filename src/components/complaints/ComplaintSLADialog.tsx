@@ -56,7 +56,7 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
     onSuccess: () => {
       toast({
         title: 'Success',
-        description: `${actionType === 'acknowledgment' ? 'Acknowledgment' : 'Final response'} sent successfully`,
+        description: `${actionType === 'acknowledgment' ? 'Acknowledgement' : 'Final response'} sent successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ['complaints'] });
       queryClient.invalidateQueries({ queryKey: ['complaints-analytics'] });
@@ -108,7 +108,7 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
-            {actionType === 'acknowledgment' ? 'Send Acknowledgment Letter' : 'Send Final Response'}
+            {actionType === 'acknowledgment' ? 'Send Acknowledgement Letter' : 'Send Final Response'}
           </DialogTitle>
         </DialogHeader>
 
@@ -149,7 +149,7 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="notes" className="text-base">
-                {actionType === 'acknowledgment' ? 'Acknowledgment Letter Content' : 'Final Response'}
+                {actionType === 'acknowledgment' ? 'Acknowledgement Letter Content' : 'Final Response'}
               </Label>
               <Textarea
                 id="notes"
@@ -159,7 +159,7 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
                 required
                 placeholder={
                   actionType === 'acknowledgment'
-                    ? 'Enter the acknowledgment letter content to be sent to the complainant...'
+                    ? 'Enter the acknowledgement letter content to be sent to the complainant...'
                     : 'Enter the final response detailing the investigation findings and resolution...'
                 }
                 className="min-h-[180px] text-base resize-y"
@@ -185,7 +185,7 @@ export const ComplaintSLADialog = ({ open, onClose, complaint, actionType }: Com
                 disabled={sendResponseMutation.isPending}
                 className="w-full sm:w-auto min-h-[44px] order-1 sm:order-2"
               >
-                {sendResponseMutation.isPending ? 'Sending...' : `Send ${actionType === 'acknowledgment' ? 'Acknowledgment' : 'Response'}`}
+                {sendResponseMutation.isPending ? 'Sending...' : `Send ${actionType === 'acknowledgment' ? 'Acknowledgement' : 'Response'}`}
               </Button>
             </div>
           </form>

@@ -79,7 +79,7 @@ export default function Policies() {
   };
 
   const handleSendAcknowledgmentReminders = async () => {
-    toast.info('Acknowledgment reminders are not available in this mode.');
+    toast.info('Acknowledgement reminders are not available in this mode.');
   };
 
   const handleSendEscalationEmails = async () => {
@@ -131,7 +131,7 @@ export default function Policies() {
               data-testid="button-send-ack-reminders"
             >
               <Clock className="h-4 w-4 mr-2" />
-              Send Acknowledgment Reminders
+              Send Acknowledgement Reminders
             </Button>
             <Button 
               variant="outline" 
@@ -173,7 +173,7 @@ export default function Policies() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Needs My Acknowledgment</CardTitle>
+            <CardTitle className="text-sm font-medium">Needs My Acknowledgement</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600" data-testid="text-needs-ack-count">{needsMyAcknowledgment.length}</div>
@@ -223,7 +223,7 @@ export default function Policies() {
           <TabsList>
             <TabsTrigger value="all" data-testid="tab-all-policies">All Policies</TabsTrigger>
             <TabsTrigger value="needs_ack" data-testid="tab-needs-ack">
-              Needs My Acknowledgment {needsMyAcknowledgment.length > 0 && `(${needsMyAcknowledgment.length})`}
+              Needs My Acknowledgement {needsMyAcknowledgment.length > 0 && `(${needsMyAcknowledgment.length})`}
             </TabsTrigger>
           </TabsList>
 
@@ -269,7 +269,7 @@ export default function Policies() {
                                 )}
                                 {needsAck && policy.status === 'active' && (
                                   <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                    Needs Acknowledgment
+                                    Needs Acknowledgement
                                   </Badge>
                                 )}
                                 {!needsAck && policy.status === 'active' && (
@@ -324,7 +324,7 @@ export default function Policies() {
           <TabsContent value="needs_ack" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Policies Needing Your Acknowledgment</CardTitle>
+                <CardTitle>Policies Needing Your Acknowledgement</CardTitle>
               </CardHeader>
               <CardContent>
                 {needsMyAcknowledgment.length === 0 ? (

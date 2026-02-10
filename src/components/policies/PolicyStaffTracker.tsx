@@ -54,14 +54,14 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
       });
     } catch (error) {
       console.error('Error fetching staff acknowledgments:', error);
-      toast.error('Failed to load staff acknowledgments');
+      toast.error('Failed to load staff acknowledgements');
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading staff acknowledgments...</div>;
+    return <div className="text-center py-8">Loading staff acknowledgements...</div>;
   }
 
   const completionRate = staffData.totalStaff > 0
@@ -75,7 +75,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
           <CardTitle className="text-sm font-medium flex items-center justify-between">
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Staff Acknowledgment Status
+              Staff Acknowledgement Status
             </span>
             <Badge variant={completionRate === 100 ? 'default' : 'secondary'}>
               {completionRate}% Complete
@@ -101,7 +101,7 @@ export function PolicyStaffTracker({ policyId }: PolicyStaffTrackerProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <XCircle className="h-4 w-4 text-orange-600" />
-              Pending Acknowledgments ({staffData.notAcknowledged.length})
+              Pending Acknowledgements ({staffData.notAcknowledged.length})
             </CardTitle>
           </CardHeader>
           <CardContent>

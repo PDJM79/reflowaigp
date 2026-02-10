@@ -55,7 +55,7 @@ export default function DashboardsHub() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <BarChart3 className="h-8 w-8" />
-          Specialized Dashboards
+          Specialised Dashboards
         </h1>
         <p className="text-muted-foreground">
           Comprehensive analytics and inspection-ready reporting across all compliance areas

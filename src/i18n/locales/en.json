@@ -156,7 +156,7 @@
     },
     "type": {
       "policy_review": "Policy Review",
-      "policy_acknowledgment_reminder": "Acknowledgment Reminder",
+      "policy_acknowledgment_reminder": "Acknowledgement Reminder",
       "policy_escalation": "Policy Escalation"
     },
     "pagination": {
@@ -199,7 +199,7 @@
     "schedule_info_monthly": "• Monthly reports: 1st day of each month at 9:00 AM",
     "recipients_title": "Report Recipients",
     "recipients_description": "Who receives the automated email reports",
-    "recipients_info": "Reports are automatically sent to all active practice managers in your organization.",
+    "recipients_info": "Reports are automatically sent to all active practice managers in your organisation.",
     "test_report_title": "Send Test Report",
     "test_report_description": "Generate and send a test report immediately",
     "weekly": "Weekly Report",

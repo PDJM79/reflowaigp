@@ -46,7 +46,7 @@ export function EmailLogsTable({ logs, onViewDetails }: EmailLogsTableProps) {
   const getEmailTypeLabel = (type: string) => {
     const typeMap: Record<string, string> = {
       policy_review: 'Policy Review',
-      policy_acknowledgment_reminder: 'Acknowledgment Reminder',
+      policy_acknowledgment_reminder: 'Acknowledgement Reminder',
       policy_escalation: 'Policy Escalation',
     };
     return typeMap[type] || type;

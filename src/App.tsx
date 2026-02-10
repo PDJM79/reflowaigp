@@ -109,7 +109,7 @@ const App = () => (
                 <Route path="/email-logs" element={<EmailLogs />} />
                 <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
                 
-                {/* Phase 3 Specialized Dashboards */}
+                {/* Phase 3 Specialised Dashboards */}
                 <Route path="/dashboards" element={<DashboardsHub />} />
                 <Route path="/dashboards/compliance" element={<ComplianceOverview />} />
                 <Route path="/dashboards/clinical" element={<ClinicalGovernance />} />

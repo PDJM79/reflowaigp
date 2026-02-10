@@ -69,7 +69,7 @@ export function PoliciesNeedingAcknowledgment() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Policies Needing Acknowledgment
+            Policies Needing Acknowledgement
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -87,7 +87,7 @@ export function PoliciesNeedingAcknowledgment() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Policies Needing Acknowledgment
+            Policies Needing Acknowledgement
           </CardTitle>
           <CardDescription>You're all caught up!</CardDescription>
         </CardHeader>
@@ -108,7 +108,7 @@ export function PoliciesNeedingAcknowledgment() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Policies Needing Acknowledgment
+          Policies Needing Acknowledgement
           <Badge variant="destructive" className="ml-auto" data-testid="badge-policies-count">{policies.length}</Badge>
         </CardTitle>
         <CardDescription>Please review and acknowledge these policies</CardDescription>

@@ -86,7 +86,7 @@ export const ComplaintSLATracker = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold">{ackOverdueCount}</div>
-          <p className="text-xs text-muted-foreground">Needs 48hr acknowledgment</p>
+          <p className="text-xs text-muted-foreground">Needs 48hr acknowledgement</p>
         </CardContent>
       </Card>
 
