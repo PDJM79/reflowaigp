@@ -19,7 +19,7 @@ const RAGBadgeVariant = (score: number) => {
 export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadgeProps) {
   const { user } = useAuth();
   const practiceId = user?.practiceId;
-  const country = user?.practice?.country || 'England';
+  const country = (user?.practice?.country || 'England').toLowerCase();
 
   const { data: scoreData, isLoading } = useQuery({
     queryKey: ['section-score', sectionKey, practiceId],
@@ -41,7 +41,7 @@ export function SectionScoreBadge({ sectionKey, sectionLabel }: SectionScoreBadg
     );
   }
 
-  const regulatoryBody = country === 'Wales' ? 'HIW' : country === 'Scotland' ? 'HIS' : 'CQC';
+  const regulatoryBody = country === 'wales' ? 'HIW' : country === 'scotland' ? 'HIS' : 'CQC';
 
   if (!scoreData?.score) {
     return (

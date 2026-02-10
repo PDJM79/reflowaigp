@@ -144,8 +144,8 @@ function AIImprovementTips({ section, score, target, gap, contributors, country 
 export function ReadyForAudit() {
   const { user } = useAuth();
   const practiceId = user?.practiceId;
-  const country = user?.practice?.country || 'England';
-  const regulatoryBody = country === 'Wales' ? 'HIW' : country === 'Scotland' ? 'HIS' : 'CQC';
+  const country = (user?.practice?.country || 'England').toLowerCase();
+  const regulatoryBody = country === 'wales' ? 'HIW' : country === 'scotland' ? 'HIS' : 'CQC';
 
   const { data: scores, isLoading: scoresLoading } = useQuery({
     queryKey: ['audit-scores', practiceId],
@@ -206,7 +206,7 @@ export function ReadyForAudit() {
               <div className="flex items-center gap-2 mb-1">
                 <CardTitle className="text-2xl">Ready for Audit</CardTitle>
                 <Badge variant="outline" className="text-xs">
-                  {country} - {regulatoryBody}
+                  {country.charAt(0).toUpperCase() + country.slice(1)} - {regulatoryBody}
                 </Badge>
               </div>
               <CardDescription>

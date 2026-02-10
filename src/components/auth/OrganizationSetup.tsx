@@ -140,7 +140,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         credentials: 'include',
         body: JSON.stringify({
           name: organizationName.trim(),
-          country: country,
+          country: country.toLowerCase(),
         }),
       });
 
