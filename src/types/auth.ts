@@ -22,6 +22,8 @@ export const AVAILABLE_ROLES = [
   { value: 'cd_lead_gp', label: 'CD Lead GP' },
   { value: 'gp', label: 'GP' },
   { value: 'nurse', label: 'Practice Nurse' },
+  { value: 'estates_lead', label: 'Estates Lead' },
+  { value: 'ig_lead', label: 'IG Lead' },
   { value: 'hca', label: 'Healthcare Assistant' },
   { value: 'reception_lead', label: 'Reception Lead' },
   { value: 'reception', label: 'Reception' },
