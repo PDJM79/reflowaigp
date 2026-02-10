@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,31 +22,29 @@ export default function WorkforceDashboard() {
   }, [user, navigate]);
 
   const { data: workforceData } = useQuery({
-    queryKey: ['workforce-dashboard', user?.id],
+    queryKey: ['workforce-dashboard', user?.practiceId],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const practiceId = user?.practiceId;
+      if (!practiceId) return null;
 
-      if (!userData) return null;
-
-      const [employees, dbsChecks, training, appraisals] = await Promise.all([
-        (supabase as any).from('employees').select('*').eq('practice_id', userData.practice_id).is('end_date', null),
-        (supabase as any).from('dbs_checks').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('training_records').select('*, employee:employees!inner(practice_id)').eq('employee.practice_id', userData.practice_id),
-        (supabase as any).from('appraisals').select('*, employee:employees!inner(practice_id)').eq('employee.practice_id', userData.practice_id),
+      const [employeesRes, trainingRes] = await Promise.all([
+        fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' }),
+        fetch(`/api/practices/${practiceId}/training-records`, { credentials: 'include' }),
       ]);
 
+      const employees = employeesRes.ok ? await employeesRes.json() : [];
+      const training = trainingRes.ok ? await trainingRes.json() : [];
+
+      const activeEmployees = Array.isArray(employees) ? employees.filter((e: any) => !e.endDate) : [];
+
       return {
-        employees: employees.data || [],
-        dbsChecks: dbsChecks.data || [],
-        training: training.data || [],
-        appraisals: appraisals.data || [],
+        employees: activeEmployees,
+        dbsChecks: [],
+        training: Array.isArray(training) ? training : [],
+        appraisals: [],
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   const handleExportPDF = async () => {
@@ -60,7 +57,6 @@ export default function WorkforceDashboard() {
       subtitle: 'Staff Compliance, Training, and HR Monitoring',
     });
 
-    // Key Metrics
     exporter.addSection('Key Workforce Metrics');
     exporter.addMetricsGrid([
       { label: 'Active Staff', value: `${workforceData.employees.length}`, subtitle: 'Current headcount' },
@@ -69,20 +65,18 @@ export default function WorkforceDashboard() {
       { label: 'Pending Appraisals', value: `${pendingAppraisals}`, subtitle: 'To be completed' },
     ]);
 
-    // DBS Review Schedule
     exporter.addSection('DBS Review Schedule (3-Year Cycle)');
     const dbsRows = workforceData.dbsChecks.slice(0, 10).map((check: any) => {
-      const isDueSoon = new Date(check.next_review_due).getTime() < new Date().setMonth(new Date().getMonth() + 6);
+      const isDueSoon = new Date(check.nextReviewDue).getTime() < new Date().setMonth(new Date().getMonth() + 6);
       return [
-        check.employee_id.slice(0, 8),
-        new Date(check.check_date).toLocaleDateString(),
-        new Date(check.next_review_due).toLocaleDateString(),
+        check.employeeId?.slice(0, 8) || 'N/A',
+        new Date(check.checkDate).toLocaleDateString(),
+        new Date(check.nextReviewDue).toLocaleDateString(),
         isDueSoon ? 'Due Soon' : 'On Track',
       ];
     });
     exporter.addTable(['Employee ID', 'Last Check', 'Next Review', 'Status'], dbsRows);
 
-    // Appraisal Status
     exporter.addSection('Annual Appraisal Status');
     const completedAppraisals = workforceData.appraisals.filter((a: any) => a.status === 'completed').length;
     const completionRate = Math.round((completedAppraisals / Math.max(workforceData.employees.length, 1)) * 100);
@@ -91,7 +85,6 @@ export default function WorkforceDashboard() {
       { key: 'Scheduled', value: `${pendingAppraisals} pending` },
     ]);
 
-    // Training Compliance
     if (trainingExpiringSoon > 0) {
       exporter.addSection('Training Expiry Alerts');
       exporter.addList([
@@ -108,8 +101,8 @@ export default function WorkforceDashboard() {
   }
 
   const dbsDueSoon = workforceData.dbsChecks.filter((check: any) => {
-    if (!check.next_review_due) return false;
-    const dueDate = new Date(check.next_review_due);
+    if (!check.nextReviewDue) return false;
+    const dueDate = new Date(check.nextReviewDue);
     const sixMonthsFromNow = new Date();
     sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
     return dueDate <= sixMonthsFromNow;
@@ -118,8 +111,8 @@ export default function WorkforceDashboard() {
   const pendingAppraisals = workforceData.appraisals.filter((a: any) => a.status === 'scheduled').length;
 
   const trainingExpiringSoon = workforceData.training.filter((t: any) => {
-    if (!t.expiry_date) return false;
-    const expiry = new Date(t.expiry_date);
+    if (!t.expiryDate) return false;
+    const expiry = new Date(t.expiryDate);
     const ninetyDaysFromNow = new Date();
     ninetyDaysFromNow.setDate(ninetyDaysFromNow.getDate() + 90);
     return expiry <= ninetyDaysFromNow;
@@ -145,7 +138,6 @@ export default function WorkforceDashboard() {
         </Button>
       </div>
 
-      {/* Key Metrics */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3">
@@ -197,10 +189,8 @@ export default function WorkforceDashboard() {
         </Card>
       </div>
 
-      {/* Training Expiry Alerts */}
       <TrainingExpiryAlerts />
 
-      {/* DBS Review Schedule */}
       <Collapsible open={isDBSOpen} onOpenChange={setIsDBSOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -213,33 +203,36 @@ export default function WorkforceDashboard() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="space-y-2">
-                {workforceData.dbsChecks.slice(0, 10).map((check: any) => (
-                  <div key={check.id} className="flex flex-col sm:flex-row items-start justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm sm:text-base">ID: {check.employee_id.slice(0, 8)}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Last: {new Date(check.check_date).toLocaleDateString()}
-                      </p>
+              {workforceData.dbsChecks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No DBS check records available</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {workforceData.dbsChecks.slice(0, 10).map((check: any) => (
+                    <div key={check.id} className="flex flex-col sm:flex-row items-start justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base">ID: {check.employeeId?.slice(0, 8)}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Last: {new Date(check.checkDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right self-start sm:self-center">
+                        <p className="text-xs sm:text-sm font-medium">Next Review</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {new Date(check.nextReviewDue).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right self-start sm:self-center">
-                      <p className="text-xs sm:text-sm font-medium">Next Review</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        {new Date(check.next_review_due).toLocaleDateString()}
-                      </p>
-                      {dbsDueSoon > 0 && new Date(check.next_review_due).getTime() < new Date().setMonth(new Date().getMonth() + 6) && (
-                        <Badge className="bg-warning mt-1 text-xs">Due Soon</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
 
-      {/* Appraisal Status */}
       <Collapsible open={isAppraisalOpen} onOpenChange={setIsAppraisalOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -252,26 +245,33 @@ export default function WorkforceDashboard() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="grid gap-3">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm sm:text-base">Completed This Year</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {workforceData.appraisals.filter((a: any) => a.status === 'completed').length} appraisals
-                    </p>
-                  </div>
-                  <Badge className="bg-success self-start sm:self-center">
-                    {Math.round((workforceData.appraisals.filter((a: any) => a.status === 'completed').length / Math.max(workforceData.employees.length, 1)) * 100)}%
-                  </Badge>
+              {workforceData.appraisals.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No appraisal records available</p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm sm:text-base">Scheduled</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{pendingAppraisals} pending</p>
+              ) : (
+                <div className="grid gap-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm sm:text-base">Completed This Year</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        {workforceData.appraisals.filter((a: any) => a.status === 'completed').length} appraisals
+                      </p>
+                    </div>
+                    <Badge className="bg-success self-start sm:self-center">
+                      {Math.round((workforceData.appraisals.filter((a: any) => a.status === 'completed').length / Math.max(workforceData.employees.length, 1)) * 100)}%
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="self-start sm:self-center">{pendingAppraisals}</Badge>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm sm:text-base">Scheduled</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{pendingAppraisals} pending</p>
+                    </div>
+                    <Badge variant="secondary" className="self-start sm:self-center">{pendingAppraisals}</Badge>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Card>

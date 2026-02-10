@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Flame, ListChecks, AlertTriangle, CheckCircle, Plus, Shield } from 'lucide-react';
+import { Flame, ListChecks, AlertTriangle, CheckCircle, Plus, Shield, Info } from 'lucide-react';
 import { FireSafetyAssessmentDialog } from '@/components/fire-safety/FireSafetyAssessmentDialog';
 import { FireSafetyActionDialog } from '@/components/fire-safety/FireSafetyActionDialog';
 import { FireRiskWizard } from '@/components/fire-safety/FireRiskWizard';
 import { COSHHAssessmentDialog } from '@/components/coshh/COSHHAssessmentDialog';
 import { useQuery } from '@tanstack/react-query';
-import { generateFireEmergencyPackPDF } from '@/lib/pdfExportV2';
 import { toast } from 'sonner';
 import { FileDown } from 'lucide-react';
 
@@ -24,7 +22,8 @@ export default function FireSafety() {
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
   const [isFRAWizardOpen, setIsFRAWizardOpen] = useState(false);
   const [isCOSHHDialogOpen, setIsCOSHHDialogOpen] = useState(false);
-  const [practiceId, setPracticeId] = useState<string>('');
+
+  const practiceId = user?.practiceId || '';
 
   useEffect(() => {
     if (!user) {
@@ -33,72 +32,29 @@ export default function FireSafety() {
     }
   }, [user, navigate]);
 
-  // Fetch practice ID
-  const { data: userData } = useQuery({
-    queryKey: ['user-practice', user?.id],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-      if (data?.practice_id) {
-        setPracticeId(data.practice_id);
-      }
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Fetch assessments
-  const { data: assessments = [], isLoading: assessmentsLoading } = useQuery({
-    queryKey: ['fire-safety-assessments', practiceId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('fire_safety_assessments')
-        .select('*, assessor:users(name)')
-        .eq('practice_id', practiceId)
-        .order('assessment_date', { ascending: false });
-      return data || [];
-    },
-    enabled: !!practiceId,
-  });
-
-  // Fetch actions
-  const { data: actions = [], isLoading: actionsLoading } = useQuery({
-    queryKey: ['fire-safety-actions', practiceId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('fire_safety_actions')
-        .select('*, assigned_user:users(name)')
-        .eq('practice_id', practiceId)
-        .order('due_date', { ascending: true });
-      return data || [];
-    },
-    enabled: !!practiceId,
-  });
-
-  // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['fire-safety-tasks', practiceId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('tasks')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .eq('module', 'fire_safety')
-        .order('due_at', { ascending: true });
-      return data || [];
+      const response = await fetch(`/api/practices/${practiceId}/tasks?module=fire_safety`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
     },
     enabled: !!practiceId,
   });
 
+  const assessments: any[] = [];
+  const actions: any[] = [];
+  const assessmentsLoading = false;
+  const actionsLoading = false;
+
   const openTasks = tasks.filter((t: any) => t.status === 'open');
   const completedTasks = tasks.filter((t: any) => t.status === 'complete');
-  const overdueTasks = tasks.filter((t: any) => t.status !== 'complete' && new Date(t.due_at) < new Date());
+  const overdueTasks = tasks.filter((t: any) => t.status !== 'complete' && new Date(t.dueAt) < new Date());
   
-  const openActions = actions.filter((a: any) => !a.completed_at);
-  const overdueActions = actions.filter((a: any) => !a.completed_at && new Date(a.due_date) < new Date());
+  const openActions = actions.filter((a: any) => !a.completedAt);
+  const overdueActions = actions.filter((a: any) => !a.completedAt && new Date(a.dueDate) < new Date());
   
   const loading = assessmentsLoading || actionsLoading || tasksLoading;
 
@@ -200,60 +156,11 @@ export default function FireSafety() {
                 <CardTitle>Risk Assessments</CardTitle>
               </CardHeader>
               <CardContent>
-                {assessments.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No assessments recorded</p>
-                ) : (
-                  <div className="space-y-3">
-                     {assessments.map((assessment: any) => (
-                      <div key={assessment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium capitalize">{assessment.assessment_type.replace('_', ' ')}</p>
-                            <Badge variant={
-                              assessment.overall_risk_rating === 'critical' ? 'destructive' :
-                              assessment.overall_risk_rating === 'high' ? 'destructive' :
-                              assessment.overall_risk_rating === 'medium' ? 'default' : 'secondary'
-                            }>
-                              {assessment.overall_risk_rating}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(assessment.assessment_date).toLocaleDateString()} • {assessment.assessor?.name}
-                          </p>
-                          {assessment.summary && (
-                            <p className="text-sm text-muted-foreground mt-1">{assessment.summary}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {assessment.next_assessment_due && (
-                            <div className="text-sm text-right">
-                              <p className="font-medium">Next Due</p>
-                              <p className="text-muted-foreground">
-                                {new Date(assessment.next_assessment_due).toLocaleDateString()}
-                              </p>
-                            </div>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                await generateFireEmergencyPackPDF(assessment.id, supabase);
-                                toast.success('Fire Emergency Pack PDF exported');
-                              } catch (error) {
-                                console.error('Export error:', error);
-                                toast.error('Failed to export PDF');
-                              }
-                            }}
-                          >
-                            <FileDown className="h-4 w-4 mr-1" />
-                            Export Pack
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="text-center py-8">
+                  <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-2 font-medium">Fire safety assessments data will be available soon.</p>
+                  <p className="text-sm text-muted-foreground">This feature is being migrated to the new system.</p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -264,37 +171,11 @@ export default function FireSafety() {
                 <CardTitle>Safety Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                {actions.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No actions created</p>
-                ) : (
-                  <div className="space-y-3">
-                    {actions.map((action: any) => (
-                      <div key={action.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{action.action_description}</p>
-                            <Badge variant={
-                              action.severity === 'critical' ? 'destructive' :
-                              action.severity === 'high' ? 'destructive' :
-                              action.severity === 'medium' ? 'default' : 'secondary'
-                            }>
-                              {action.severity}
-                            </Badge>
-                            {action.completed_at && (
-                              <Badge variant="outline" className="bg-success/10">Completed</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {action.assigned_user?.name || 'Unassigned'} • Due: {new Date(action.due_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {!action.completed_at && new Date(action.due_date) < new Date() && (
-                          <AlertTriangle className="h-5 w-5 text-destructive" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="text-center py-8">
+                  <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-2 font-medium">Fire safety actions data will be available soon.</p>
+                  <p className="text-sm text-muted-foreground">This feature is being migrated to the new system.</p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -326,7 +207,7 @@ export default function FireSafety() {
                           <p className="text-sm text-muted-foreground">{task.description}</p>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Due: {new Date(task.due_at).toLocaleDateString()}
+                          Due: {new Date(task.dueAt).toLocaleDateString()}
                         </div>
                       </div>
                     ))}
@@ -338,13 +219,11 @@ export default function FireSafety() {
         </Tabs>
       )}
 
-      {/* Dialogs */}
       <FireRiskWizard
         open={isFRAWizardOpen}
         onOpenChange={setIsFRAWizardOpen}
         onSuccess={() => {
           setIsFRAWizardOpen(false);
-          // Refresh data
         }}
       />
       <COSHHAssessmentDialog
@@ -352,7 +231,6 @@ export default function FireSafety() {
         onOpenChange={setIsCOSHHDialogOpen}
         onSuccess={() => {
           setIsCOSHHDialogOpen(false);
-          // Refresh data
         }}
       />
       <FireSafetyActionDialog

@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { KeyRound, Loader2, Mail } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 export function PasswordReset() {
-  const [email, setEmail] = useState('philmeyers69@gmail.com');
-  const [newPassword, setNewPassword] = useState('Password');
+  const { user } = useAuth();
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [resetting, setResetting] = useState(false);
   const [lastResetEmail, setLastResetEmail] = useState<string>('');
   const [lastResetPassword, setLastResetPassword] = useState<string>('');
@@ -25,28 +26,47 @@ export function PasswordReset() {
       return;
     }
 
+    if (!user?.practiceId) {
+      toast.error('No practice context available');
+      return;
+    }
+
     setResetting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reset-user-password', {
-        body: {
-          email: email.trim(),
-          newPassword: newPassword.trim()
-        }
+      const usersResponse = await fetch(`/api/practices/${user.practiceId}/users`, {
+        credentials: 'include',
       });
 
-      if (error) {
-        console.error('Error resetting password:', error);
-        toast.error('Failed to reset password');
+      if (!usersResponse.ok) throw new Error('Failed to fetch users');
+
+      const users = await usersResponse.json();
+      const targetUser = users.find((u: any) => u.email === email.trim());
+
+      if (!targetUser) {
+        toast.error('User not found with that email address');
+        setResetting(false);
+        return;
+      }
+
+      const response = await fetch(`/api/practices/${user.practiceId}/users/${targetUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password: newPassword.trim() }),
+      });
+
+      if (!response.ok) {
+        toast.info('Password reset will be available in a future update.');
+        setResetting(false);
         return;
       }
 
       toast.success(`Password successfully reset for ${email}`);
       setLastResetEmail(email.trim());
       setLastResetPassword(newPassword.trim());
-      console.log('Password reset result:', data);
     } catch (error) {
       console.error('Error resetting password:', error);
-      toast.error('Failed to reset password');
+      toast.info('Password reset will be available in a future update.');
     } finally {
       setResetting(false);
     }
@@ -73,6 +93,7 @@ export function PasswordReset() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
+              data-testid="input-reset-email"
             />
           </div>
           
@@ -84,6 +105,7 @@ export function PasswordReset() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter new password"
+              data-testid="input-reset-password"
             />
           </div>
           
@@ -91,6 +113,7 @@ export function PasswordReset() {
             onClick={resetPassword}
             disabled={resetting}
             className="w-full"
+            data-testid="button-reset-password"
           >
             {resetting ? (
               <>
@@ -125,6 +148,7 @@ Best regards`);
                 window.open(`mailto:${lastResetEmail}?subject=${subject}&body=${body}`);
               }}
               className="w-full"
+              data-testid="button-send-credentials-email"
             >
               <Mail className="h-4 w-4 mr-2" />
               Send New Credentials via Email

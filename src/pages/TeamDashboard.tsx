@@ -6,15 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, Users, Clock, CheckCircle, AlertTriangle, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
 interface TeamMember {
   id: string;
   name: string;
-  user_roles: Array<{ role: string }>;
-  is_active: boolean;
+  role: string;
+  isActive: boolean;
   assigned_tasks: number;
   completed_tasks: number;
   overdue_tasks: number;
@@ -23,13 +22,10 @@ interface TeamMember {
 
 interface TeamTask {
   id: string;
-  name: string;
-  due_at: string;
+  title: string;
+  dueAt: string;
   status: string;
-  assignee: {
-    name: string;
-    roles: Array<{ role: string }>;
-  };
+  assigneeName: string;
 }
 
 export default function TeamDashboard() {
@@ -40,88 +36,59 @@ export default function TeamDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.practiceId) return;
 
     const fetchTeamData = async () => {
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user.id)
-          .single();
+        const [usersRes, tasksRes] = await Promise.all([
+          fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+          fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+        ]);
 
-        if (!userData) return;
+        const usersData = usersRes.ok ? await usersRes.json() : [];
+        const tasksData = tasksRes.ok ? await tasksRes.json() : [];
 
-        // Fetch all team members
-        const { data: members } = await supabase
-          .from('users')
-          .select(`
-            id,
-            name,
-            is_active,
-            user_roles(role)
-          `)
-          .eq('practice_id', userData.practice_id);
+        const membersWithStats = (usersData || []).map((member: any) => {
+          const memberTasks = (tasksData || []).filter(
+            (task: any) => task.assignedToUserId === member.id
+          );
 
-        // Fetch process instances with assignee info
-        const { data: processInstances } = await supabase
-          .from('process_instances')
-          .select(`
-            *,
-            process_templates!inner (
-              name
-            ),
-            users!assignee_id (
-              name,
-              user_roles(role)
-            )
-          `)
-          .eq('practice_id', userData.practice_id);
+          const completed = memberTasks.filter((t: any) => t.status === 'complete').length;
+          const overdue = memberTasks.filter(
+            (t: any) => t.status !== 'complete' && new Date(t.dueAt) < new Date()
+          ).length;
+          const pending = memberTasks.filter((t: any) => t.status === 'pending').length;
 
-        if (members) {
-          // Calculate task statistics for each team member
-          const membersWithStats = members.map(member => {
-            const memberTasks = (processInstances || []).filter(
-              task => task.assignee_id === member.id
-            );
+          return {
+            id: member.id,
+            name: member.name,
+            role: member.role || 'staff',
+            isActive: member.isActive,
+            assigned_tasks: memberTasks.length,
+            completed_tasks: completed,
+            overdue_tasks: overdue,
+            pending_tasks: pending,
+          };
+        });
 
-            const completed = memberTasks.filter(t => t.status === 'complete').length;
-            const overdue = memberTasks.filter(
-              t => t.status !== 'complete' && new Date(t.due_at) < new Date()
-            ).length;
-            const pending = memberTasks.filter(t => t.status === 'pending').length;
+        setTeamMembers(membersWithStats);
 
+        const tasksWithAssignee = (tasksData || [])
+          .map((task: any) => {
+            const assignee = (usersData || []).find((u: any) => u.id === task.assignedToUserId);
             return {
-              ...member,
-              assigned_tasks: memberTasks.length,
-              completed_tasks: completed,
-              overdue_tasks: overdue,
-              pending_tasks: pending
-            };
-          });
-
-          setTeamMembers(membersWithStats);
-        }
-
-        // Recent tasks for team overview
-        if (processInstances) {
-          const tasksWithAssignee = processInstances
-            .filter(task => task.users)
-            .map(task => ({
               id: task.id,
-              name: task.process_templates?.name || 'Unnamed Process',
-              due_at: task.due_at,
+              title: task.title || 'Unnamed Task',
+              dueAt: task.dueAt,
               status: task.status,
-              assignee: {
-                name: task.users?.name || 'Unknown',
-                roles: task.users?.user_roles || []
-              }
-            }))
-            .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
-            .slice(0, 10);
+              assigneeName: assignee?.name || 'Unassigned',
+            };
+          })
+          .filter((t: any) => t.status !== 'complete')
+          .sort((a: any, b: any) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+          .slice(0, 10);
 
-          setRecentTasks(tasksWithAssignee);
-        }
+        setRecentTasks(tasksWithAssignee);
       } catch (error) {
         console.error('Error fetching team data:', error);
       } finally {
@@ -185,7 +152,6 @@ export default function TeamDashboard() {
           </div>
         </div>
 
-        {/* Team Summary */}
         <div className="grid gap-4 md:grid-cols-4 mb-6">
           <Card>
             <CardContent className="p-6">
@@ -226,7 +192,6 @@ export default function TeamDashboard() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Team Members */}
           <Card>
             <CardHeader>
               <CardTitle>Team Members</CardTitle>
@@ -246,9 +211,7 @@ export default function TeamDashboard() {
                         <h3 className="font-medium">{member.name}</h3>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Badge variant="outline" className="text-xs">
-                            {member.user_roles && member.user_roles.length > 0 
-                              ? member.user_roles[0].role.replace('_', ' ').toUpperCase()
-                              : 'NO ROLE'}
+                            {member.role.replace('_', ' ').toUpperCase()}
                           </Badge>
                           <span>•</span>
                           <span>{member.assigned_tasks} tasks</span>
@@ -257,9 +220,9 @@ export default function TeamDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="text-green-600">{member.completed_tasks} ✓</span>
-                        <span className="text-amber-600">{member.pending_tasks} ⏳</span>
-                        <span className="text-red-600">{member.overdue_tasks} ⚠️</span>
+                        <span className="text-green-600">{member.completed_tasks} done</span>
+                        <span className="text-amber-600">{member.pending_tasks} pending</span>
+                        <span className="text-red-600">{member.overdue_tasks} overdue</span>
                       </div>
                       <p className={`text-xs font-medium ${getMemberPerformanceColor(member)}`}>
                         {member.overdue_tasks > 0 ? 'Needs attention' : 
@@ -272,7 +235,6 @@ export default function TeamDashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Tasks */}
           <Card>
             <CardHeader>
               <CardTitle>Upcoming Tasks</CardTitle>
@@ -290,15 +252,15 @@ export default function TeamDashboard() {
                       onClick={() => navigate(`/task/${task.id}`)}
                     >
                       <div className="flex items-center gap-3">
-                        <RAGBadge status={getTaskStatusBadge(task.status, task.due_at)} />
+                        <RAGBadge status={getTaskStatusBadge(task.status, task.dueAt)} />
                         <div>
-                          <h4 className="text-sm font-medium">{task.name}</h4>
+                          <h4 className="text-sm font-medium">{task.title}</h4>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <User className="h-3 w-3" />
-                            <span>{task.assignee.name}</span>
+                            <span>{task.assigneeName}</span>
                             <span>•</span>
                             <Clock className="h-3 w-3" />
-                            <span>{new Date(task.due_at).toLocaleDateString()}</span>
+                            <span>{new Date(task.dueAt).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>

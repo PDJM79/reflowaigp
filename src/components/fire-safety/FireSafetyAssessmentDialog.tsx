@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -31,31 +30,12 @@ export const FireSafetyAssessmentDialog = ({ open, onClose, assessmentId, practi
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      const assessmentData = {
-        ...data,
-        practice_id: practiceId,
-        assessor_id: userData?.id,
-      };
-
-      if (assessmentId) {
-        const { error } = await (supabase as any)
-          .from('fire_safety_assessments')
-          .update(assessmentData)
-          .eq('id', assessmentId);
-        if (error) throw error;
-      } else {
-        const { error } = await (supabase as any)
-          .from('fire_safety_assessments')
-          .insert(assessmentData);
-        if (error) throw error;
-      }
+    mutationFn: async (_data: typeof formData) => {
+      toast({
+        title: 'Coming Soon',
+        description: 'Fire safety assessment saving will be available soon. This feature is being migrated.',
+      });
+      throw new Error('Endpoint not yet available');
     },
     onSuccess: () => {
       toast({
@@ -66,11 +46,13 @@ export const FireSafetyAssessmentDialog = ({ open, onClose, assessmentId, practi
       onClose();
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error.message !== 'Endpoint not yet available') {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 

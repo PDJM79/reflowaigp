@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 
 interface EmailLogDetailDialogProps {
   log: any;
@@ -24,18 +23,9 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
   if (!log) return null;
 
   const handleRetry = async () => {
-    if (!user) return;
-
     setRetrying(true);
     try {
-      const { data, error } = await supabase.functions.invoke('retry-email', {
-        body: { emailLogId: log.id },
-      });
-
-      if (error) throw error;
-
-      toast.success(t('email_logs.retry_success'));
-      onClose();
+      toast.info('Email retry is not yet connected to the backend');
     } catch (error) {
       console.error('Error retrying email:', error);
       toast.error(t('email_logs.retry_error'));
@@ -57,12 +47,12 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
   };
 
   const timeline = [
-    { label: 'Sent', timestamp: log.sent_at, icon: Mail, color: 'text-blue-500' },
-    { label: 'Delivered', timestamp: log.delivered_at, icon: CheckCircle2, color: 'text-success' },
-    { label: 'Opened', timestamp: log.opened_at, icon: CheckCircle2, color: 'text-success' },
-    { label: 'Clicked', timestamp: log.clicked_at, icon: CheckCircle2, color: 'text-success' },
-    { label: 'Bounced', timestamp: log.bounced_at, icon: XCircle, color: 'text-error' },
-    { label: 'Complained', timestamp: log.complained_at, icon: XCircle, color: 'text-error' },
+    { label: 'Sent', timestamp: log.sent_at || log.sentAt, icon: Mail, color: 'text-blue-500' },
+    { label: 'Delivered', timestamp: log.delivered_at || log.deliveredAt, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Opened', timestamp: log.opened_at || log.openedAt, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Clicked', timestamp: log.clicked_at || log.clickedAt, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Bounced', timestamp: log.bounced_at || log.bouncedAt, icon: XCircle, color: 'text-error' },
+    { label: 'Complained', timestamp: log.complained_at || log.complainedAt, icon: XCircle, color: 'text-error' },
   ].filter(item => item.timestamp);
 
   return (
@@ -86,41 +76,37 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Status Overview */}
           <div className="flex items-center justify-between">
             <EmailStatusBadge status={log.status} />
-            <Badge variant="outline">{log.email_type.replace(/_/g, ' ')}</Badge>
+            <Badge variant="outline">{(log.email_type || log.emailType || '').replace(/_/g, ' ')}</Badge>
           </div>
 
-          {/* Recipient Info */}
           <div className="space-y-2">
             <h3 className="font-semibold text-sm text-muted-foreground">Recipient</h3>
             <div className="space-y-1">
-              {log.recipient_name && (
-                <p className="font-medium">{log.recipient_name}</p>
+              {(log.recipient_name || log.recipientName) && (
+                <p className="font-medium">{log.recipient_name || log.recipientName}</p>
               )}
-              <p className="text-sm text-muted-foreground">{log.recipient_email}</p>
+              <p className="text-sm text-muted-foreground">{log.recipient_email || log.recipientEmail}</p>
             </div>
           </div>
 
-          {/* Subject */}
           <div className="space-y-2">
             <h3 className="font-semibold text-sm text-muted-foreground">Subject</h3>
             <p>{log.subject}</p>
           </div>
 
-          {/* Resend Email ID */}
-          {log.resend_email_id && (
+          {(log.resend_email_id || log.resendEmailId) && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm text-muted-foreground">Resend Email ID</h3>
               <div className="flex items-center gap-2">
                 <code className="flex-1 px-3 py-2 bg-muted rounded text-sm font-mono">
-                  {log.resend_email_id}
+                  {log.resend_email_id || log.resendEmailId}
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => copyToClipboard(log.resend_email_id)}
+                  onClick={() => copyToClipboard(log.resend_email_id || log.resendEmailId)}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -128,7 +114,6 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
             </div>
           )}
 
-          {/* Timeline */}
           {timeline.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm text-muted-foreground">Status Timeline</h3>
@@ -151,36 +136,33 @@ export function EmailLogDetailDialog({ log, open, onClose }: EmailLogDetailDialo
             </div>
           )}
 
-          {/* Error Message */}
-          {log.error_message && (
+          {(log.error_message || log.errorMessage) && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm text-error">Error Message</h3>
               <div className="p-3 bg-error/10 border border-error/20 rounded text-sm">
-                {log.error_message}
+                {log.error_message || log.errorMessage}
               </div>
             </div>
           )}
 
-          {/* Bounce Details */}
-          {(log.bounce_type || log.bounce_reason) && (
+          {(log.bounce_type || log.bounceType || log.bounce_reason || log.bounceReason) && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm text-error">Bounce Details</h3>
               <div className="space-y-1">
-                {log.bounce_type && (
+                {(log.bounce_type || log.bounceType) && (
                   <p className="text-sm">
-                    <span className="text-muted-foreground">Type:</span> {log.bounce_type}
+                    <span className="text-muted-foreground">Type:</span> {log.bounce_type || log.bounceType}
                   </p>
                 )}
-                {log.bounce_reason && (
+                {(log.bounce_reason || log.bounceReason) && (
                   <p className="text-sm">
-                    <span className="text-muted-foreground">Reason:</span> {log.bounce_reason}
+                    <span className="text-muted-foreground">Reason:</span> {log.bounce_reason || log.bounceReason}
                   </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Metadata */}
           {log.metadata && Object.keys(log.metadata).length > 0 && (
             <div className="space-y-2">
               <h3 className="font-semibold text-sm text-muted-foreground">Metadata</h3>

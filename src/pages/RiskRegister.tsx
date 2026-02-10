@@ -5,25 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, AlertTriangle, Clock, User, TrendingUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
 interface RiskProcess {
   id: string;
   status: string;
-  due_at: string;
-  created_at: string;
-  process_templates: {
-    name: string;
-    responsible_role: string;
-    frequency: string;
-  };
-  users: {
-    name: string;
-  };
-  risk_level: 'high' | 'medium' | 'low';
-  days_overdue: number;
+  dueAt: string;
+  createdAt: string;
+  templateName: string;
+  responsibleRole: string;
+  frequency: string;
+  assigneeName: string;
+  riskLevel: 'high' | 'medium' | 'low';
+  daysOverdue: number;
 }
 
 export default function RiskRegister() {
@@ -33,58 +28,45 @@ export default function RiskRegister() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.practiceId) return;
 
     const fetchRiskProcesses = async () => {
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user.id)
-          .single();
+        const tasksRes = await fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' });
+        const tasks = tasksRes.ok ? await tasksRes.json() : [];
 
-        if (!userData) return;
+        const usersRes = await fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' });
+        const users = usersRes.ok ? await usersRes.json() : [];
+        const userMap = new Map((users || []).map((u: any) => [u.id, u.name]));
 
-        const { data: processInstances } = await supabase
-          .from('process_instances')
-          .select(`
-            *,
-            process_templates!inner (
-              name,
-              responsible_role,
-              frequency
-          ),
-          users!assignee_id (
-            name
-          )
-        `)
-        .eq('practice_id', userData.practice_id)
-          .neq('status', 'complete')
-          .order('due_at', { ascending: true });
-
-        // Calculate risk levels and filter only at-risk processes
-        const riskyProcesses = (processInstances || [])
-          .map(process => {
-            const dueDate = new Date(process.due_at);
+        const riskyProcesses = (tasks || [])
+          .filter((task: any) => task.status !== 'complete')
+          .map((task: any) => {
+            const dueDate = new Date(task.dueAt);
             const today = new Date();
             const daysOverdue = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
             
-            let risk_level: 'high' | 'medium' | 'low' = 'low';
-            
-            // Determine risk level based on overdue status and process status
+            let riskLevel: 'high' | 'medium' | 'low' = 'low';
             if (daysOverdue > 7) {
-              risk_level = 'high';
-            } else if (daysOverdue > 0 || process.status === 'pending') {
-              risk_level = 'medium';
+              riskLevel = 'high';
+            } else if (daysOverdue > 0 || task.status === 'pending') {
+              riskLevel = 'medium';
             }
 
             return {
-              ...process,
-              risk_level,
-              days_overdue: Math.max(0, daysOverdue)
+              id: task.id,
+              status: task.status,
+              dueAt: task.dueAt,
+              createdAt: task.createdAt,
+              templateName: task.title || 'Unknown Process',
+              responsibleRole: task.assignedToRole || 'staff',
+              frequency: task.recurrence || 'one-off',
+              assigneeName: userMap.get(task.assignedToUserId) || 'Unassigned',
+              riskLevel,
+              daysOverdue: Math.max(0, daysOverdue),
             };
           })
-          .filter(process => process.risk_level !== 'low'); // Only show medium and high risk
+          .filter((process: any) => process.riskLevel !== 'low');
 
         setRiskProcesses(riskyProcesses);
       } catch (error) {
@@ -124,8 +106,8 @@ export default function RiskRegister() {
     );
   }
 
-  const highRiskCount = riskProcesses.filter(p => p.risk_level === 'high').length;
-  const mediumRiskCount = riskProcesses.filter(p => p.risk_level === 'medium').length;
+  const highRiskCount = riskProcesses.filter(p => p.riskLevel === 'high').length;
+  const mediumRiskCount = riskProcesses.filter(p => p.riskLevel === 'medium').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,7 +130,6 @@ export default function RiskRegister() {
           </div>
         </div>
 
-        {/* Risk Summary */}
         <div className="grid gap-4 md:grid-cols-3 mb-6">
           <Card>
             <CardContent className="p-6">
@@ -182,7 +163,6 @@ export default function RiskRegister() {
           </Card>
         </div>
 
-        {/* Risk Processes */}
         <Card>
           <CardHeader>
             <CardTitle>At-Risk Processes</CardTitle>
@@ -195,12 +175,11 @@ export default function RiskRegister() {
               {riskProcesses.length > 0 ? (
                 riskProcesses
                   .sort((a, b) => {
-                    // Sort by risk level (high -> medium -> low), then by days overdue
                     const riskOrder = { high: 3, medium: 2, low: 1 };
-                    if (riskOrder[a.risk_level] !== riskOrder[b.risk_level]) {
-                      return riskOrder[b.risk_level] - riskOrder[a.risk_level];
+                    if (riskOrder[a.riskLevel] !== riskOrder[b.riskLevel]) {
+                      return riskOrder[b.riskLevel] - riskOrder[a.riskLevel];
                     }
-                    return b.days_overdue - a.days_overdue;
+                    return b.daysOverdue - a.daysOverdue;
                   })
                   .map((process) => (
                     <div 
@@ -209,21 +188,21 @@ export default function RiskRegister() {
                       onClick={() => navigate(`/task/${process.id}`)}
                     >
                       <div className="flex items-center gap-4">
-                        <RAGBadge status={getRAGStatus(process.risk_level)} />
+                        <RAGBadge status={getRAGStatus(process.riskLevel)} />
                         <div>
-                          <h3 className="font-medium">{process.process_templates?.name}</h3>
+                          <h3 className="font-medium">{process.templateName}</h3>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              Due: {new Date(process.due_at).toLocaleDateString()}
+                              Due: {new Date(process.dueAt).toLocaleDateString()}
                             </span>
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              {process.users?.name || 'Unassigned'}
+                              {process.assigneeName}
                             </span>
-                            {process.days_overdue > 0 && (
+                            {process.daysOverdue > 0 && (
                               <Badge variant="destructive" className="text-xs">
-                                {process.days_overdue} days overdue
+                                {process.daysOverdue} days overdue
                               </Badge>
                             )}
                           </div>
@@ -232,9 +211,9 @@ export default function RiskRegister() {
                       <div className="flex items-center gap-2">
                         <Badge 
                           variant="outline" 
-                          className={`${getRiskColor(process.risk_level)} border`}
+                          className={`${getRiskColor(process.riskLevel)} border`}
                         >
-                          {process.risk_level.toUpperCase()} RISK
+                          {process.riskLevel.toUpperCase()} RISK
                         </Badge>
                         <Button size="sm" variant="outline">
                           Take Action

@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -30,22 +29,19 @@ export const FireSafetyActionDialog = ({ open, onClose, assessmentId, practiceId
     due_date: '',
   });
 
-  // Fetch users for assignment
   const { data: users = [] } = useQuery({
     queryKey: ['users-for-fire-action', practiceId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', practiceId)
-        .eq('is_active', true)
-        .order('name');
-      return data || [];
+      if (!practiceId) return [];
+      const response = await fetch(`/api/practices/${practiceId}/users`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
     },
-    enabled: open,
+    enabled: open && !!practiceId,
   });
 
-  // Auto-calculate due date based on timeframe
   useEffect(() => {
     if (formData.timeframe) {
       const today = new Date();
@@ -68,18 +64,12 @@ export const FireSafetyActionDialog = ({ open, onClose, assessmentId, practiceId
   }, [formData.timeframe]);
 
   const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const actionData = {
-        ...data,
-        practice_id: practiceId,
-        assessment_id: assessmentId || null,
-        assigned_to: data.assigned_to || null,
-      };
-
-      const { error } = await (supabase as any)
-        .from('fire_safety_actions')
-        .insert(actionData);
-      if (error) throw error;
+    mutationFn: async (_data: typeof formData) => {
+      toast({
+        title: 'Coming Soon',
+        description: 'Fire safety action creation will be available soon. This feature is being migrated.',
+      });
+      throw new Error('Endpoint not yet available');
     },
     onSuccess: () => {
       toast({
@@ -97,11 +87,13 @@ export const FireSafetyActionDialog = ({ open, onClose, assessmentId, practiceId
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error.message !== 'Endpoint not yet available') {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 

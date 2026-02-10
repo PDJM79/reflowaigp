@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,12 +26,10 @@ interface Task {
   module: string;
   status: string;
   priority: string;
-  due_at: string;
-  assigned_to_user_id: string;
-  created_at: string;
-  assignedUser?: {
-    name: string;
-  } | null;
+  dueAt: string;
+  assignedToUserId: string;
+  createdAt: string;
+  assigneeName?: string;
 }
 
 export default function Reports() {
@@ -46,7 +43,7 @@ export default function Reports() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.practiceId) {
       navigate('/');
       return;
     }
@@ -54,46 +51,26 @@ export default function Reports() {
   }, [user, navigate, selectedModule, selectedPriority]);
 
   const fetchTasks = async () => {
+    if (!user?.practiceId) return;
+
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select(`
-          practice_id, 
-          is_practice_manager,
-          user_roles!inner(role)
-        `)
-        .eq('auth_user_id', user?.id)
-        .single();
+      const res = await fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      const data = await res.json();
 
-      if (!userData) return;
-
-      // Administrators and practice managers can see all tasks
-      const userRoles = Array.isArray(userData?.user_roles) 
-        ? userData.user_roles.map((r: any) => r.role) 
-        : [];
-      const canSeeAllTasks = userData.is_practice_manager || userRoles.includes('administrator');
-
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name)
-        `)
-        .eq('practice_id', userData.practice_id)
-        .order('due_at', { ascending: true });
+      let filtered = data || [];
 
       if (selectedModule !== 'all') {
-        query = query.eq('module', selectedModule);
+        filtered = filtered.filter((t: any) => t.module === selectedModule);
       }
 
       if (selectedPriority !== 'all') {
-        query = query.eq('priority', selectedPriority);
+        filtered = filtered.filter((t: any) => t.priority === selectedPriority);
       }
 
-      const { data, error } = await query;
+      filtered.sort((a: any, b: any) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 
-      if (error) throw error;
-      setTasks(data || []);
+      setTasks(filtered);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -102,15 +79,15 @@ export default function Reports() {
   };
 
   const overdueTasks = tasks.filter(t => 
-    t.status !== 'complete' && new Date(t.due_at) < new Date()
+    t.status !== 'complete' && new Date(t.dueAt) < new Date()
   );
   
   const dueTodayTasks = tasks.filter(t => 
-    t.status !== 'complete' && isSameDay(new Date(t.due_at), new Date())
+    t.status !== 'complete' && isSameDay(new Date(t.dueAt), new Date())
   );
 
   const dueThisWeekTasks = tasks.filter(t => {
-    const dueDate = new Date(t.due_at);
+    const dueDate = new Date(t.dueAt);
     const weekStart = startOfWeek(new Date());
     const weekEnd = addDays(weekStart, 7);
     return t.status !== 'complete' && isAfter(dueDate, new Date()) && isBefore(dueDate, weekEnd);
@@ -119,7 +96,7 @@ export default function Reports() {
   const completedTasks = tasks.filter(t => t.status === 'complete');
 
   const getTasksByDate = (date: Date) => {
-    return tasks.filter(t => isSameDay(new Date(t.due_at), date));
+    return tasks.filter(t => isSameDay(new Date(t.dueAt), date));
   };
 
   const getPriorityColor = (priority: string) => {
@@ -142,8 +119,8 @@ export default function Reports() {
   };
 
   const TaskRow = ({ task }: { task: Task }) => {
-    const isOverdue = task.status !== 'complete' && new Date(task.due_at) < new Date();
-    const dueDate = new Date(task.due_at);
+    const isOverdue = task.status !== 'complete' && new Date(task.dueAt) < new Date();
+    const dueDate = new Date(task.dueAt);
 
     return (
       <div 
@@ -164,13 +141,13 @@ export default function Reports() {
             </p>
 
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{task.module.replace('_', ' ')}</Badge>
+              <Badge variant="outline">{(task.module || '').replace('_', ' ')}</Badge>
               <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
                 {task.priority}
               </Badge>
-              {task.assignedUser && (
+              {task.assigneeName && (
                 <Badge variant="secondary">
-                  {task.assignedUser.name}
+                  {task.assigneeName}
                 </Badge>
               )}
             </div>
@@ -265,7 +242,6 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
@@ -314,7 +290,6 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

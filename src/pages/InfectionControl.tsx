@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Calendar, ListChecks } from 'lucide-react';
+import { Shield, Calendar, ListChecks, Info } from 'lucide-react';
 
 export default function InfectionControl() {
   const { user } = useAuth();
@@ -23,26 +22,23 @@ export default function InfectionControl() {
   }, [user, navigate]);
 
   const fetchICTasks = async () => {
+    if (!user?.practiceId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .eq('module', 'infection_control')
-        .order('due_at', { ascending: true });
-
-      if (error) throw error;
-      setTasks(data || []);
+      const response = await fetch(`/api/practices/${user.practiceId}/tasks?module=infection_control`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTasks(data || []);
+      } else {
+        setTasks([]);
+      }
     } catch (error) {
       console.error('Error fetching IC tasks:', error);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -121,7 +117,7 @@ export default function InfectionControl() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{new Date(task.due_at).toLocaleDateString()}</span>
+                    <span className="text-sm">{new Date(task.dueAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardHeader>

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Crown, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function CreateMasterUser() {
@@ -11,16 +10,35 @@ export function CreateMasterUser() {
   const createMasterUser = async () => {
     setCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-master-user');
+      const practiceResponse = await fetch('/api/practices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: 'Master Admin Practice',
+          country: 'England',
+        }),
+      });
 
-      if (error) {
-        console.error('Error creating master user:', error);
-        toast.error('Failed to create master user account');
-        return;
-      }
+      if (!practiceResponse.ok) throw new Error('Failed to create practice');
+
+      const practice = await practiceResponse.json();
+
+      const userResponse = await fetch(`/api/practices/${practice.id}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: 'Master Admin',
+          email: 'phil@reflowai.co.uk',
+          role: 'practice_manager',
+          isPracticeManager: true,
+        }),
+      });
+
+      if (!userResponse.ok) throw new Error('Failed to create master user');
 
       toast.success('Master user account created successfully!');
-      console.log('Master user created:', data);
     } catch (error) {
       console.error('Error creating master user:', error);
       toast.error('Failed to create master user account');
@@ -42,9 +60,8 @@ export function CreateMasterUser() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground" data-testid="text-master-user-details">
             <p><strong>Email:</strong> phil@reflowai.co.uk</p>
-            <p><strong>Password:</strong> Reflowai2025!!</p>
             <p><strong>Access:</strong> All practices, full admin rights</p>
           </div>
           
@@ -52,6 +69,7 @@ export function CreateMasterUser() {
             onClick={createMasterUser}
             disabled={creating}
             className="w-full"
+            data-testid="button-create-master-user"
           >
             {creating ? (
               <>

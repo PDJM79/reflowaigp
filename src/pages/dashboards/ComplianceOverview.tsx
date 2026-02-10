@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,6 @@ export default function ComplianceOverview() {
       navigate('/');
       return;
     }
-    // Set default date range (last 3 months)
     const end = new Date();
     const start = new Date();
     start.setMonth(start.getMonth() - 3);
@@ -35,42 +33,31 @@ export default function ComplianceOverview() {
     });
   }, [user, navigate]);
 
-  // Fetch compliance data
   const { data: complianceData } = useQuery({
-    queryKey: ['compliance-overview', user?.id, dateRange],
+    queryKey: ['compliance-overview', user?.practiceId, dateRange],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const practiceId = user?.practiceId;
+      if (!practiceId) return null;
 
-      if (!userData) return null;
-
-      // Fetch multiple compliance-related tables
-      const [
-        scoreData,
-        tasksData,
-        assessmentsData,
-        incidentsData,
-        policiesData,
-      ] = await Promise.all([
-        (supabase as any).from('score_current').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('tasks').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('fire_safety_assessments').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('incidents').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('policy_documents').select('*').eq('practice_id', userData.practice_id),
+      const [tasksRes, incidentsRes, policiesRes] = await Promise.all([
+        fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' }),
+        fetch(`/api/practices/${practiceId}/incidents`, { credentials: 'include' }),
+        fetch(`/api/practices/${practiceId}/policies`, { credentials: 'include' }),
       ]);
 
+      const tasks = tasksRes.ok ? await tasksRes.json() : [];
+      const incidents = incidentsRes.ok ? await incidentsRes.json() : [];
+      const policies = policiesRes.ok ? await policiesRes.json() : [];
+
       return {
-        scores: scoreData.data || [],
-        tasks: tasksData.data || [],
-        assessments: assessmentsData.data || [],
-        incidents: incidentsData.data || [],
-        policies: policiesData.data || [],
+        scores: [],
+        tasks: Array.isArray(tasks) ? tasks : [],
+        assessments: [],
+        incidents: Array.isArray(incidents) ? incidents : [],
+        policies: Array.isArray(policies) ? policies : [],
       };
     },
-    enabled: !!user?.id && !!dateRange.start,
+    enabled: !!user?.practiceId && !!dateRange.start,
   });
 
   const getRAGStatus = (score: number): 'green' | 'amber' | 'red' => {
@@ -90,7 +77,6 @@ export default function ComplianceOverview() {
       dateRange,
     });
 
-    // Key Metrics
     exporter.addSection('Key Performance Indicators');
     exporter.addMetricsGrid([
       { label: 'Overall Compliance Score', value: `${avgScore}%`, subtitle: getRAGStatus(avgScore).toUpperCase() },
@@ -99,7 +85,6 @@ export default function ComplianceOverview() {
       { label: 'Safety Incidents', value: `${complianceData.incidents.length}`, subtitle: 'Last 3 months' },
     ]);
 
-    // Regulatory Framework Compliance
     exporter.addSection('Regulatory Framework Compliance');
     
     exporter.addRAGIndicator('HIW - Healthcare Inspectorate Wales', getRAGStatus(85), 85);
@@ -125,13 +110,12 @@ export default function ComplianceOverview() {
       { key: 'Quality improvement', value: '93%' },
     ]);
 
-    // Inspection Readiness
     exporter.addSection('Inspection Readiness');
     exporter.addList([
-      '✓ Evidence Pack Complete - All required documents ready',
-      '⚠ Policy Reviews - 3 policies need review',
-      '✓ Staff Training Records - All staff up to date',
-      '✓ Safety Audits - Latest audits completed',
+      'Evidence Pack Complete - All required documents ready',
+      'Policy Reviews - 3 policies need review',
+      'Staff Training Records - All staff up to date',
+      'Safety Audits - Latest audits completed',
     ]);
 
     exporter.save(generateFilename('compliance-overview', dateRange));
@@ -168,7 +152,6 @@ export default function ComplianceOverview() {
         </Button>
       </div>
 
-      {/* Key Metrics */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3">
@@ -217,7 +200,6 @@ export default function ComplianceOverview() {
         </Card>
       </div>
 
-      {/* HIW/CQC Domain Breakdown */}
       <Collapsible open={isFrameworkOpen} onOpenChange={setIsFrameworkOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -307,7 +289,6 @@ export default function ComplianceOverview() {
         </Card>
       </Collapsible>
 
-      {/* Readiness Indicators */}
       <Collapsible open={isReadinessOpen} onOpenChange={setIsReadinessOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">

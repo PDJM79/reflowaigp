@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,80 +25,12 @@ export function ClaimRunDialog({ isOpen, onClose, onSuccess, selectedMonth, scri
   });
 
   const handleCreateClaim = async () => {
-    setLoading(true);
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
-      // Calculate totals
-      const totalScripts = scripts.length;
-      const totalItems = scripts.reduce((sum, s) => sum + parseFloat(s.quantity || 0), 0);
-
-      // Create claim run
-      const { data: claimRun, error: claimError } = await supabase
-        .from('claim_runs')
-        .insert([{
-          practice_id: userData.practice_id,
-          claim_type: 'month_end_scripts',
-          period_start: formData.period_start,
-          period_end: formData.period_end,
-          total_scripts: totalScripts,
-          total_items: Math.round(totalItems),
-          submitted_by: userData.id,
-          status: 'draft',
-        }])
-        .select()
-        .single();
-
-      if (claimError) throw claimError;
-
-      // Link scripts to claim run
-      const scriptIds = scripts.map(s => s.id);
-      const { error: updateError } = await supabase
-        .from('month_end_scripts')
-        .update({ claim_run_id: claimRun.id })
-        .in('id', scriptIds);
-
-      if (updateError) throw updateError;
-
-      // Generate PDF automatically
-      const { data: pdfResult, error: pdfError } = await supabase.functions.invoke(
-        'generate-scripts-claim-pdf',
-        {
-          body: { claim_run_id: claimRun.id }
-        }
-      );
-
-      if (pdfError) {
-        console.error('PDF generation error:', pdfError);
-        toast.warning(`Claim run created with ${totalScripts} scripts, but PDF generation failed`);
-      } else {
-        toast.success(`Claim run created with ${totalScripts} scripts. PDF generated successfully.`);
-        
-        // Optionally trigger download
-        if (pdfResult?.download_url) {
-          window.open(pdfResult.download_url, '_blank');
-        }
-      }
-
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Error creating claim run:', error);
-      toast.error('Failed to create claim run');
-    } finally {
-      setLoading(false);
-    }
+    toast.info('Claim run creation will be available soon. This feature is being migrated.');
+    onClose();
   };
 
   const handleExportPDF = async () => {
-    toast.info('Select scripts and create a claim run to generate PDF');
+    toast.info('PDF export will be available soon. This feature is being migrated.');
   };
 
   return (

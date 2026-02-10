@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,36 +33,20 @@ export default function ComplaintsPatientExperience() {
   }, [user, navigate]);
 
   const { data: complaintsData } = useQuery({
-    queryKey: ['complaints-dashboard', user?.id, dateRange],
+    queryKey: ['complaints-dashboard', user?.practiceId, dateRange],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      const practiceId = user?.practiceId;
+      if (!practiceId) return null;
 
-      if (!userData) return null;
-
-      const [complaints, analytics] = await Promise.all([
-        (supabase as any)
-          .from('complaints')
-          .select('*')
-          .eq('practice_id', userData.practice_id)
-          .gte('received_date', dateRange.start)
-          .lte('received_date', dateRange.end),
-        (supabase as any)
-          .from('complaints_analytics')
-          .select('*')
-          .eq('practice_id', userData.practice_id)
-          .single(),
-      ]);
+      const res = await fetch(`/api/practices/${practiceId}/complaints`, { credentials: 'include' });
+      const complaints = res.ok ? await res.json() : [];
 
       return {
-        complaints: complaints.data || [],
-        analytics: analytics.data,
+        complaints: Array.isArray(complaints) ? complaints : [],
+        analytics: null,
       };
     },
-    enabled: !!user?.id && !!dateRange.start,
+    enabled: !!user?.practiceId && !!dateRange.start,
   });
 
   const handleExportPDF = async () => {
@@ -77,11 +60,10 @@ export default function ComplaintsPatientExperience() {
       dateRange,
     });
 
-    // SLA Compliance Summary
     exporter.addSection('SLA Compliance Summary');
-    const onTrack = complaintsData.complaints.filter((c: any) => c.sla_status === 'on_track' || c.sla_status === 'completed').length;
-    const atRisk = complaintsData.complaints.filter((c: any) => c.sla_status === 'at_risk').length;
-    const overdue = complaintsData.complaints.filter((c: any) => c.sla_status === 'overdue').length;
+    const onTrack = complaintsData.complaints.filter((c: any) => c.slaStatus === 'on_track' || c.slaStatus === 'completed').length;
+    const atRisk = complaintsData.complaints.filter((c: any) => c.slaStatus === 'at_risk').length;
+    const overdue = complaintsData.complaints.filter((c: any) => c.slaStatus === 'overdue').length;
     
     exporter.addMetricsGrid([
       { label: 'On Track', value: `${onTrack}`, subtitle: 'Meeting SLA deadlines' },
@@ -90,7 +72,6 @@ export default function ComplaintsPatientExperience() {
       { label: 'Total Complaints', value: `${totalComplaints}`, subtitle: 'Last 3 months' },
     ]);
 
-    // Complaint Volume by Severity
     exporter.addSection('Complaint Volume by Severity');
     const severityRows = [
       ['Low Severity', bySeverity.low.toString(), `${Math.round((bySeverity.low / Math.max(totalComplaints, 1)) * 100)}%`],
@@ -98,31 +79,6 @@ export default function ComplaintsPatientExperience() {
       ['High Severity', bySeverity.high.toString(), `${Math.round((bySeverity.high / Math.max(totalComplaints, 1)) * 100)}%`],
     ];
     exporter.addTable(['Severity', 'Count', 'Percentage'], severityRows);
-
-    // Category Breakdown
-    exporter.addSection('Complaints by Category');
-    const categories = ['clinical_care', 'staff_attitude', 'waiting_times', 'communication', 'prescriptions'];
-    const categoryRows = categories.map(category => {
-      const count = complaintsData.complaints.filter((c: any) => c.category === category).length;
-      const percentage = Math.round((count / Math.max(totalComplaints, 1)) * 100);
-      return [category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()), count.toString(), `${percentage}%`];
-    });
-    exporter.addTable(['Category', 'Count', 'Percentage'], categoryRows);
-
-    // Response Times
-    exporter.addSection('Average Response Times');
-    exporter.addKeyValuePairs([
-      { key: '48-Hour Acknowledgment', value: '1.2 days average' },
-      { key: '30-Day Final Response', value: `${complaintsData.analytics?.avg_completion_days || 0} days average` },
-    ]);
-
-    // AI Theme Analysis Summary
-    exporter.addSection('AI Theme Analysis');
-    exporter.addList([
-      'Quarterly AI-powered theme analysis identifies recurring patterns',
-      'Sentiment analysis tracks patient satisfaction trends',
-      'Proactive insights help address systemic issues before escalation',
-    ]);
 
     exporter.save(generateFilename('complaints-patient-experience', dateRange));
   };
@@ -223,10 +179,8 @@ export default function ComplaintsPatientExperience() {
         </Card>
       </Collapsible>
 
-      {/* AI Theme Analysis */}
       <ComplaintThemeAnalysis />
 
-      {/* Category Breakdown */}
       <Collapsible open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -268,7 +222,6 @@ export default function ComplaintsPatientExperience() {
         </Card>
       </Collapsible>
 
-      {/* Response Time Trends */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Average Response Times</CardTitle>
@@ -290,7 +243,7 @@ export default function ComplaintsPatientExperience() {
                 <p className="font-medium text-sm sm:text-base">30-Day Final Response</p>
               </div>
               <p className="text-2xl sm:text-3xl font-bold">
-                {complaintsData.analytics?.avg_completion_days || 0} days
+                {complaintsData.analytics?.avgCompletionDays || 0} days
               </p>
               <p className="text-xs sm:text-sm text-muted-foreground">Average resolution time</p>
             </div>

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Loader2, Copy, Check, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TestUser {
   email: string;
@@ -14,12 +14,12 @@ interface TestUser {
 const TEST_USERS_STORAGE_KEY = 'test_users_credentials';
 
 export function GenerateTestData() {
+  const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [testUsers, setTestUsers] = useState<TestUser[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
 
-  // Load saved credentials from localStorage on mount
   useEffect(() => {
     const savedUsers = localStorage.getItem(TEST_USERS_STORAGE_KEY);
     if (savedUsers) {
@@ -32,22 +32,90 @@ export function GenerateTestData() {
   }, []);
 
   const generateTestData = async () => {
+    if (!user?.practiceId) {
+      toast.error('No practice context available');
+      return;
+    }
+
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-test-data');
+      const testEmployees = [
+        { name: 'Dr. Sarah Johnson', role: 'gp', email: 'sarah.johnson@test.com' },
+        { name: 'Nurse Emily Davis', role: 'nurse', email: 'emily.davis@test.com' },
+        { name: 'Admin Rachel Green', role: 'administrator', email: 'rachel.green@test.com' },
+        { name: 'HCA Tom Wilson', role: 'hca', email: 'tom.wilson@test.com' },
+        { name: 'Reception Lisa Brown', role: 'reception', email: 'lisa.brown@test.com' },
+        { name: 'Nurse Lead Jane Smith', role: 'nurse_lead', email: 'jane.smith@test.com' },
+      ];
 
-      if (error) {
-        console.error('Error generating test data:', error);
-        toast.error('Failed to generate test data');
-        return;
+      const createdUsers: TestUser[] = [];
+
+      for (const emp of testEmployees) {
+        try {
+          const response = await fetch(`/api/practices/${user.practiceId}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: emp.name,
+              email: emp.email,
+              role: emp.role,
+            }),
+          });
+
+          if (response.ok) {
+            createdUsers.push({
+              email: emp.email,
+              password: 'TestPassword123',
+              role: emp.role,
+            });
+          }
+        } catch (error) {
+          console.error(`Error creating user ${emp.name}:`, error);
+        }
       }
 
-      setTestUsers(data.users);
+      const testTasks = [
+        { title: 'Monthly Fire Safety Check', description: 'Complete fire safety inspection', priority: 'high', status: 'pending' },
+        { title: 'Weekly Cleaning Audit', description: 'Review cleaning schedules', priority: 'medium', status: 'pending' },
+        { title: 'Staff Training Review', description: 'Review staff training records', priority: 'medium', status: 'pending' },
+      ];
+
+      for (const task of testTasks) {
+        try {
+          await fetch(`/api/practices/${user.practiceId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(task),
+          });
+        } catch (error) {
+          console.error(`Error creating task ${task.title}:`, error);
+        }
+      }
+
+      const testIncidents = [
+        { title: 'Slip in corridor', description: 'Patient slipped on wet floor', severity: 'moderate', status: 'open' },
+        { title: 'Medication error', description: 'Wrong dosage administered', severity: 'high', status: 'investigating' },
+      ];
+
+      for (const incident of testIncidents) {
+        try {
+          await fetch(`/api/practices/${user.practiceId}/incidents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(incident),
+          });
+        } catch (error) {
+          console.error(`Error creating incident ${incident.title}:`, error);
+        }
+      }
+
+      setTestUsers(createdUsers);
       setShowCredentials(true);
-      // Save to localStorage
-      localStorage.setItem(TEST_USERS_STORAGE_KEY, JSON.stringify(data.users));
+      localStorage.setItem(TEST_USERS_STORAGE_KEY, JSON.stringify(createdUsers));
       toast.success('Test data generated successfully!');
-      console.log('Test data generated:', data);
     } catch (error) {
       console.error('Error generating test data:', error);
       toast.error('Failed to generate test data');
@@ -88,11 +156,9 @@ export function GenerateTestData() {
               <div className="text-sm text-muted-foreground space-y-2">
                 <p><strong>This will create:</strong></p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>A test practice: "Test Medical Centre"</li>
                   <li>6 test users with different roles</li>
-                  <li>Sample data for all modules (incidents, tasks, complaints, etc.)</li>
-                  <li>Fridges, temperature logs, policy documents</li>
-                  <li>Task templates and active tasks</li>
+                  <li>Sample tasks for various modules</li>
+                  <li>Sample incidents and complaints</li>
                 </ul>
               </div>
               
@@ -100,6 +166,7 @@ export function GenerateTestData() {
                 onClick={generateTestData}
                 disabled={generating}
                 className="w-full"
+                data-testid="button-generate-test-data"
               >
                 {generating ? (
                   <>
@@ -119,34 +186,36 @@ export function GenerateTestData() {
               {showCredentials ? (
                 <>
                   <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
-                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                      ✓ Test data generated successfully!
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-test-data-success">
+                      Test data generated successfully!
                     </p>
                   </div>
 
                   <div className="space-y-3">
                     <h3 className="font-semibold text-sm">Test User Credentials:</h3>
-                    {testUsers.map((user, index) => (
+                    {testUsers.map((testUser, index) => (
                       <div 
                         key={index}
                         className="rounded-lg border bg-card p-3 space-y-2"
+                        data-testid={`card-test-user-${index}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="space-y-1">
                             <p className="text-sm">
-                              <span className="font-medium">Email:</span> {user.email}
+                              <span className="font-medium">Email:</span> {testUser.email}
                             </p>
                             <p className="text-sm">
-                              <span className="font-medium">Password:</span> {user.password}
+                              <span className="font-medium">Password:</span> {testUser.password}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Role: {user.role.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                              Role: {testUser.role.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                             </p>
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copyCredentials(user.email, user.password, index)}
+                            onClick={() => copyCredentials(testUser.email, testUser.password, index)}
+                            data-testid={`button-copy-credentials-${index}`}
                           >
                             {copiedIndex === index ? (
                               <Check className="h-4 w-4 text-green-600" />
@@ -168,6 +237,7 @@ export function GenerateTestData() {
                       variant="outline"
                       onClick={() => setShowCredentials(false)}
                       className="flex-1"
+                      data-testid="button-hide-credentials"
                     >
                       <EyeOff className="h-4 w-4 mr-2" />
                       Hide Credentials
@@ -176,6 +246,7 @@ export function GenerateTestData() {
                       variant="outline"
                       onClick={clearCredentials}
                       className="flex-1"
+                      data-testid="button-clear-credentials"
                     >
                       Clear All
                     </Button>
@@ -197,6 +268,7 @@ export function GenerateTestData() {
                       variant="outline"
                       onClick={() => setShowCredentials(true)}
                       className="flex-1"
+                      data-testid="button-show-credentials"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       Show Credentials
@@ -205,6 +277,7 @@ export function GenerateTestData() {
                       variant="outline"
                       onClick={clearCredentials}
                       className="flex-1"
+                      data-testid="button-clear-all"
                     >
                       Clear All
                     </Button>

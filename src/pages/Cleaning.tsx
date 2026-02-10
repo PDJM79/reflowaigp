@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplet, Calendar, ListChecks, Loader2, RefreshCw, Download } from 'lucide-react';
+import { Droplet, Calendar, ListChecks, Loader2, RefreshCw, Download, Info } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
 import { CleaningDashboard } from '@/components/cleaning/CleaningDashboard';
 import { toast } from 'sonner';
-import { generateCleaningLogsPDF } from '@/lib/pdfExportV2';
 
 export default function Cleaning() {
   const { user } = useAuth();
@@ -39,26 +37,23 @@ export default function Cleaning() {
   }, [user, navigate]);
 
   const fetchCleaningTasks = async () => {
+    if (!user?.practiceId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .eq('module', 'cleaning')
-        .order('due_at', { ascending: true });
-
-      if (error) throw error;
-      setTasks(data || []);
+      const response = await fetch(`/api/practices/${user.practiceId}/tasks?module=cleaning`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTasks(data || []);
+      } else {
+        setTasks([]);
+      }
     } catch (error) {
       console.error('Error fetching cleaning tasks:', error);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -68,45 +63,7 @@ export default function Cleaning() {
   const completedTasks = tasks.filter(t => t.status === 'complete');
 
   const handleExportCleaningLogs = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
-
-      const { data: practiceData } = await supabase
-        .from('practices')
-        .select('name')
-        .eq('id', userData.practice_id)
-        .single();
-
-      const [zonesRes, tasksRes, logsRes] = await Promise.all([
-        supabase.from('cleaning_zones').select('*').eq('practice_id', userData.practice_id),
-        supabase.from('cleaning_tasks').select('*').eq('practice_id', userData.practice_id),
-        supabase.from('cleaning_logs').select('*').eq('practice_id', userData.practice_id).order('log_date', { ascending: false }).limit(100)
-      ]);
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const period = `${thirtyDaysAgo.toLocaleDateString()} to ${new Date().toLocaleDateString()}`;
-
-      const exporter = generateCleaningLogsPDF({
-        practiceName: practiceData?.name || 'Practice',
-        period,
-        zones: zonesRes.data || [],
-        tasks: tasksRes.data || [],
-        logs: logsRes.data || []
-      });
-
-      exporter.save(`Cleaning_Logs_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast.success('Cleaning logs PDF exported successfully');
-    } catch (error: any) {
-      console.error('Error exporting cleaning logs:', error);
-      toast.error('Failed to export cleaning logs');
-    }
+    toast.info('Cleaning log export will be available soon.');
   };
 
   return (
@@ -187,23 +144,29 @@ export default function Cleaning() {
         </Card>
       </div>
 
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground mb-2 font-medium">Cleaning schedule data will be available soon.</p>
+          <p className="text-sm text-muted-foreground">
+            The cleaning schedule module is being migrated. Task data is shown above.
+          </p>
+        </CardContent>
+      </Card>
+
       {loading ? (
         <div className="text-center py-8">Loading cleaning data...</div>
+      ) : tasks.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Droplet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground mb-4">No cleaning tasks yet</p>
+            <p className="text-sm text-muted-foreground">
+              Use the dashboard above to set up zones, tasks, and rooms
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          <CleaningDashboard />
-          
-          {tasks.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Droplet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">No cleaning tasks yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Use the dashboard above to set up zones, tasks, and rooms
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
         <div className="grid gap-3 sm:gap-4">
           {tasks.slice(0, 10).map((task) => (
             <Card 
@@ -219,15 +182,13 @@ export default function Cleaning() {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
                     <Calendar className="h-4 w-4" />
-                    <span className="text-xs sm:text-sm whitespace-nowrap">{new Date(task.due_at).toLocaleDateString()}</span>
+                    <span className="text-xs sm:text-sm whitespace-nowrap">{new Date(task.dueAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardHeader>
             </Card>
           ))}
         </div>
-          )}
-        </>
       )}
     </div>
   );

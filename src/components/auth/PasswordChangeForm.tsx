@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Lock } from 'lucide-react';
 
@@ -39,23 +38,28 @@ export function PasswordChangeForm({ onComplete }: PasswordChangeFormProps) {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: { force_password_change: false }
+      const response = await fetch('/api/auth/change-password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newPassword }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to change password');
+      }
 
       toast({
         title: "Password updated",
-        description: "Your password has been successfully changed",
+        description: "Your password has been changed successfully.",
       });
 
       onComplete();
     } catch (error: any) {
       toast({
         title: "Password update failed",
-        description: error.message,
+        description: error.message || "Please contact your practice manager for assistance.",
         variant: "destructive",
       });
     } finally {
@@ -87,6 +91,7 @@ export function PasswordChangeForm({ onComplete }: PasswordChangeFormProps) {
                 placeholder="Enter new password"
                 required
                 minLength={6}
+                data-testid="input-new-password"
               />
             </div>
             
@@ -100,10 +105,11 @@ export function PasswordChangeForm({ onComplete }: PasswordChangeFormProps) {
                 placeholder="Confirm new password"
                 required
                 minLength={6}
+                data-testid="input-confirm-password"
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading} data-testid="button-update-password">
               {loading ? 'Updating Password...' : 'Update Password'}
             </Button>
           </form>

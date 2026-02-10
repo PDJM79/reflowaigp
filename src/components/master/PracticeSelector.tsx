@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, User, Loader2 } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface Practice {
   id: string;
   name: string;
-  created_at: string;
-  user_count?: number;
+  createdAt: string;
 }
 
 interface PracticeSelectorProps {
@@ -33,34 +31,14 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
     try {
       setLoading(true);
       
-      // Get all practices with user counts
-      const { data: practicesData, error: practicesError } = await supabase
-        .from('practices')
-        .select(`
-          id,
-          name,
-          created_at
-        `)
-        .order('name');
+      const response = await fetch('/api/practices', {
+        credentials: 'include',
+      });
 
-      if (practicesError) throw practicesError;
+      if (!response.ok) throw new Error('Failed to fetch practices');
 
-      // Get user counts for each practice
-      const practicesWithCounts = await Promise.all(
-        (practicesData || []).map(async (practice) => {
-          const { count } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('practice_id', practice.id);
-
-          return {
-            ...practice,
-            user_count: count || 0
-          };
-        })
-      );
-
-      setPractices(practicesWithCounts);
+      const data = await response.json();
+      setPractices(data || []);
     } catch (error) {
       console.error('Error fetching practices:', error);
       toast.error('Failed to load practices');
@@ -79,7 +57,6 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
     const selectedPractice = practices.find(p => p.id === selectedPracticeId);
     
     if (selectedPractice) {
-      // Store the selected practice in sessionStorage for the master user context
       sessionStorage.setItem('master_selected_practice_id', selectedPracticeId);
       sessionStorage.setItem('master_selected_practice_name', selectedPractice.name);
       
@@ -89,15 +66,14 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
 
   const createTestPractice = async () => {
     try {
-      const { data, error } = await supabase
-        .from('practices')
-        .insert({
-          name: 'Test Medical Practice'
-        })
-        .select()
-        .single();
+      const response = await fetch('/api/practices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: 'Test Medical Practice' }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to create practice');
 
       toast.success('Test practice created');
       fetchPractices();
@@ -111,7 +87,7 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
     return (
       <div className="min-h-screen bg-background">
         <AppHeader />
-        <div className="flex items-center justify-center p-8">
+        <div className="flex items-center justify-center p-8" data-testid="loading-practices">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
@@ -137,7 +113,7 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
             <div className="space-y-4">
               <label className="text-sm font-medium">Available Practices</label>
               <Select value={selectedPracticeId} onValueChange={setSelectedPracticeId}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="select-practice">
                   <SelectValue placeholder="Choose a practice to manage" />
                 </SelectTrigger>
                 <SelectContent>
@@ -148,9 +124,6 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
                           <Building2 className="h-4 w-4" />
                           <span>{practice.name}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground ml-4">
-                          {practice.user_count} users
-                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -159,23 +132,24 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
             </div>
 
             {practices.length === 0 && (
-              <div className="text-center py-8">
+              <div className="text-center py-8" data-testid="text-no-practices">
                 <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground mb-4">No practices found</p>
-                <Button onClick={createTestPractice} variant="outline">
+                <Button onClick={createTestPractice} variant="outline" data-testid="button-create-test-practice">
                   Create Test Practice
                 </Button>
               </div>
             )}
 
             <div className="flex gap-4 justify-between">
-              <Button variant="outline" onClick={onSignOut}>
+              <Button variant="outline" onClick={onSignOut} data-testid="button-sign-out">
                 Sign Out
               </Button>
               <Button 
                 onClick={handleEnterPractice}
                 disabled={!selectedPracticeId || entering}
                 className="flex items-center gap-2"
+                data-testid="button-enter-practice"
               >
                 {entering && <Loader2 className="h-4 w-4 animate-spin" />}
                 Enter Practice
@@ -185,10 +159,10 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
             <div className="text-xs text-muted-foreground border-t pt-4">
               <p className="font-medium mb-2">Master Admin Capabilities:</p>
               <ul className="space-y-1">
-                <li>• View and manage all practice data</li>
-                <li>• Change user passwords and revoke access</li>
-                <li>• View comprehensive reports across all practices</li>
-                <li>• Full administrative control over selected practice</li>
+                <li>View and manage all practice data</li>
+                <li>Change user passwords and revoke access</li>
+                <li>View comprehensive reports across all practices</li>
+                <li>Full administrative control over selected practice</li>
               </ul>
             </div>
           </CardContent>

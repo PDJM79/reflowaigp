@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileCheck, Plus, Calendar, UserCheck } from 'lucide-react';
+import { FileCheck, Plus, Calendar, UserCheck, Info } from 'lucide-react';
 
 export default function MedicalRequests() {
   const { user } = useAuth();
@@ -18,34 +17,8 @@ export default function MedicalRequests() {
       navigate('/');
       return;
     }
-    fetchRequests();
+    setLoading(false);
   }, [user, navigate]);
-
-  const fetchRequests = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data, error } = await supabase
-        .from('medical_requests')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('received_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (error) {
-      console.error('Error fetching medical requests:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const receivedRequests = requests.filter(r => r.status === 'received');
   const assignedRequests = requests.filter(r => r.status === 'assigned');
@@ -105,64 +78,15 @@ export default function MedicalRequests() {
         </Card>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">Loading medical requests...</div>
-      ) : requests.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No medical requests recorded</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Medical Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {requests.map((request) => (
-                <div key={request.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={
-                          request.status === 'sent' ? 'default' : 
-                          request.status === 'assigned' ? 'secondary' : 
-                          'outline'
-                        }>
-                          {request.status}
-                        </Badge>
-                        <Badge variant="outline">{request.request_type}</Badge>
-                      </div>
-                      {request.notes && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{request.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Received: {new Date(request.received_at).toLocaleDateString()}
-                    </span>
-                    {request.assigned_gp_id && (
-                      <span className="flex items-center gap-1">
-                        <UserCheck className="h-3 w-3" />
-                        Assigned to GP
-                      </span>
-                    )}
-                    {request.sent_at && (
-                      <span className="flex items-center gap-1 text-success">
-                        Sent: {new Date(request.sent_at).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground mb-2 font-medium">Medical requests data will be available soon.</p>
+          <p className="text-sm text-muted-foreground">
+            This feature is being migrated to the new system. Request logging and tracking will be restored shortly.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

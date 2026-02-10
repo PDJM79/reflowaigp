@@ -2,44 +2,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export const TrainingExpiryAlerts = () => {
   const { user } = useAuth();
 
   const { data: expiringTraining = [] } = useQuery({
-    queryKey: ['expiring-training', user?.id],
+    queryKey: ['expiring-training', user?.practiceId],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) return [];
 
-      if (!userData?.practice_id) return [];
+      const res = await fetch(
+        `/api/practices/${user.practiceId}/training-records/expiring?days=90`,
+        { credentials: 'include' }
+      );
 
-      const today = new Date();
-      const ninetyDaysFromNow = new Date();
-      ninetyDaysFromNow.setDate(today.getDate() + 90);
-
-      const { data } = await (supabase as any)
-        .from('training_records')
-        .select(`
-          id,
-          course_name,
-          expiry_date,
-          is_mandatory,
-          employee:employees(id, name)
-        `)
-        .eq('employees.practice_id', userData.practice_id)
-        .not('expiry_date', 'is', null)
-        .lte('expiry_date', ninetyDaysFromNow.toISOString().split('T')[0])
-        .order('expiry_date', { ascending: true });
-
-      return data || [];
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   const getUrgencyBadge = (expiryDate: string) => {
@@ -76,16 +58,16 @@ export const TrainingExpiryAlerts = () => {
             <div key={training.id} className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{training.course_name}</p>
-                  {training.is_mandatory && (
+                  <p className="font-medium">{training.courseName}</p>
+                  {training.isMandatory && (
                     <Badge variant="outline" className="text-xs">Mandatory</Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{training.employee?.name}</p>
+                <p className="text-sm text-muted-foreground">{training.employeeName || 'Unknown'}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                {getUrgencyBadge(training.expiry_date)}
+                {getUrgencyBadge(training.expiryDate)}
               </div>
             </div>
           ))}

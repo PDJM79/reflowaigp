@@ -5,8 +5,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Send, Bot, User, Loader2, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -35,26 +33,23 @@ export function StepHelpChat({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages are added
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Focus input when dialog opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
 
-  // Add welcome message when dialog opens
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: `Hello! I'm here to help you with the "${stepTitle}" step in your ${processName} process. What questions do you have about completing this step?`,
+        content: `Hello! I'm here to help you with the "${stepTitle}" step in your ${processName} process. The AI assistant is not yet connected. For now, please refer to the step instructions or contact your practice manager for guidance.`,
         timestamp: new Date()
       }]);
     }
@@ -74,43 +69,17 @@ export function StepHelpChat({
     setIsLoading(true);
 
     try {
-      // Prepare conversation history for context
-      const conversationHistory = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      const { data, error } = await supabase.functions.invoke('step-help-chat', {
-        body: {
-          message: userMessage.content,
-          stepTitle,
-          stepDescription,
-          processName,
-          conversationHistory
-        }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response,
+        content: `Thank you for your question about "${stepTitle}". The AI help assistant is not yet connected to the backend. Please refer to the step instructions provided, or contact your practice manager for additional guidance on completing this step.`,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Failed to get help response. Please try again.');
-      
-      // Add error message to chat
       const errorMessage: Message = {
         role: 'assistant',
         content: 'I\'m sorry, I\'m having trouble responding right now. Please try asking your question again.',
@@ -155,7 +124,6 @@ export function StepHelpChat({
           </div>
         </DialogHeader>
 
-        {/* Chat Messages */}
         <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
@@ -214,7 +182,6 @@ export function StepHelpChat({
           </div>
         </ScrollArea>
 
-        {/* Message Input */}
         <div className="flex-shrink-0 border-t pt-4">
           <div className="flex gap-2">
             <Input

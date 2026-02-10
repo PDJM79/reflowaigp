@@ -7,18 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Save, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { BackButton } from '@/components/ui/back-button';
 
 type UserRole = 'practice_manager' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'nurse' | 'hca' | 'gp' | 'reception' | 'auditor' | 'group_manager';
 
-interface RoleAssignment {
+interface UserWithRole {
   id: string;
-  assigned_name: string;
+  name: string;
+  email: string;
   role: UserRole;
-  user_id?: string;
+  isPracticeManager: boolean;
 }
 
 interface RoleManagementProps {
@@ -43,7 +43,7 @@ const roleOptions = [
 
 export function RoleManagement({ onClose }: RoleManagementProps) {
   const { user } = useAuth();
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([]);
+  const [users, setUsers] = useState<UserWithRole[]>([]);
   const [newAssignment, setNewAssignment] = useState({
     name: '',
     email: '',
@@ -53,108 +53,82 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchRoleAssignments();
+    fetchUsers();
   }, [user]);
 
-  const fetchRoleAssignments = async () => {
-    if (!user) return;
+  const fetchUsers = async () => {
+    if (!user?.practiceId) return;
 
     try {
-      // Get user's practice ID first
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+      const response = await fetch(`/api/practices/${user.practiceId}/users`, {
+        credentials: 'include',
+      });
 
-      if (!userData?.practice_id) {
-        console.error('User practice not found');
-        setLoading(false);
-        return;
-      }
+      if (!response.ok) throw new Error('Failed to fetch users');
 
-      const { data, error } = await supabase
-        .from('role_assignments')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('assigned_name');
-
-      if (error) throw error;
-      setRoleAssignments(data || []);
+      const data = await response.json();
+      setUsers(data || []);
     } catch (error) {
-      console.error('Error fetching role assignments:', error);
-      toast.error('Failed to load role assignments');
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
     } finally {
       setLoading(false);
     }
   };
 
-  const addRoleAssignment = async () => {
+  const addUser = async () => {
     if (!newAssignment.name || !newAssignment.email || !newAssignment.role) {
       toast.error('Please fill in all fields');
       return;
     }
 
+    if (!user?.practiceId) return;
+
     try {
       setSaving(true);
-      
-      // Get user's practice ID
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
 
-      if (!userData) throw new Error('User practice not found');
+      const response = await fetch(`/api/practices/${user.practiceId}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newAssignment.name,
+          email: newAssignment.email,
+          role: newAssignment.role,
+        }),
+      });
 
-      // Insert role assignment
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('role_assignments')
-        .insert({
-          assigned_name: newAssignment.name,
-          role: newAssignment.role as UserRole,
-          practice_id: userData.practice_id
-        })
-        .select()
-        .single();
+      if (!response.ok) throw new Error('Failed to add user');
 
-      if (assignmentError) throw assignmentError;
-
-      // Insert email in separate table
-      const { error: contactError } = await supabase
-        .from('role_assignment_contacts')
-        .insert({
-          assignment_id: assignmentData.id,
-          assigned_email: newAssignment.email
-        });
-
-      if (contactError) throw contactError;
-
-      toast.success('Role assignment added successfully');
+      toast.success('User added successfully');
       setNewAssignment({ name: '', email: '', role: '' });
-      fetchRoleAssignments();
+      fetchUsers();
     } catch (error) {
-      console.error('Error adding role assignment:', error);
-      toast.error('Failed to add role assignment');
+      console.error('Error adding user:', error);
+      toast.error('Failed to add user');
     } finally {
       setSaving(false);
     }
   };
 
-  const deleteRoleAssignment = async (id: string) => {
+  const updateUserRole = async (userId: string, newRole: UserRole) => {
+    if (!user?.practiceId) return;
+
     try {
-      const { error } = await supabase
-        .from('role_assignments')
-        .delete()
-        .eq('id', id);
+      const response = await fetch(`/api/practices/${user.practiceId}/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ role: newRole }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to update role');
 
-      toast.success('Role assignment deleted');
-      fetchRoleAssignments();
+      toast.success('Role updated successfully');
+      fetchUsers();
     } catch (error) {
-      console.error('Error deleting role assignment:', error);
-      toast.error('Failed to delete role assignment');
+      console.error('Error updating role:', error);
+      toast.error('Failed to update role');
     }
   };
 
@@ -163,7 +137,7 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
         <Card className="w-full max-w-2xl">
           <CardContent className="p-6">
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center" data-testid="loading-spinner">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           </CardContent>
@@ -184,21 +158,22 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
                 Manage roles and designations for your practice
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-role-management">
               <X className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         <ScrollArea className="flex-1">
           <CardContent className="space-y-6 p-6">
-          {/* Add New Assignment */}
+          {/* Add New User */}
           <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-medium">Add New Role Assignment</h3>
+            <h3 className="text-sm font-medium">Add New User</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
+                  data-testid="input-user-name"
                   value={newAssignment.name}
                   onChange={(e) => setNewAssignment(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter full name"
@@ -209,6 +184,7 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
                 <Input
                   id="email"
                   type="email"
+                  data-testid="input-user-email"
                   value={newAssignment.email}
                   onChange={(e) => setNewAssignment(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="Enter email address"
@@ -217,7 +193,7 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
               <div>
                 <Label htmlFor="role">Role</Label>
                 <Select value={newAssignment.role} onValueChange={(value) => setNewAssignment(prev => ({ ...prev, role: value as UserRole }))}>
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="select-user-role">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -230,7 +206,7 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
                 </Select>
               </div>
             </div>
-            <Button onClick={addRoleAssignment} disabled={saving} className="w-full">
+            <Button onClick={addUser} disabled={saving} className="w-full" data-testid="button-add-user">
               {saving ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -239,45 +215,50 @@ export function RoleManagement({ onClose }: RoleManagementProps) {
               ) : (
                 <>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Assignment
+                  Add User
                 </>
               )}
             </Button>
           </div>
 
-          {/* Current Assignments */}
+          {/* Current Users */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">Current Role Assignments ({roleAssignments.length})</h3>
-            {roleAssignments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No role assignments found</p>
-                <p className="text-sm">Add assignments using the form above</p>
+            <h3 className="text-sm font-medium" data-testid="text-user-count">Current Users ({users.length})</h3>
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-users">
+                <p>No users found</p>
+                <p className="text-sm">Add users using the form above</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {roleAssignments.map((assignment) => (
-                  <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                {users.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors" data-testid={`row-user-${u.id}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{assignment.assigned_name}</p>
+                          <p className="font-medium truncate" data-testid={`text-user-name-${u.id}`}>{u.name}</p>
+                          <p className="text-sm text-muted-foreground truncate" data-testid={`text-user-email-${u.id}`}>{u.email}</p>
                         </div>
-                        <Badge variant="outline">
-                          {roleOptions.find(r => r.value === assignment.role)?.label || assignment.role}
-                        </Badge>
-                        {assignment.user_id && (
-                          <Badge variant="secondary">Active User</Badge>
+                        <Select
+                          value={u.role}
+                          onValueChange={(value) => updateUserRole(u.id, value as UserRole)}
+                        >
+                          <SelectTrigger className="w-[180px]" data-testid={`select-role-${u.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {roleOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {u.isPracticeManager && (
+                          <Badge variant="secondary">Manager</Badge>
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteRoleAssignment(assignment.id)}
-                      className="text-destructive hover:text-destructive flex-shrink-0 ml-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
               </div>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,12 +13,12 @@ type Task = {
   id: string;
   title: string;
   description: string;
-  due_at: string;
+  dueAt: string;
   status: string;
   module: string;
-  assigned_to_user_id: string;
-  assigned_to_role: string;
-  assignee_name?: string;
+  assignedToUserId: string;
+  assignedToRole: string;
+  assigneeName?: string;
 };
 
 export default function Schedule() {
@@ -28,87 +27,57 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [userRole, setUserRole] = useState<string>('');
+
+  const isManager = user?.isPracticeManager || user?.role === 'practice_manager' || user?.role === 'administrator' || user?.role === 'group_manager';
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.practiceId) return;
 
-    const fetchTasksAndRole = async () => {
-      // Get user and primary role
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+    const fetchTasks = async () => {
+      try {
+        const [tasksRes, usersRes] = await Promise.all([
+          fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+          fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+        ]);
 
-      if (!userData) return;
+        const tasksData = tasksRes.ok ? await tasksRes.json() : [];
+        const usersData = usersRes.ok ? await usersRes.json() : [];
+        const userMap = new Map((usersData || []).map((u: any) => [u.id, u.name]));
 
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
+        const startDate = new Date();
+        const endDate = addMonths(startDate, 12);
 
-      if (roleData) {
-        setUserRole(roleData.role);
+        const filtered = (tasksData || [])
+          .filter((t: any) => {
+            const dueDate = new Date(t.dueAt);
+            return dueDate >= startDate && dueDate <= endDate;
+          })
+          .sort((a: any, b: any) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+          .map((task: any) => ({
+            ...task,
+            assigneeName: task.assignedToUserId ? userMap.get(task.assignedToUserId) : task.assignedToRole,
+          }));
+
+        setTasks(filtered);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setLoading(false);
       }
-
-      // Fetch tasks for next 12 months
-      const startDate = new Date();
-      const endDate = addMonths(startDate, 12);
-
-      const { data: tasksData } = await supabase
-        .from('tasks')
-        .select(`
-          id,
-          title,
-          description,
-          due_at,
-          status,
-          module,
-          assigned_to_user_id,
-          assigned_to_role
-        `)
-        .eq('practice_id', userData.practice_id)
-        .gte('due_at', startDate.toISOString())
-        .lte('due_at', endDate.toISOString())
-        .order('due_at', { ascending: true });
-
-      if (tasksData) {
-        // Fetch assignee names
-        const userIds = [...new Set(tasksData.map(t => t.assigned_to_user_id).filter(Boolean))];
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, name')
-          .in('id', userIds);
-
-        const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
-
-        const enrichedTasks = tasksData.map(task => ({
-          ...task,
-          assignee_name: task.assigned_to_user_id ? userMap.get(task.assigned_to_user_id) : task.assigned_to_role
-        }));
-
-        setTasks(enrichedTasks);
-      }
-      setLoading(false);
     };
 
-    fetchTasksAndRole();
+    fetchTasks();
   }, [user]);
 
-  const isManager = userRole === 'practice_manager' || userRole === 'administrator' || userRole === 'group_manager';
-
   const getTasksForDate = (date: Date) => {
-    return tasks.filter(task => isSameDay(new Date(task.due_at), date));
+    return tasks.filter(task => isSameDay(new Date(task.dueAt), date));
   };
 
   const getTasksForMonth = (month: Date) => {
     const start = startOfMonth(month);
     const end = endOfMonth(month);
     return tasks.filter(task => {
-      const taskDate = new Date(task.due_at);
+      const taskDate = new Date(task.dueAt);
       return taskDate >= start && taskDate <= end;
     });
   };
@@ -192,7 +161,7 @@ export default function Schedule() {
                       <div
                         key={task.id}
                         className="text-xs p-1 rounded bg-accent hover:bg-accent/80 cursor-pointer"
-                        title={`${task.title} - ${task.assignee_name || task.assigned_to_role}`}
+                        title={`${task.title} - ${task.assigneeName || task.assignedToRole}`}
                       >
                         <div className="flex items-center gap-1">
                           <div className={cn("w-2 h-2 rounded-full", getStatusColor(task.status))} />
@@ -249,12 +218,12 @@ export default function Schedule() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {format(new Date(task.due_at), 'PPP')}
+                              {format(new Date(task.dueAt), 'PPP')}
                             </span>
                             <Badge variant="outline" className="text-xs">{task.module}</Badge>
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              {task.assignee_name || task.assigned_to_role}
+                              {task.assigneeName || task.assignedToRole}
                             </span>
                           </div>
                         </div>

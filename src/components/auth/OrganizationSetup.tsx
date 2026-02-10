@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, LogOut, Mail, Calendar } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AVAILABLE_ROLES } from '@/types/auth';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { RoleEmailAssignment, TaskScheduleConfig, FREQUENCY_OPTIONS, DEFAULT_TASK_TEMPLATES } from '@/types/organizationSetup';
@@ -18,14 +17,13 @@ interface OrganizationSetupProps {
 }
 
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
   const [country, setCountry] = useState<'Wales' | 'England' | 'Scotland'>('England');
   const [roleAssignments, setRoleAssignments] = useState<RoleEmailAssignment[]>([
     { email: '', name: '', password: '', roles: ['practice_manager'] }
   ]);
   
-  // Initialize task schedules with tomorrow as default start date
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowISO = tomorrow.toISOString().split('T')[0];
@@ -63,7 +61,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
     const assignment = updated[assignmentIndex];
     
     if (assignment.roles.includes(roleValue)) {
-      // Remove role (but don't allow removing practice_manager if it's the only one)
       if (roleValue === 'practice_manager') {
         const hasPM = roleAssignments.some((a, i) => 
           i !== assignmentIndex && a.roles.includes('practice_manager') && a.name && a.email
@@ -103,7 +100,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     if (!organizationName.trim()) {
       toast({
         title: "Organization name required",
@@ -113,7 +109,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       return;
     }
 
-    // Filter out empty assignments
     const filledAssignments = roleAssignments.filter(
       a => a.name.trim() && a.email.trim() && a.password.trim() && a.roles.length > 0
     );
@@ -127,7 +122,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       return;
     }
 
-    // Ensure at least one practice manager
     const hasPracticeManager = filledAssignments.some(a => a.roles.includes('practice_manager'));
     if (!hasPracticeManager) {
       toast({
@@ -140,106 +134,41 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      const practiceResponse = await fetch('/api/practices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: organizationName.trim(),
+          country: country,
+        }),
+      });
 
-      // Create practice using security definer function
-      // This bypasses the RLS restriction that prevents regular users from creating practices
-      const { data: practiceResponse, error: practiceError } = await supabase.functions.invoke(
-        'create-practice-during-setup',
-        {
-          body: {
-            name: organizationName.trim(),
-            country: country,
-          }
-        }
-      );
+      if (!practiceResponse.ok) throw new Error('Failed to create practice');
 
-      if (practiceError || !practiceResponse?.success) {
-        throw new Error(practiceError?.message || 'Failed to create practice');
-      }
+      const practice = await practiceResponse.json();
 
-      const practice = practiceResponse.practice;
+      const createdUserIds: Record<string, string> = {};
 
-      // Find the current user's assignment
-      const currentUserAssignment = filledAssignments.find(a => a.email === user.email);
-      const isPracticeManager = currentUserAssignment?.roles.includes('practice_manager') || false;
-
-      // Create or update current user
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      let currentUserId: string;
-
-      if (existingUser) {
-        const { data: updated, error: updateError } = await supabase
-          .from('users')
-          .update({
-            name: currentUserAssignment?.name || 'Practice Manager',
-            role: currentUserAssignment?.roles[0] as any || 'practice_manager',
-            practice_id: practice.id,
-            is_practice_manager: isPracticeManager
-          })
-          .eq('auth_user_id', user.id)
-          .select('id')
-          .single();
-
-        if (updateError) throw updateError;
-        currentUserId = updated.id;
-      } else {
-        const { data: created, error: createError } = await (supabase as any)
-          .from('users')
-          .insert({
-            auth_user_id: user.id,
-            name: currentUserAssignment?.name || 'Practice Manager',
-            practice_id: practice.id,
-            is_practice_manager: isPracticeManager
-          })
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        currentUserId = created.id;
-
-        // Insert contact details separately
-        const { error: contactError } = await (supabase as any)
-          .from('user_contact_details')
-          .insert({
-            user_id: currentUserId,
-            email: user.email!
-          });
-
-        if (contactError) {
-          console.error('Error creating contact details:', contactError);
-          // Don't fail the whole process, contact can be added later
-        }
-      }
-
-      // Create user accounts for other team members
-      const otherAssignments = filledAssignments.filter(a => a.email !== user.email);
-      const createdUserIds: Record<string, string> = { [user.email!]: currentUserId };
-
-      for (const assignment of otherAssignments) {
+      for (const assignment of filledAssignments) {
         try {
-          const { data, error } = await supabase.functions.invoke('create-user-accounts', {
-            body: {
-              email: assignment.email,
+          const isPM = assignment.roles.includes('practice_manager');
+          const userResponse = await fetch(`/api/practices/${practice.id}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
               name: assignment.name,
-              role: assignment.roles[0], // Primary role
-              practice_id: practice.id,
-              password: assignment.password
-            }
+              email: assignment.email,
+              role: assignment.roles[0],
+              isPracticeManager: isPM,
+            }),
           });
 
-          if (error) throw error;
-          
-          // Store the created user ID
-          if (data?.user_id) {
-            createdUserIds[assignment.email] = data.user_id;
-          }
+          if (!userResponse.ok) throw new Error(`Failed to create user ${assignment.email}`);
+
+          const createdUser = await userResponse.json();
+          createdUserIds[assignment.email] = createdUser.id;
         } catch (error) {
           console.error(`Error creating user ${assignment.email}:`, error);
           toast({
@@ -250,125 +179,32 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         }
       }
 
-      // Create user_roles entries for all role assignments
-      const userRolesEntries = [];
-      for (const assignment of filledAssignments) {
-        const userId = createdUserIds[assignment.email];
-        if (userId) {
-          for (const role of assignment.roles) {
-            userRolesEntries.push({
-              user_id: userId,
-              role: role as any,
-              practice_id: practice.id,
-              created_by: currentUserId
-            });
-          }
+      for (const schedule of taskSchedules) {
+        try {
+          await fetch(`/api/practices/${practice.id}/process-templates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: schedule.templateName,
+              responsibleRole: schedule.responsibleRole,
+              frequency: schedule.frequency,
+              startDate: schedule.startDate,
+              slaHours: schedule.slaHours,
+              customFrequency: FREQUENCY_OPTIONS.find(f => f.value === schedule.frequency)?.label,
+              active: true,
+              steps: [],
+            }),
+          });
+        } catch (error) {
+          console.error(`Error creating template ${schedule.templateName}:`, error);
         }
       }
-
-      if (userRolesEntries.length > 0) {
-        const { error: rolesError } = await supabase
-          .from('user_roles')
-          .insert(userRolesEntries);
-
-        if (rolesError) {
-          console.error('Error creating user roles:', rolesError);
-        }
-      }
-
-      // Create process templates with scheduling configuration
-      const templateInserts = taskSchedules.map(schedule => ({
-        practice_id: practice.id,
-        name: schedule.templateName,
-        responsible_role: schedule.responsibleRole as any,
-        frequency: schedule.frequency as any,
-        start_date: schedule.startDate,
-        sla_hours: schedule.slaHours,
-        custom_frequency: FREQUENCY_OPTIONS.find(f => f.value === schedule.frequency)?.label,
-        active: true,
-        steps: [], // Add default steps if needed
-      }));
-
-      const { data: createdTemplates, error: templatesError } = await supabase
-        .from('process_templates')
-        .insert(templateInserts)
-        .select();
-
-      if (templatesError) {
-        console.error('Error creating templates:', templatesError);
-        toast({
-          title: "Template creation warning",
-          description: "Some task templates could not be created",
-          variant: "destructive",
-        });
-      }
-
-      // Create initial process instances for the first occurrence
-      if (createdTemplates && createdTemplates.length > 0) {
-        const processInstances = [];
-        
-        for (const template of createdTemplates) {
-          // Find all users with the responsible role
-          const usersWithRole = filledAssignments.filter(a => 
-            a.roles.includes(template.responsible_role) && createdUserIds[a.email]
-          );
-
-          // Create one instance per user with that role
-          for (const assignment of usersWithRole) {
-            const userId = createdUserIds[assignment.email];
-            if (!userId) continue;
-
-            // Calculate first due date
-            const startDate = new Date(template.start_date);
-            const dueDate = startDate;
-
-            processInstances.push({
-              template_id: template.id,
-              practice_id: practice.id,
-              assignee_id: userId,
-              status: 'pending',
-              period_start: startDate.toISOString(),
-              period_end: dueDate.toISOString(),
-              due_at: dueDate.toISOString()
-            });
-          }
-        }
-
-        if (processInstances.length > 0) {
-          const { error: instancesError } = await supabase
-            .from('process_instances')
-            .insert(processInstances);
-
-          if (instancesError) {
-            console.error('Error creating process instances:', instancesError);
-          }
-        }
-      }
-
-      // Mark setup as complete
-      const { error: setupError } = await supabase
-        .from('organization_setup')
-        .insert({
-          practice_id: practice.id,
-          setup_completed: true
-        });
-
-      if (setupError) throw setupError;
 
       toast({
         title: "Organization setup complete",
         description: `Your practice has been set up with ${filledAssignments.length} team members and ${taskSchedules.length} task templates`,
       });
-
-      // Call auto-provision to seed templates and reminders
-      try {
-        await supabase.functions.invoke('auto-provision-practice', {
-          body: { practice_id: practice.id }
-        });
-      } catch (autoProvisionError) {
-        console.error('Auto-provision error:', autoProvisionError);
-        // Don't fail the setup if auto-provision fails
-      }
 
       onComplete();
     } catch (error: any) {
@@ -404,13 +240,14 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                   onChange={(e) => setOrganizationName(e.target.value)}
                   placeholder="Enter your practice name"
                   required
+                  data-testid="input-org-name"
                 />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="country">Country</Label>
                 <Select value={country} onValueChange={(value: any) => setCountry(value)}>
-                  <SelectTrigger id="country">
+                  <SelectTrigger id="country" data-testid="select-country">
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
@@ -436,7 +273,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                     Assign email addresses and roles. Each person can have multiple roles.
                   </CardDescription>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addRoleAssignment}>
+                <Button type="button" variant="outline" size="sm" onClick={addRoleAssignment} data-testid="button-add-person">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Person
                 </Button>
@@ -454,6 +291,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeRoleAssignment(index)}
+                          data-testid={`button-remove-person-${index}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -467,6 +305,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                           value={assignment.name}
                           onChange={(e) => updateRoleAssignment(index, 'name', e.target.value)}
                           placeholder="Full name"
+                          data-testid={`input-member-name-${index}`}
                         />
                       </div>
                       
@@ -477,6 +316,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                           value={assignment.email}
                           onChange={(e) => updateRoleAssignment(index, 'email', e.target.value)}
                           placeholder="user@example.com"
+                          data-testid={`input-member-email-${index}`}
                         />
                       </div>
                       
@@ -487,6 +327,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                           value={assignment.password}
                           onChange={(e) => updateRoleAssignment(index, 'password', e.target.value)}
                           placeholder="Create password"
+                          data-testid={`input-member-password-${index}`}
                         />
                       </div>
                     </div>
@@ -500,6 +341,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
                               id={`${index}-${role.value}`}
                               checked={assignment.roles.includes(role.value)}
                               onCheckedChange={() => toggleRole(index, role.value)}
+                              data-testid={`checkbox-role-${index}-${role.value}`}
                             />
                             <label
                               htmlFor={`${index}-${role.value}`}
@@ -532,6 +374,7 @@ Login at: ${window.location.origin}
 Best regards`);
                           window.open(`mailto:${assignment.email}?subject=${subject}&body=${body}`);
                         }}
+                        data-testid={`button-send-login-${index}`}
                       >
                         <Mail className="w-4 h-4 mr-2" />
                         Send Login Details
@@ -569,7 +412,7 @@ Best regards`);
                           value={schedule.frequency}
                           onValueChange={(value) => updateTaskSchedule(index, 'frequency', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger data-testid={`select-frequency-${index}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -590,6 +433,7 @@ Best regards`);
                             value={schedule.startDate}
                             onChange={(e) => updateTaskSchedule(index, 'startDate', e.target.value)}
                             min={new Date().toISOString().split('T')[0]}
+                            data-testid={`input-start-date-${index}`}
                           />
                           <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         </div>
@@ -603,6 +447,7 @@ Best regards`);
                           value={schedule.slaHours}
                           onChange={(e) => updateTaskSchedule(index, 'slaHours', parseInt(e.target.value) || 24)}
                           placeholder="24"
+                          data-testid={`input-sla-hours-${index}`}
                         />
                       </div>
                     </div>
@@ -619,11 +464,12 @@ Best regards`);
               variant="outline" 
               onClick={handleExit}
               className="flex items-center gap-2"
+              data-testid="button-exit-setup"
             >
               <LogOut className="h-4 w-4" />
               Exit to Login
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} data-testid="button-complete-setup">
               {loading ? 'Setting up...' : 'Complete Setup'}
             </Button>
           </div>

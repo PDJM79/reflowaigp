@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage } from './offlineStorage';
 import { triggerHaptic } from './haptics';
 
@@ -11,16 +10,10 @@ interface SyncResult {
 
 const MAX_RETRIES = 3;
 
-/**
- * Sync manager for offline-first functionality
- */
 class SyncQueue {
   private isSyncing = false;
   private syncCallbacks: Array<(result: SyncResult) => void> = [];
 
-  /**
-   * Add mutation to offline queue
-   */
   async queueMutation(
     table: string,
     operation: 'insert' | 'update' | 'delete',
@@ -35,9 +28,6 @@ class SyncQueue {
     }
   }
 
-  /**
-   * Sync all pending mutations to server
-   */
   async syncPendingMutations(): Promise<SyncResult> {
     if (this.isSyncing) {
       console.log('Sync already in progress');
@@ -57,7 +47,6 @@ class SyncQueue {
       console.log(`Syncing ${mutations.length} pending mutations...`);
 
       for (const mutation of mutations) {
-        // Skip if exceeded max retries
         if (mutation.retryCount >= MAX_RETRIES) {
           console.error(`Mutation ${mutation.id} exceeded max retries`);
           result.failed++;
@@ -85,17 +74,14 @@ class SyncQueue {
         }
       }
 
-      // Update last sync time
       await offlineStorage.setLastSyncTime('lastSync', Date.now());
 
-      // Trigger haptic feedback
       if (result.synced > 0) {
         triggerHaptic('success');
       } else if (result.failed > 0) {
         triggerHaptic('error');
       }
 
-      // Notify listeners
       this.notifySyncComplete(result);
     } catch (error) {
       console.error('Sync failed:', error);
@@ -107,51 +93,83 @@ class SyncQueue {
     return result;
   }
 
-  /**
-   * Execute a single mutation
-   */
   private async executeMutation(mutation: any): Promise<void> {
     const { table, operation, data } = mutation;
 
+    const tableToEndpoint: Record<string, string> = {
+      users: 'users',
+      employees: 'employees',
+      tasks: 'tasks',
+      incidents: 'incidents',
+      complaints: 'complaints',
+      policy_documents: 'policies',
+      training_records: 'training-records',
+      process_templates: 'process-templates',
+      notifications: 'notifications',
+    };
+
+    const endpoint = tableToEndpoint[table] || table;
+    const practiceId = data.practiceId || data.practice_id;
+
+    if (!practiceId) {
+      console.warn(`No practiceId found for mutation on ${table}, skipping`);
+      return;
+    }
+
+    const baseUrl = `/api/practices/${practiceId}/${endpoint}`;
+
     switch (operation) {
-      case 'insert':
-        const { error: insertError } = await supabase.from(table).insert(data);
-        if (insertError) throw insertError;
+      case 'insert': {
+        const response = await fetch(baseUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err || `Insert failed: ${response.status}`);
+        }
         break;
+      }
 
-      case 'update':
+      case 'update': {
         const { id, ...updateData } = data;
-        const { error: updateError } = await supabase
-          .from(table)
-          .update(updateData)
-          .eq('id', id);
-        if (updateError) throw updateError;
+        const response = await fetch(`${baseUrl}/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updateData),
+        });
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err || `Update failed: ${response.status}`);
+        }
         break;
+      }
 
-      case 'delete':
-        const { error: deleteError } = await supabase
-          .from(table)
-          .delete()
-          .eq('id', data.id);
-        if (deleteError) throw deleteError;
+      case 'delete': {
+        const response = await fetch(`${baseUrl}/${data.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err || `Delete failed: ${response.status}`);
+        }
         break;
+      }
 
       default:
         throw new Error(`Unknown operation: ${operation}`);
     }
   }
 
-  /**
-   * Get pending mutations count
-   */
   async getPendingCount(): Promise<number> {
     const mutations = await offlineStorage.getPendingMutations();
     return mutations.length;
   }
 
-  /**
-   * Register callback for sync completion
-   */
   onSyncComplete(callback: (result: SyncResult) => void): () => void {
     this.syncCallbacks.push(callback);
     return () => {
@@ -159,16 +177,10 @@ class SyncQueue {
     };
   }
 
-  /**
-   * Notify all listeners of sync completion
-   */
   private notifySyncComplete(result: SyncResult): void {
     this.syncCallbacks.forEach((callback) => callback(result));
   }
 
-  /**
-   * Check if currently syncing
-   */
   get syncing(): boolean {
     return this.isSyncing;
   }

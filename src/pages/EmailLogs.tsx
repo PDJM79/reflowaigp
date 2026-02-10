@@ -14,9 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { exportEmailLogsToCSV, generateEmailLogsFilename } from '@/lib/csvExport';
 import { toast } from 'sonner';
 
 export default function EmailLogs() {
@@ -57,70 +55,7 @@ export default function EmailLogs() {
   };
 
   const handleExport = async () => {
-    if (!user) return;
-
-    setExporting(true);
-    try {
-      // Get current user's practice_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData?.practice_id) {
-        toast.error('Practice not found');
-        return;
-      }
-
-      // Build query with all filters (no pagination for export)
-      let query = supabase
-        .from('email_logs')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('sent_at', { ascending: false });
-
-      // Apply filters
-      if (search) {
-        query = query.or(`recipient_email.ilike.%${search}%,subject.ilike.%${search}%`);
-      }
-
-      if (status && status !== 'all') {
-        query = query.eq('status', status);
-      }
-
-      if (emailType && emailType !== 'all') {
-        query = query.eq('email_type', emailType);
-      }
-
-      if (dateRange) {
-        query = query
-          .gte('sent_at', dateRange.start.toISOString())
-          .lte('sent_at', dateRange.end.toISOString());
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        toast.warning('No email logs to export');
-        return;
-      }
-
-      // Generate filename with filters
-      const filename = generateEmailLogsFilename({ search, status, emailType, dateRange });
-
-      // Export to CSV
-      exportEmailLogsToCSV(data, filename);
-
-      toast.success(`Exported ${data.length} email logs`);
-    } catch (error) {
-      console.error('Error exporting email logs:', error);
-      toast.error('Failed to export email logs');
-    } finally {
-      setExporting(false);
-    }
+    toast.info('Email log export is not yet connected to the backend');
   };
 
   return (
@@ -140,7 +75,6 @@ export default function EmailLogs() {
           )}
         </div>
       )}
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:items-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -164,7 +98,6 @@ export default function EmailLogs() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-4">
           {[...Array(4)].map((_, i) => (
@@ -234,10 +167,8 @@ export default function EmailLogs() {
         </div>
       )}
 
-      {/* Analytics Charts */}
       <EmailAnalyticsCharts />
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle>Filters</CardTitle>
@@ -257,7 +188,6 @@ export default function EmailLogs() {
         </CardContent>
       </Card>
 
-      {/* Logs Table */}
       <Card>
         <CardHeader>
           <CardTitle>Email Logs</CardTitle>
@@ -293,7 +223,6 @@ export default function EmailLogs() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
       <EmailLogDetailDialog
         log={selectedLog}
         open={detailDialogOpen}

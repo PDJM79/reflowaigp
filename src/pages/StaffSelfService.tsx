@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,56 +17,35 @@ export default function StaffSelfService() {
     }
   }, [user, navigate]);
 
-  // Fetch employee self-service data
   const { data: employeeData, isLoading } = useQuery({
-    queryKey: ['self-service-data', user?.id],
+    queryKey: ['self-service-data', user?.practiceId, user?.id],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) return null;
 
-      if (!userData) return null;
+      const [employeesRes, trainingRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
+      ]);
 
-      // Get employee record
-      const { data: employee } = await (supabase as any)
-        .from('employees')
-        .select('*')
-        .eq('user_id', userData.id)
-        .single();
+      const employees = employeesRes.ok ? await employeesRes.json() : [];
+      const trainingRecords = trainingRes.ok ? await trainingRes.json() : [];
+
+      const employee = (employees || []).find((e: any) => e.userId === user.id) || null;
 
       if (!employee) return null;
 
-      // Get DBS checks
-      const { data: dbsChecks } = await (supabase as any)
-        .from('dbs_checks')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('check_date', { ascending: false });
-
-      // Get training records
-      const { data: trainingRecords } = await (supabase as any)
-        .from('training_records')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('completion_date', { ascending: false });
-
-      // Get appraisals
-      const { data: appraisals } = await (supabase as any)
-        .from('appraisals')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('scheduled_date', { ascending: false });
+      const myTraining = (trainingRecords || []).filter(
+        (r: any) => r.employeeId === employee.id
+      );
 
       return {
         employee,
-        dbsChecks: dbsChecks || [],
-        trainingRecords: trainingRecords || [],
-        appraisals: appraisals || [],
+        dbsChecks: [],
+        trainingRecords: myTraining,
+        appraisals: [],
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   if (isLoading) {
@@ -105,7 +83,6 @@ export default function StaffSelfService() {
         <p className="text-muted-foreground">View your HR records and training certificates</p>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
@@ -119,7 +96,7 @@ export default function StaffSelfService() {
               <div>
                 <div className="text-2xl font-bold">Valid</div>
                 <p className="text-xs text-muted-foreground">
-                  Next review: {new Date(dbsChecks[0].next_review_due).toLocaleDateString()}
+                  Next review: {new Date(dbsChecks[0].nextReviewDue).toLocaleDateString()}
                 </p>
               </div>
             ) : (
@@ -165,14 +142,13 @@ export default function StaffSelfService() {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-bold">
-              {new Date(employee.start_date).toLocaleDateString()}
+              {employee.startDate ? new Date(employee.startDate).toLocaleDateString() : 'N/A'}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Detailed Information Tabs */}
-      <Tabs defaultValue="dbs" className="space-y-4">
+      <Tabs defaultValue="training" className="space-y-4">
         <TabsList>
           <TabsTrigger value="dbs">DBS Checks</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
@@ -185,28 +161,11 @@ export default function StaffSelfService() {
               <CardTitle>DBS Check History</CardTitle>
             </CardHeader>
             <CardContent>
-              {dbsChecks.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No DBS checks recorded</p>
-              ) : (
-                <div className="space-y-3">
-                  {dbsChecks.map((check: any) => (
-                    <div key={check.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Check Date: {new Date(check.check_date).toLocaleDateString()}</p>
-                        {check.certificate_number && (
-                          <p className="text-sm text-muted-foreground">Cert: {check.certificate_number}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">Next Review</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(check.next_review_due).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-center py-8 text-muted-foreground">
+                <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>DBS check records are not available through this interface yet.</p>
+                <p className="text-sm">Contact your practice manager for DBS information.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -225,20 +184,20 @@ export default function StaffSelfService() {
                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{record.course_name}</p>
-                          {record.is_mandatory && (
+                          <p className="font-medium">{record.courseName}</p>
+                          {record.isMandatory && (
                             <Badge variant="outline" className="text-xs">Mandatory</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Completed: {new Date(record.completion_date).toLocaleDateString()}
+                          Completed: {record.completionDate ? new Date(record.completionDate).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
-                      {record.expiry_date && (
+                      {record.expiryDate && (
                         <div className="text-right">
                           <p className="text-sm font-medium">Expires</p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(record.expiry_date).toLocaleDateString()}
+                            {new Date(record.expiryDate).toLocaleDateString()}
                           </p>
                         </div>
                       )}
@@ -256,25 +215,11 @@ export default function StaffSelfService() {
               <CardTitle>Appraisal History</CardTitle>
             </CardHeader>
             <CardContent>
-              {appraisals.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No appraisals recorded</p>
-              ) : (
-                <div className="space-y-3">
-                  {appraisals.map((appraisal: any) => (
-                    <div key={appraisal.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{appraisal.period}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {appraisal.scheduled_date && `Scheduled: ${new Date(appraisal.scheduled_date).toLocaleDateString()}`}
-                        </p>
-                      </div>
-                      <Badge variant={appraisal.status === 'completed' ? 'default' : 'secondary'}>
-                        {appraisal.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Appraisal records are not available through this interface yet.</p>
+                <p className="text-sm">Contact your practice manager for appraisal information.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

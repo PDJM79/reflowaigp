@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,35 +22,18 @@ export default function EnvironmentalDashboard() {
   }, [user, navigate]);
 
   const { data: environmentalData } = useQuery({
-    queryKey: ['environmental-dashboard', user?.id],
+    queryKey: ['environmental-dashboard', user?.practiceId],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return null;
-
-      const [rooms, cleaningLogs, fireAssessments, fireActions, fridges, fridgeReadings] = await Promise.all([
-        (supabase as any).from('rooms').select('*').eq('practice_id', userData.practice_id).eq('is_active', true),
-        (supabase as any).from('cleaning_logs').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('fire_safety_assessments').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('fire_safety_actions').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('fridges').select('*').eq('practice_id', userData.practice_id),
-        (supabase as any).from('fridge_temperatures').select('*').eq('practice_id', userData.practice_id),
-      ]);
-
       return {
-        rooms: rooms.data || [],
-        cleaningLogs: cleaningLogs.data || [],
-        fireAssessments: fireAssessments.data || [],
-        fireActions: fireActions.data || [],
-        fridges: fridges.data || [],
-        fridgeReadings: fridgeReadings.data || [],
+        rooms: [],
+        cleaningLogs: [],
+        fireAssessments: [],
+        fireActions: [],
+        fridges: [],
+        fridgeReadings: [],
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   const handleExportPDF = async () => {
@@ -64,7 +46,6 @@ export default function EnvironmentalDashboard() {
       subtitle: 'Premises Safety, Cleaning, and Environmental Monitoring',
     });
 
-    // Key Metrics
     exporter.addSection('Key Environmental Metrics');
     exporter.addMetricsGrid([
       { label: 'Cleaning Compliance', value: `${cleaningCompletionRate}%`, subtitle: `${todaysCleaningLogs} of ${environmentalData.rooms.length} rooms` },
@@ -73,60 +54,10 @@ export default function EnvironmentalDashboard() {
       { label: 'Active Rooms', value: `${environmentalData.rooms.length}`, subtitle: 'Monitored spaces' },
     ]);
 
-    // Cleaning Compliance
-    exporter.addSection('Daily Cleaning Compliance');
-    const cleaningRows = environmentalData.rooms.slice(0, 10).map((room: any) => {
-      const hasLog = environmentalData.cleaningLogs.some((log: any) => {
-        const logDate = new Date(log.log_date);
-        const today = new Date();
-        return log.room_id === room.id && logDate.toDateString() === today.toDateString();
-      });
-      return [
-        room.name,
-        room.room_type?.replace('_', ' ') || 'N/A',
-        room.cleaning_frequency || 'N/A',
-        hasLog ? 'Completed' : 'Pending',
-      ];
-    });
-    exporter.addTable(['Room', 'Type', 'Frequency', 'Status'], cleaningRows);
-
-    // Fire Safety Status
-    exporter.addSection('Fire & Health & Safety');
-    const latestFireAssessment = environmentalData.fireAssessments.length > 0
-      ? new Date(environmentalData.fireAssessments[0].assessment_date).toLocaleDateString()
-      : 'Not completed';
-    exporter.addKeyValuePairs([
-      { key: 'Latest Risk Assessment', value: latestFireAssessment },
-      { key: 'Action Plan Items', value: `${openFireActions} pending completion` },
-      { key: 'Fire Drills', value: 'Up to Date (Quarterly)' },
-    ]);
-
-    // Fridge Temperature Monitoring
-    exporter.addSection('Fridge Temperature Monitoring (4-8°C)');
-    const fridgeRows = environmentalData.fridges.map((fridge: any) => {
-      const latestReading = environmentalData.fridgeReadings
-        .filter((r: any) => r.fridge_id === fridge.id)
-        .sort((a: any, b: any) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
-      
-      const isInRange = latestReading 
-        ? latestReading.temperature >= fridge.min_temp && latestReading.temperature <= fridge.max_temp
-        : true;
-      
-      return [
-        fridge.name,
-        fridge.location,
-        `${fridge.min_temp}°C - ${fridge.max_temp}°C`,
-        latestReading ? `${latestReading.temperature}°C` : 'No readings',
-        latestReading ? (isInRange ? 'In Range' : 'Out of Range') : 'N/A',
-      ];
-    });
-    exporter.addTable(['Fridge', 'Location', 'Target Range', 'Latest Reading', 'Status'], fridgeRows);
-
-    // COSHH & Legionella
     exporter.addSection('COSHH & Legionella Compliance');
     exporter.addList([
-      '✓ COSHH Risk Assessment - Up to Date (Annual review)',
-      '✓ Legionella Risk Assessment - Up to Date (2-year cycle)',
+      'COSHH Risk Assessment - Up to Date (Annual review)',
+      'Legionella Risk Assessment - Up to Date (2-year cycle)',
     ]);
 
     exporter.save(generateFilename('environmental-dashboard'));
@@ -137,7 +68,7 @@ export default function EnvironmentalDashboard() {
   }
 
   const todaysCleaningLogs = environmentalData.cleaningLogs.filter((log: any) => {
-    const logDate = new Date(log.log_date);
+    const logDate = new Date(log.logDate || log.log_date);
     const today = new Date();
     return logDate.toDateString() === today.toDateString();
   }).length;
@@ -146,12 +77,12 @@ export default function EnvironmentalDashboard() {
     ? Math.round((todaysCleaningLogs / environmentalData.rooms.length) * 100)
     : 0;
 
-  const openFireActions = environmentalData.fireActions.filter((a: any) => !a.completed_at).length;
+  const openFireActions = environmentalData.fireActions.filter((a: any) => !a.completedAt).length;
 
   const outOfRangeFridgeReadings = environmentalData.fridgeReadings.filter((reading: any) => {
-    const fridge = environmentalData.fridges.find((f: any) => f.id === reading.fridge_id);
+    const fridge = environmentalData.fridges.find((f: any) => f.id === reading.fridgeId);
     if (!fridge) return false;
-    return reading.temperature < fridge.min_temp || reading.temperature > fridge.max_temp;
+    return reading.temperature < fridge.minTemp || reading.temperature > fridge.maxTemp;
   }).length;
 
   return (
@@ -234,34 +165,15 @@ export default function EnvironmentalDashboard() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="grid gap-3">
-                {environmentalData.rooms.slice(0, 10).map((room: any) => {
-                  const hasLog = environmentalData.cleaningLogs.some((log: any) => {
-                    const logDate = new Date(log.log_date);
-                    const today = new Date();
-                    return log.room_id === room.id && logDate.toDateString() === today.toDateString();
-                  });
-                  return (
-                    <div key={room.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base">{room.name}</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground capitalize">
-                          {room.room_type?.replace('_', ' ')} • {room.cleaning_frequency}
-                        </p>
-                      </div>
-                      <Badge className={`${hasLog ? 'bg-success' : 'bg-muted'} self-start sm:self-center`}>
-                        {hasLog ? 'Done' : 'Pending'}
-                      </Badge>
-                    </div>
-                  );
-                })}
+              <div className="text-center py-8 text-muted-foreground">
+                <Droplet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Cleaning log data not yet available via API</p>
               </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
 
-      {/* Fire Safety Status */}
       <Collapsible open={isFireOpen} onOpenChange={setIsFireOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -278,11 +190,7 @@ export default function EnvironmentalDashboard() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm sm:text-base">Latest Risk Assessment</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {environmentalData.fireAssessments.length > 0 
-                        ? new Date(environmentalData.fireAssessments[0].assessment_date).toLocaleDateString()
-                        : 'Not completed'}
-                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Not completed</p>
                   </div>
                   <Badge variant="secondary" className="self-start sm:self-center text-xs">Annual</Badge>
                 </div>
@@ -308,7 +216,6 @@ export default function EnvironmentalDashboard() {
         </Card>
       </Collapsible>
 
-      {/* Fridge Temperature Monitoring */}
       <Collapsible open={isFridgeOpen} onOpenChange={setIsFridgeOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -321,46 +228,15 @@ export default function EnvironmentalDashboard() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-              <div className="space-y-3">
-                {environmentalData.fridges.map((fridge: any) => {
-                  const latestReading = environmentalData.fridgeReadings
-                    .filter((r: any) => r.fridge_id === fridge.id)
-                    .sort((a: any, b: any) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
-
-                  const isInRange = latestReading 
-                    ? latestReading.temperature >= fridge.min_temp && latestReading.temperature <= fridge.max_temp
-                    : true;
-
-                  return (
-                    <div key={fridge.id} className="flex flex-col sm:flex-row items-start justify-between p-3 sm:p-4 border rounded-lg touch-manipulation active:bg-accent gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm sm:text-base">{fridge.name}</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {fridge.location} • Target: {fridge.min_temp}°C - {fridge.max_temp}°C
-                        </p>
-                      </div>
-                      <div className="text-right self-start sm:self-center">
-                        {latestReading ? (
-                          <>
-                            <p className="text-xl sm:text-2xl font-bold">{latestReading.temperature}°C</p>
-                            <Badge className={`${isInRange ? 'bg-success' : 'bg-destructive'} text-xs`}>
-                              {isInRange ? 'In Range' : 'Out of Range'}
-                            </Badge>
-                          </>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">No readings</Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="text-center py-8 text-muted-foreground">
+                <Thermometer className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Fridge temperature data not yet available via API</p>
               </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
 
-      {/* COSHH & Legionella Compliance */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">COSHH & Legionella Compliance</CardTitle>

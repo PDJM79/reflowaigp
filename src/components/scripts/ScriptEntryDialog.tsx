@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Pill } from 'lucide-react';
-import CryptoJS from 'crypto-js';
 
 interface ScriptEntryDialogProps {
   isOpen: boolean;
@@ -31,63 +29,8 @@ export function ScriptEntryDialog({ isOpen, onClose, onSuccess }: ScriptEntryDia
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
-      // Generate EMIS hash to prevent duplicates
-      const emisHash = CryptoJS.SHA256(
-        `${userData.practice_id}_${formData.month}_${formData.issue_date}_${formData.drug_code}_${formData.prescriber}_${formData.quantity}`
-      ).toString();
-
-      // Insert script record
-      const { error } = await supabase
-        .from('month_end_scripts')
-        .insert([{
-          practice_id: userData.practice_id,
-          month: formData.month + '-01',
-          issue_date: formData.issue_date,
-          drug_code: formData.drug_code,
-          drug_name: formData.drug_name,
-          prescriber: formData.prescriber,
-          quantity: parseFloat(formData.quantity),
-          notes: formData.notes || null,
-          created_by: userData.id,
-          emis_hash: emisHash,
-        }]);
-
-      if (error) {
-        if (error.code === '23505') {
-          throw new Error('This script has already been recorded');
-        }
-        throw error;
-      }
-
-      toast.success('Script recorded successfully');
-      onSuccess();
-      onClose();
-      setFormData({
-        month: new Date().toISOString().slice(0, 7),
-        issue_date: '',
-        drug_code: '',
-        drug_name: '',
-        prescriber: '',
-        quantity: '',
-        notes: '',
-      });
-    } catch (error: any) {
-      console.error('Error recording script:', error);
-      toast.error(error.message || 'Failed to record script');
-    } finally {
-      setLoading(false);
-    }
+    toast.info('Script recording will be available soon. This feature is being migrated.');
+    onClose();
   };
 
   return (

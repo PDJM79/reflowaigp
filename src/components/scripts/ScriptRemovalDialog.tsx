@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -37,41 +36,8 @@ export function ScriptRemovalDialog({ isOpen, onClose, onSuccess, script }: Scri
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
-
-      // Mark script as removed
-      const { error } = await supabase
-        .from('month_end_scripts')
-        .update({
-          removed: true,
-          removed_reason: removalReason,
-          removed_by: userData.id,
-          removed_at: new Date().toISOString(),
-        })
-        .eq('id', script.id);
-
-      if (error) throw error;
-
-      toast.success('Script marked as removed');
-      onSuccess();
-      onClose();
-      setRemovalReason('');
-      setNotes('');
-    } catch (error) {
-      console.error('Error removing script:', error);
-      toast.error('Failed to remove script');
-    } finally {
-      setLoading(false);
-    }
+    toast.info('Script removal will be available soon. This feature is being migrated.');
+    onClose();
   };
 
   return (
@@ -89,12 +55,12 @@ export function ScriptRemovalDialog({ isOpen, onClose, onSuccess, script }: Scri
 
         <div className="space-y-4">
           <div className="p-3 bg-muted rounded-lg space-y-1">
-            <p className="font-medium text-sm">{script?.drug_name}</p>
+            <p className="font-medium text-sm">{script?.drug_name || script?.drugName}</p>
             <p className="text-xs text-muted-foreground">
-              {script?.drug_code} • {script?.prescriber} • Qty: {script?.quantity}
+              {script?.drug_code || script?.drugCode} • {script?.prescriber} • Qty: {script?.quantity}
             </p>
             <p className="text-xs text-muted-foreground">
-              Issued: {script?.issue_date ? new Date(script.issue_date).toLocaleDateString() : 'N/A'}
+              Issued: {script?.issue_date || script?.issueDate ? new Date(script.issue_date || script.issueDate).toLocaleDateString() : 'N/A'}
             </p>
           </div>
 
