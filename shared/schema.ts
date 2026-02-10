@@ -5,7 +5,7 @@ import { sql, relations } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum('user_role', [
   'practice_manager', 'nurse_lead', 'cd_lead_gp', 'estates_lead', 'ig_lead', 
-  'reception_lead', 'nurse', 'hca', 'gp', 'reception', 'auditor'
+  'reception_lead', 'nurse', 'hca', 'gp', 'reception', 'auditor', 'cleaner'
 ]);
 
 export const processFrequencyEnum = pgEnum('process_frequency', [

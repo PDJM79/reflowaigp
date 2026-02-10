@@ -1,4 +1,4 @@
-export type UserRole = 'practice_manager' | 'gp' | 'nurse' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'hca' | 'reception' | 'auditor';
+export type UserRole = 'practice_manager' | 'gp' | 'nurse' | 'administrator' | 'nurse_lead' | 'cd_lead_gp' | 'estates_lead' | 'ig_lead' | 'reception_lead' | 'hca' | 'reception' | 'auditor' | 'cleaner';
 
 export interface RoleAssignment {
   role: string;
@@ -25,4 +25,5 @@ export const AVAILABLE_ROLES = [
   { value: 'hca', label: 'Healthcare Assistant' },
   { value: 'reception_lead', label: 'Reception Lead' },
   { value: 'reception', label: 'Reception' },
+  { value: 'cleaner', label: 'Cleaner' },
 ] as const;
