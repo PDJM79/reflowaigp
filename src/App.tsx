@@ -12,6 +12,7 @@ import '@/i18n/config';
 // Auth & Public Pages
 import Index from "./pages/Index";
 import ResetPassword from "./pages/ResetPassword";
+import { OrganizationSetup } from "@/components/auth/OrganizationSetup";
 
 // Dashboard & Settings
 import Dashboard from "./pages/Dashboard";
@@ -78,6 +79,7 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
+              <Route path="/setup" element={<OrganizationSetup onComplete={() => window.location.href = '/dashboard'} />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Protected Routes with AppLayout */}
