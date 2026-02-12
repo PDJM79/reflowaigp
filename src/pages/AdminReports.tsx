@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
@@ -164,8 +163,7 @@ export default function AdminReports() {
 
   if (capabilitiesLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -175,8 +173,7 @@ export default function AdminReports() {
 
   if (!canAccessReports) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
@@ -195,8 +192,7 @@ export default function AdminReports() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
