@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, Clock, User, CheckCircle, AlertTriangle, Play, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -234,8 +233,7 @@ export default function TaskDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -248,8 +246,7 @@ export default function TaskDetail() {
     const overdue = simpleTask.status !== 'complete' && isOverdue(simpleTask.due_at);
     
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center gap-4 mb-6">
@@ -353,8 +350,7 @@ export default function TaskDetail() {
   // Render process instance view (existing logic)
   if (!processInstance || !processTemplate) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Task Not Found</h1>
@@ -391,8 +387,7 @@ export default function TaskDetail() {
   const totalSteps = Array.isArray(stepsArray) ? stepsArray.length : 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">

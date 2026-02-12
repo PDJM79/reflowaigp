@@ -65,6 +65,7 @@ export function AppLayout() {
       items: [
         { icon: Home, label: t('nav.home'), path: '/', capabilities: 'all' },
         { icon: BarChart3, label: 'Dashboards', path: '/dashboards', capabilities: 'view_dashboards' },
+        { icon: FolderOpen, label: 'Processes', path: '/processes', capabilities: 'all' },
       ]
     },
     {
@@ -106,6 +107,7 @@ export function AppLayout() {
         { icon: Users, label: 'User Management', path: '/user-management', capabilities: 'manage_users' },
         { icon: Shield, label: 'Role Management', path: '/role-management', capabilities: 'assign_roles' },
         { icon: Users, label: t('nav.hr'), path: '/hr', capabilities: ['manage_training', 'manage_appraisals'] },
+        { icon: Users, label: 'Team', path: '/team', capabilities: ['manage_users', 'assign_roles'] },
         { icon: Users, label: 'My Information', path: '/staff-self-service', capabilities: 'all' },
         { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', capabilities: ['report_incident', 'manage_incident'] },
         { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', capabilities: ['log_complaint', 'manage_complaint'] },
@@ -268,7 +270,7 @@ export function AppLayout() {
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-auto ${isMobile ? 'pb-16' : ''}`}>
+      <main className={`flex-1 overflow-auto ${isMobile ? 'pb-20' : ''}`}>
         <Outlet />
       </main>
 

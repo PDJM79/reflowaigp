@@ -3,18 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound, ArrowRight, GitBranch } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, Info, Crown, Building2, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
-import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
-import { PasswordReset } from '@/components/admin/PasswordReset';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
-import { ShowProcessDialog } from '@/components/process/ShowProcessDialog';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -30,17 +26,11 @@ export function UserDashboard() {
   const [userPracticeId, setUserPracticeId] = useState('');
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
-  const [showCreateMasterUser, setShowCreateMasterUser] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [showProcessDialog, setShowProcessDialog] = useState(false);
-  const [assigningTasks, setAssigningTasks] = useState(false);
-  const [creatingAccounts, setCreatingAccounts] = useState(false);
   const [passingTask, setPassingTask] = useState<string | null>(null);
 
   // Use capability system for access control
   const canViewDashboards = hasCapability('view_dashboards') || isMasterUser;
   const canManageRoles = hasCapability('assign_roles') || isMasterUser;
-  const canManageUsers = hasCapability('manage_users') || isMasterUser;
 
   useEffect(() => {
     if (!user) return;
@@ -111,41 +101,6 @@ export function UserDashboard() {
     return 'Start';
   };
 
-  const createMissingAccounts = async () => {
-    if (!userPracticeId) return;
-    
-    setCreatingAccounts(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-missing-accounts', {
-        body: { practice_id: userPracticeId }
-      });
-
-      if (error) {
-        console.error('Error creating accounts:', error);
-        toast.error('Failed to create user accounts');
-        return;
-      }
-
-      const results = data.results || [];
-      const successful = results.filter((r: any) => r.success);
-      const failed = results.filter((r: any) => !r.success);
-
-      if (successful.length > 0) {
-        toast.success(`Successfully created ${successful.length} user accounts!`);
-      }
-      if (failed.length > 0) {
-        toast.error(`Failed to create ${failed.length} accounts. Check console for details.`);
-        console.error('Failed accounts:', failed);
-      }
-
-    } catch (error) {
-      console.error('Error creating accounts:', error);
-      toast.error('Failed to create user accounts');
-    } finally {
-      setCreatingAccounts(false);
-    }
-  };
-
   const createInitialProcesses = async () => {
     if (!userPracticeId) return;
     
@@ -183,46 +138,6 @@ export function UserDashboard() {
       createInitialProcesses();
     }
   }, [canViewDashboards, userTasks.length, otherTasks.length, loading, userPracticeId]);
-
-  const assignAllTasksToMe = async () => {
-    if (!user) return;
-    
-    setAssigningTasks(true);
-    try {
-      // Get the current user's ID from the users table
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) {
-        toast.error('Could not find user data');
-        return;
-      }
-
-      // Update all process instances in the practice to assign to current user
-      const { error } = await supabase
-        .from('process_instances')
-        .update({ assignee_id: userData.id })
-        .eq('practice_id', userData.practice_id);
-
-      if (error) {
-        console.error('Error assigning tasks:', error);
-        toast.error('Failed to assign tasks');
-        return;
-      }
-
-      toast.success('All tasks have been assigned to you!');
-      // Refresh the page to show updated task assignments
-      window.location.reload();
-    } catch (error) {
-      console.error('Error assigning tasks:', error);
-      toast.error('Failed to assign tasks');
-    } finally {
-      setAssigningTasks(false);
-    }
-  };
 
   const passTaskToPracticeManager = async (taskId: string) => {
     if (!user) return;
@@ -303,8 +218,7 @@ export function UserDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="flex items-center justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -313,8 +227,7 @@ export function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
@@ -570,92 +483,6 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/processes')}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    View All Processes
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/risk-register')}
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Risk Register
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/team')}
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Team Dashboard
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={assignAllTasksToMe}
-                    disabled={assigningTasks}
-                  >
-                    {assigningTasks ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4 mr-2" />
-                    )}
-                    Assign All Tasks to Me
-                  </Button>
-                  {canViewDashboards && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowProcessDialog(true)}
-                      >
-                        <GitBranch className="h-4 w-4 mr-2" />
-                        Show Process
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={createInitialProcesses}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Create Tasks for All Users
-                      </Button>
-                    </>
-                  )}
-                  {canManageUsers && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowCreateMasterUser(true)}
-                      >
-                        <Crown className="h-4 w-4 mr-2" />
-                        Create Master User
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowPasswordReset(true)}
-                      >
-                        <KeyRound className="h-4 w-4 mr-2" />
-                        Reset User Password
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
@@ -665,44 +492,6 @@ export function UserDashboard() {
         onOpenChange={setShowRoleManagement} 
       />
 
-      <ShowProcessDialog
-        open={showProcessDialog}
-        onOpenChange={setShowProcessDialog}
-        practiceId={userPracticeId}
-        practiceName={isMasterUser ? selectedPracticeName : undefined}
-      />
-      
-      {showCreateMasterUser && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute -top-2 -right-2 z-10"
-              onClick={() => setShowCreateMasterUser(false)}
-            >
-              ×
-            </Button>
-            <CreateMasterUser />
-          </div>
-        </div>
-      )}
-
-      {showPasswordReset && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute -top-2 -right-2 z-10"
-              onClick={() => setShowPasswordReset(false)}
-            >
-              ×
-            </Button>
-            <PasswordReset />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

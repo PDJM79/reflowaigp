@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, AlertTriangle, Clock, User, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -115,8 +114,7 @@ export default function RiskRegister() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -128,8 +126,7 @@ export default function RiskRegister() {
   const mediumRiskCount = riskProcesses.filter(p => p.risk_level === 'medium').length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
