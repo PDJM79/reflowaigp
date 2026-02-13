@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,14 +24,16 @@ interface Task {
   module: string;
   status: string;
   priority: string;
-  dueAt: string;
-  assigneeId: string;
-  completedAt: string;
-  createdAt: string;
-  assigned_to_user_id?: string;
-  due_at?: string;
-  assigned_to_role?: string;
-  requires_photo?: boolean;
+  due_at: string;
+  assigned_to_user_id: string;
+  assigned_to_role: string;
+  requires_photo: boolean;
+  created_at: string;
+  completed_at?: string;
+  is_auditable?: boolean;
+  evidence_min_count?: number;
+  evidence_count?: number;
+  rank?: number;
   assignedUser?: {
     name: string;
   } | null;
@@ -37,6 +41,8 @@ interface Task {
     title: string;
   } | null;
 }
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function TasksList() {
   const { user } = useAuth();
@@ -51,8 +57,16 @@ export default function TasksList() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [useServerSearch, setUseServerSearch] = useState(false);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const practiceId = user?.practiceId || '';
+  // Debounce search query for server-side search
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -67,16 +81,127 @@ export default function TasksList() {
       navigate('/');
       return;
     }
-    fetchTasks();
+    fetchCurrentUser();
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (currentUserId) {
+      fetchTasks();
+    }
+  }, [currentUserId, selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize, debouncedSearchQuery]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, debouncedSearchQuery]);
+
+  // Enable server search when query is non-empty
+  useEffect(() => {
+    setUseServerSearch(debouncedSearchQuery.length > 0);
+  }, [debouncedSearchQuery]);
+
+  const fetchCurrentUser = async () => {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, practice_id')
+      .eq('auth_user_id', user?.id)
+      .single();
+
+    if (userData) {
+      setCurrentUserId(userData.id);
+    }
+  };
+
   const fetchTasks = async () => {
-    if (!practiceId) return;
     try {
-      const res = await fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const data = await res.json();
-      setTasks(data || []);
+      setLoading(true);
+      
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (!userData) return;
+
+      // Use server-side search RPC when searching
+      if (debouncedSearchQuery.length > 0) {
+        const { data, error } = await supabase.rpc('search_tasks_secure', {
+          p_query: debouncedSearchQuery,
+          p_module: selectedModule === 'all' ? null : selectedModule,
+          p_status: selectedStatus === 'all' ? null : selectedStatus,
+          p_priority: selectedPriority === 'all' ? null : selectedPriority,
+          p_only_my_tasks: showMyTasks,
+          p_limit: pageSize,
+          p_offset: (page - 1) * pageSize,
+        });
+
+        if (error) {
+          console.error('Search error:', error);
+          throw error;
+        }
+
+        // Map RPC results to Task interface
+        const mappedTasks: Task[] = (data || []).map((t: any) => ({
+          ...t,
+          requires_photo: false,
+          created_at: '',
+          assignedUser: null,
+          task_templates: null,
+        }));
+
+        setTasks(mappedTasks);
+        setTotalCount(mappedTasks.length < pageSize ? (page - 1) * pageSize + mappedTasks.length : (page + 1) * pageSize);
+        return;
+      }
+
+      // Standard query when not searching
+      let countQuery = supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', userData.practice_id);
+
+      let dataQuery = supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignedUser:users!tasks_assigned_to_user_id_fkey(name),
+          task_templates(title)
+        `)
+        .eq('practice_id', userData.practice_id)
+        .order('due_at', { ascending: true });
+
+      if (selectedModule !== 'all') {
+        countQuery = countQuery.eq('module', selectedModule);
+        dataQuery = dataQuery.eq('module', selectedModule);
+      }
+
+      if (selectedStatus !== 'all') {
+        countQuery = countQuery.eq('status', selectedStatus);
+        dataQuery = dataQuery.eq('status', selectedStatus);
+      }
+
+      if (selectedPriority !== 'all') {
+        countQuery = countQuery.eq('priority', selectedPriority);
+        dataQuery = dataQuery.eq('priority', selectedPriority);
+      }
+
+      if (showMyTasks) {
+        countQuery = countQuery.eq('assigned_to_user_id', userData.id);
+        dataQuery = dataQuery.eq('assigned_to_user_id', userData.id);
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      dataQuery = dataQuery.range(from, to);
+
+      const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+
+      if (countResult.error) throw countResult.error;
+      if (dataResult.error) throw dataResult.error;
+
+      setTotalCount(countResult.count || 0);
+      setTasks(dataResult.data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -84,22 +209,20 @@ export default function TasksList() {
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesModule = selectedModule === 'all' || task.module === selectedModule;
-    const matchesStatus = selectedStatus === 'all' || task.status === selectedStatus;
-    const matchesPriority = selectedPriority === 'all' || task.priority === selectedPriority;
-    const matchesMy = !showMyTasks || task.assigneeId === user?.id;
-    return matchesSearch && matchesModule && matchesStatus && matchesPriority && matchesMy;
-  });
-
-  const openTasks = filteredTasks.filter(t => t.status === 'open' || t.status === 'pending');
-  const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
-  const completedTasks = filteredTasks.filter(t => t.status === 'complete');
-  const overdueTasks = filteredTasks.filter(t => 
-    t.status !== 'complete' && t.dueAt && new Date(t.dueAt) < new Date()
+  // Stats from current page
+  const openTasks = tasks.filter(t => t.status === 'open');
+  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const completedTasks = tasks.filter(t => t.status === 'complete' || t.status === 'closed');
+  const overdueTasks = tasks.filter(t => 
+    t.status !== 'complete' && t.status !== 'closed' && new Date(t.due_at) < new Date()
   );
+
+  // Pagination calculations
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const canGoPrevious = page > 1;
+  const canGoNext = page < totalPages;
+  const startItem = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalCount);
 
   return (
     <div ref={scrollableRef} className="space-y-4 sm:space-y-6 p-3 sm:p-6 overflow-y-auto">
@@ -133,7 +256,6 @@ export default function TasksList() {
           }}
           size={isMobile ? 'lg' : 'default'}
           className="w-full sm:w-auto min-h-[44px]"
-          data-testid="button-create-task"
         >
           <Plus className="h-4 w-4 mr-2" />
           {t('tasks.create')}
@@ -146,7 +268,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">Open Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-open-tasks-count">{openTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{openTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="touch-manipulation">
@@ -154,7 +276,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">In Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-in-progress-count">{inProgressTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{inProgressTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="touch-manipulation">
@@ -162,7 +284,7 @@ export default function TasksList() {
             <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold" data-testid="text-completed-count">{completedTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{completedTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="border-destructive touch-manipulation col-span-2 sm:col-span-1">
@@ -173,7 +295,7 @@ export default function TasksList() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold text-destructive" data-testid="text-overdue-count">{overdueTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-destructive">{overdueTasks.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -183,6 +305,12 @@ export default function TasksList() {
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             {t('tasks.filters')}
+            {useServerSearch && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                <Search className="h-3 w-3 mr-1" />
+                Full-text search
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
@@ -195,13 +323,12 @@ export default function TasksList() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 min-h-[44px]"
-                  data-testid="input-search-tasks"
                 />
               </div>
             </div>
 
             <Select value={selectedModule} onValueChange={setSelectedModule}>
-              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]" data-testid="select-module">
+              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]">
                 <SelectValue placeholder="All Modules" />
               </SelectTrigger>
               <SelectContent>
@@ -221,7 +348,7 @@ export default function TasksList() {
             </Select>
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]" data-testid="select-status">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -229,11 +356,12 @@ export default function TasksList() {
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="complete">Complete</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]" data-testid="select-priority">
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
                 <SelectValue placeholder="All Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -249,7 +377,6 @@ export default function TasksList() {
               onClick={() => setShowMyTasks(!showMyTasks)}
               size={isMobile ? 'lg' : 'default'}
               className="w-full sm:w-auto min-h-[44px]"
-              data-testid="button-my-tasks"
             >
               <User className="h-4 w-4 mr-2" />
               My Tasks
@@ -259,8 +386,11 @@ export default function TasksList() {
       </Card>
 
       {loading ? (
-        <div className="text-center py-8">Loading tasks...</div>
-      ) : filteredTasks.length === 0 ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <span>Loading tasks...</span>
+        </div>
+      ) : tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -268,16 +398,98 @@ export default function TasksList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              isMyTask={task.assigneeId === user?.id}
-              onRefresh={fetchTasks}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {tasks.map((task) => (
+              <div key={task.id} className="relative">
+                {task.is_auditable && (
+                  <Badge 
+                    variant="outline" 
+                    className="absolute -top-2 -right-2 z-10 bg-background text-xs"
+                  >
+                    <Shield className="h-3 w-3 mr-1" />
+                    Auditable
+                  </Badge>
+                )}
+                <TaskCard
+                  task={task}
+                  isMyTask={task.assigned_to_user_id === currentUserId}
+                  onRefresh={fetchTasks}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Showing {startItem}-{endItem} of {totalCount} tasks</span>
+              <Select 
+                value={pageSize.toString()} 
+                onValueChange={(value) => {
+                  setPageSize(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[80px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>per page</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={!canGoPrevious}
+                className="min-h-[36px]"
+              >
+                First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={!canGoPrevious}
+                className="min-h-[36px]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="px-3 text-sm">
+                Page {page} of {totalPages || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={!canGoNext}
+                className="min-h-[36px]"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(totalPages)}
+                disabled={!canGoNext}
+                className="min-h-[36px]"
+              >
+                Last
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       <TaskDialog

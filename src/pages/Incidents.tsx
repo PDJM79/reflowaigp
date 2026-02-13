@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { IncidentReportDialog } from '@/components/incidents/IncidentReportDialog';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +14,7 @@ export default function Incidents() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const practiceId = user?.practiceId || '';
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -24,12 +25,23 @@ export default function Incidents() {
   }, [user, navigate]);
 
   const fetchIncidents = async () => {
-    if (!practiceId) return;
     try {
-      const res = await fetch(`/api/practices/${practiceId}/incidents`, { credentials: 'include' });
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
 
-      if (!res.ok) throw new Error('Failed to fetch incidents');
-      const data = await res.json();
+      if (!userData) return;
+
+      const { data, error } = await supabase
+        .from('incidents')
+        .select('*')
+        .eq('practice_id', userData.practice_id)
+        .order('incident_date', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
       setIncidents(data || []);
     } catch (error) {
       console.error('Error fetching incidents:', error);
@@ -39,8 +51,8 @@ export default function Incidents() {
   };
 
   const openIncidents = incidents.filter(i => i.status === 'open');
-  const criticalIncidents = incidents.filter(i => i.severity === 'critical' || i.severity === 'high');
-  const moderateIncidents = incidents.filter(i => i.severity === 'moderate' || i.severity === 'medium');
+  const redIncidents = incidents.filter(i => i.rag === 'red');
+  const amberIncidents = incidents.filter(i => i.rag === 'amber');
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -52,7 +64,7 @@ export default function Incidents() {
           </h1>
           <p className="text-muted-foreground">Track and manage practice incidents</p>
         </div>
-        <Button data-testid="button-report-incident">
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Report Incident
         </Button>
@@ -64,25 +76,25 @@ export default function Incidents() {
             <CardTitle className="text-sm font-medium">Open Incidents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-open-incidents-count">{openIncidents.length}</div>
+            <div className="text-3xl font-bold">{openIncidents.length}</div>
           </CardContent>
         </Card>
 
         <Card className="border-destructive">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-destructive">High Risk</CardTitle>
+            <CardTitle className="text-sm font-medium text-destructive">High Risk (Red)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-high-risk-count">{criticalIncidents.length}</div>
+            <div className="text-3xl font-bold">{redIncidents.length}</div>
           </CardContent>
         </Card>
 
         <Card className="border-warning">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-warning">Medium Risk</CardTitle>
+            <CardTitle className="text-sm font-medium text-warning">Medium Risk (Amber)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-medium-risk-count">{moderateIncidents.length}</div>
+            <div className="text-3xl font-bold">{amberIncidents.length}</div>
           </CardContent>
         </Card>
 
@@ -91,7 +103,7 @@ export default function Incidents() {
             <CardTitle className="text-sm font-medium">Total Incidents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-total-incidents-count">{incidents.length}</div>
+            <div className="text-3xl font-bold">{incidents.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -108,12 +120,12 @@ export default function Incidents() {
       ) : (
         <div className="grid gap-4">
           {incidents.slice(0, 10).map((incident) => (
-            <Card key={incident.id} className="hover:shadow-lg transition-shadow" data-testid={`card-incident-${incident.id}`}>
+            <Card key={incident.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">{incident.severity || 'unknown'}</Badge>
+                      <RAGBadge status={incident.rag as any} />
                       <Badge variant="outline">{incident.status}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
@@ -122,7 +134,7 @@ export default function Incidents() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>{incident.dateOccurred ? new Date(incident.dateOccurred).toLocaleDateString() : 'N/A'}</span>
+                    <span>{new Date(incident.incident_date).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardHeader>
@@ -130,6 +142,8 @@ export default function Incidents() {
           ))}
         </div>
       )}
+
+      <IncidentReportDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

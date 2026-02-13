@@ -1,55 +1,43 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureUserPracticeRole } from '../_shared/capabilities.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    console.log('Starting create-missing-accounts function');
-    
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Validate JWT and get practice from user's membership
+    const { practiceId } = await requireJwtAndPractice(req);
 
-    const { practice_id } = await req.json();
-    console.log('Practice ID:', practice_id);
+    console.log('[create-missing-accounts] Processing for practice:', practiceId);
+
+    const supabase = createServiceClient();
 
     // Get all role assignments for this practice that don't have user accounts yet
-    const { data: roleAssignments, error: roleError } = await supabaseAdmin
+    const { data: roleAssignments, error: roleError } = await supabase
       .from('role_assignments')
       .select('*')
-      .eq('practice_id', practice_id)
+      .eq('practice_id', practiceId)
       .is('user_id', null);
 
     if (roleError) {
-      console.error('Error fetching role assignments:', roleError);
+      console.error('[create-missing-accounts] Error fetching role assignments:', roleError);
       throw roleError;
     }
 
-    console.log('Found role assignments without accounts:', roleAssignments);
+    console.log('[create-missing-accounts] Found role assignments without accounts:', roleAssignments?.length || 0);
 
     const results = [];
     
     for (const assignment of roleAssignments || []) {
       try {
-        console.log(`Creating account for ${assignment.assigned_email}`);
+        console.log(`[create-missing-accounts] Creating account for ${assignment.assigned_email}`);
         
         // Create user with default password
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
           email: assignment.assigned_email,
           password: 'Password',
           email_confirm: true,
@@ -61,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
 
         if (authError) {
-          console.error(`Auth error for ${assignment.assigned_email}:`, authError);
+          console.error(`[create-missing-accounts] Auth error for ${assignment.assigned_email}:`, authError);
           results.push({
             email: assignment.assigned_email,
             success: false,
@@ -71,21 +59,22 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Create user record in users table
-        const { error: userError } = await supabaseAdmin
+        // NOTE: is_practice_manager flag is deprecated - use user_practice_roles via ensureUserPracticeRole below
+        const { error: userError } = await supabase
           .from('users')
           .insert({
             auth_user_id: authUser.user.id,
             email: assignment.assigned_email,
             name: assignment.assigned_name,
             role: assignment.role,
-            practice_id: assignment.practice_id,
-            is_practice_manager: assignment.role === 'practice_manager'
+            practice_id: practiceId,
+            is_practice_manager: assignment.role === 'practice_manager' // DEPRECATED: kept for backward compatibility
           });
 
         if (userError) {
-          console.error(`User table error for ${assignment.assigned_email}:`, userError);
+          console.error(`[create-missing-accounts] User table error for ${assignment.assigned_email}:`, userError);
           // Clean up auth user if user table insert fails
-          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+          await supabase.auth.admin.deleteUser(authUser.user.id);
           results.push({
             email: assignment.assigned_email,
             success: false,
@@ -95,13 +84,25 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Update the role assignment with the user_id
-        const { error: updateError } = await supabaseAdmin
+        const { error: updateError } = await supabase
           .from('role_assignments')
           .update({ user_id: authUser.user.id })
           .eq('id', assignment.id);
 
         if (updateError) {
-          console.error(`Error updating role assignment for ${assignment.assigned_email}:`, updateError);
+          console.error(`[create-missing-accounts] Error updating role assignment for ${assignment.assigned_email}:`, updateError);
+        }
+
+        // Create user_practice_roles entry for the new role system
+        // Use the users table id (dbUser equivalent) which we need to get
+        const { data: userRecord } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', authUser.user.id)
+          .single();
+
+        if (userRecord) {
+          await ensureUserPracticeRole(supabase, userRecord.id, practiceId, assignment.role);
         }
 
         results.push({
@@ -112,10 +113,10 @@ const handler = async (req: Request): Promise<Response> => {
           user_id: authUser.user.id
         });
 
-        console.log(`Successfully created account for ${assignment.assigned_email}`);
+        console.log(`[create-missing-accounts] Successfully created account for ${assignment.assigned_email}`);
         
       } catch (error: any) {
-        console.error(`Error creating account for ${assignment.assigned_email}:`, error);
+        console.error(`[create-missing-accounts] Error creating account for ${assignment.assigned_email}:`, error);
         results.push({
           email: assignment.assigned_email,
           success: false,
@@ -124,21 +125,15 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return jsonResponse(req, { 
       message: `Processed ${results.length} role assignments`,
       results
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
-    console.error('Function error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  } catch (error) {
+    console.error('[create-missing-accounts] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('Missing') || message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
-};
-
-serve(handler);
+});

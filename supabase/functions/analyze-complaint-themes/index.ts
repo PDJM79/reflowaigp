@@ -1,26 +1,26 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+// supabase/functions/analyze-complaint-themes/index.ts
+// JWT-protected - derives practice from authenticated user
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient, getEnvOrThrow } from '../_shared/supabase.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    const { practiceId, dateRange } = await req.json();
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Authenticate and get practice from JWT (never trust client-provided practiceId)
+    const { practiceId } = await requireJwtAndPractice(req);
 
-    // Fetch complaints for the period
+    const { dateRange } = await req.json();
+    
+    const lovableApiKey = getEnvOrThrow('LOVABLE_API_KEY');
+    const supabase = createServiceClient();
+
+    // Fetch complaints for the period using JWT-derived practiceId
     const { data: complaints, error: complaintsError } = await supabase
       .from('complaints')
       .select('id, category, severity, description, outcome, received_date')
@@ -34,15 +34,12 @@ serve(async (req) => {
     }
 
     if (!complaints || complaints.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          themes: [], 
-          sentiment: { positive: 0, neutral: 0, negative: 0 },
-          insights: 'No complaints to analyze for this period.',
-          recommendations: []
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { 
+        themes: [], 
+        sentiment: { positive: 0, neutral: 0, negative: 0 },
+        insights: 'No complaints to analyze for this period.',
+        recommendations: []
+      });
     }
 
     // Prepare complaint data for AI analysis
@@ -124,16 +121,10 @@ Identify the top 3-5 themes, calculate sentiment distribution, provide insights 
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(req, 'Rate limit exceeded. Please try again later.', 429);
       }
       if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Lovable AI credits depleted. Please top up your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(req, 'Lovable AI credits depleted. Please top up your workspace.', 402);
       }
       const errorText = await aiResponse.text();
       console.error('AI gateway error:', aiResponse.status, errorText);
@@ -141,7 +132,7 @@ Identify the top 3-5 themes, calculate sentiment distribution, provide insights 
     }
 
     const aiData = await aiResponse.json();
-    console.log('AI response:', JSON.stringify(aiData));
+    console.log('AI response received');
     
     const toolCall = aiData.choices[0]?.message?.tool_calls?.[0];
     const analysis = toolCall ? JSON.parse(toolCall.function.arguments) : null;
@@ -167,16 +158,12 @@ Identify the top 3-5 themes, calculate sentiment distribution, provide insights 
       console.error('Error storing analysis:', insertError);
     }
 
-    return new Response(
-      JSON.stringify(analysis),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, analysis);
 
   } catch (error) {
     console.error('Error in analyze-complaint-themes:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
 });

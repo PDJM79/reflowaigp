@@ -1,210 +1,426 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AppHeader } from '@/components/layout/AppHeader';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, ArrowLeft, Building2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Mail, ArrowLeft, CheckCircle, Shield, BarChart3, FileCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePracticeSelection } from '@/hooks/usePracticeSelection';
-import { useQueryClient } from '@tanstack/react-query';
 
 export function AuthForm() {
-  const { loading } = useAuth();
-  const queryClient = useQueryClient();
-  const { selectedPracticeId, selectedPracticeName, clearPracticeSelection } = usePracticeSelection();
+  const { signIn, signUp, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password, practiceId: selectedPracticeId }),
-      });
+    await signIn(email, password);
+  };
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || 'Sign in failed');
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      window.location.href = '/dashboard';
-    } catch (error) {
-      console.error('Sign in error:', error);
-      toast.error('Sign in failed. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleAdminSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await signIn(email, password, true);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    await signUp(email, password);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
     
+    if (!email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    setResetLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password, name, practiceId: selectedPracticeId }),
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      console.log('Sending reset email with redirect:', redirectUrl);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
       });
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
-        toast.error(data.error || 'Sign up failed');
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      toast.success('Account created successfully!');
-      window.location.href = '/dashboard';
-    } catch (error) {
-      console.error('Sign up error:', error);
-      toast.error('Sign up failed. Please try again.');
+      toast.success('Password reset email sent! Check your inbox and click the link.');
+      setShowForgotPassword(false);
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      toast.error(error.message || 'Failed to send reset email');
     } finally {
-      setIsSubmitting(false);
+      setResetLoading(false);
     }
   };
 
-  if (loading) {
+  const features = [
+    { icon: Shield, text: 'CQC & NHS compliance tracking' },
+    { icon: BarChart3, text: 'Real-time audit readiness scores' },
+    { icon: FileCheck, text: 'Automated evidence management' },
+  ];
+
+  // Forgot password view
+  if (showForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div 
+        className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
+        style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+      >
+        <div className="absolute inset-0 bg-black/50" />
+        
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md">
+          <img 
+            src="/images/reflow-logo.png" 
+            alt="ReflowAI" 
+            className="h-40 w-auto mb-8"
+          />
+          
+          <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="p-2 h-auto hover:bg-muted"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">Reset Password</h2>
+                  <p className="text-sm text-muted-foreground">Enter your email to receive a reset link</p>
+                </div>
+              </div>
+              
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email Address</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg" 
+                  disabled={resetLoading}
+                >
+                  {resetLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
+                  Send Reset Email
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {selectedPracticeName && (
-        <Button
-          variant="ghost"
-          onClick={clearPracticeSelection}
-          className="fixed top-4 left-4 z-50"
-          data-testid="button-back-practice-selection"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to practice selection
-        </Button>
-      )}
-      <AppHeader />
-      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            {selectedPracticeName && (
-              <div className="mb-4 p-3 bg-primary/10 rounded-lg flex items-center justify-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">{selectedPracticeName}</span>
+  // Sign up view
+  if (showSignUp) {
+    return (
+      <div 
+        className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
+        style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+      >
+        <div className="absolute inset-0 bg-black/50" />
+        
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md">
+          <img 
+            src="/images/reflow-logo.png" 
+            alt="ReflowAI" 
+            className="h-40 w-auto mb-8"
+          />
+          
+          <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSignUp(false)}
+                  className="p-2 h-auto hover:bg-muted"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">Create Account</h2>
+                  <p className="text-sm text-muted-foreground">Get started with ReflowAI</p>
+                </div>
               </div>
-            )}
-            <CardTitle className="text-2xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              GP Surgery Audit & Compliance
-            </CardTitle>
-            <CardDescription>
-              {selectedPracticeName 
-                ? `Sign in to access ${selectedPracticeName}`
-                : 'Comprehensive compliance and audit management for GP surgeries'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin" data-testid="tab-signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
-              </TabsList>
               
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input
-                      id="signin-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      data-testid="input-signin-email"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
-                    <Input
-                      id="signin-password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      data-testid="input-signin-password"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting} data-testid="button-signin">
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign In
-                  </Button>
-                </form>
-              </TabsContent>
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email Address</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="Min. 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="h-12"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg" 
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin login view
+  if (showAdminLogin) {
+    return (
+      <div 
+        className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
+        style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+      >
+        <div className="absolute inset-0 bg-black/50" />
+        
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md">
+          <img 
+            src="/images/reflow-logo.png" 
+            alt="ReflowAI" 
+            className="h-40 w-auto mb-8"
+          />
+          
+          <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdminLogin(false)}
+                  className="p-2 h-auto hover:bg-muted"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">System Administrator</h2>
+                  <p className="text-sm text-muted-foreground">Access master admin controls</p>
+                </div>
+              </div>
               
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Your Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      data-testid="input-signup-name"
-                    />
+              <form onSubmit={handleAdminSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-email">Administrator Email</Label>
+                  <Input
+                    id="admin-email"
+                    type="email"
+                    placeholder="admin@practice.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password">Password</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg" 
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Administrator Sign In
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full text-sm text-muted-foreground"
+                  onClick={() => {
+                    setShowAdminLogin(false);
+                    setShowForgotPassword(true);
+                  }}
+                >
+                  Forgot your password?
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Main sign in view
+  return (
+    <div 
+      className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
+      style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/50" />
+      
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center w-full max-w-md">
+        {/* Logo */}
+        <img 
+            src="/images/reflow-logo.png" 
+            alt="ReflowAI" 
+            className="h-40 w-auto mb-6"
+        />
+        
+        {/* Headline */}
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">
+          Fit for Audit
+        </h1>
+        <p className="text-white/90 text-lg mb-8 text-center">
+          Compliance Management for GP Surgeries
+        </p>
+        
+        {/* Login Card */}
+        <Card className="w-full bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-2xl">
+          <CardContent className="p-8">
+            {/* Features */}
+            <div className="space-y-3 mb-6">
+              {features.map((feature, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      data-testid="input-signup-email"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      data-testid="input-signup-password"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting} data-testid="button-signup">
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign Up
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                  <span className="text-sm text-muted-foreground">{feature.text}</span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Sign In Form */}
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">Email Address</Label>
+                <Input
+                  id="signin-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-12"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">Password</Label>
+                <Input
+                  id="signin-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-12"
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg text-base" 
+                disabled={loading}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign In
+              </Button>
+              
+              <div className="flex items-center justify-between text-sm">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="p-0 h-auto text-muted-foreground hover:text-primary"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  Forgot password?
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="p-0 h-auto text-muted-foreground hover:text-primary"
+                  onClick={() => setShowSignUp(true)}
+                >
+                  Create account
+                </Button>
+              </div>
+            </form>
+            
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">or</span>
+              </div>
+            </div>
+            
+            {/* Admin Login Link */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10 text-muted-foreground border-muted"
+              onClick={() => setShowAdminLogin(true)}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              System Administrator Login
+            </Button>
           </CardContent>
         </Card>
+        
+        {/* Footer */}
+        <p className="text-white/80 text-sm mt-8 text-center">
+          Need help? Email{' '}
+          <a 
+            href="mailto:support@reflowai.co.uk" 
+            className="font-semibold hover:underline text-white"
+          >
+            support@reflowai.co.uk
+          </a>
+        </p>
       </div>
     </div>
   );

@@ -1,24 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { handleOptions, buildCorsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
-    const { practiceId } = await req.json();
+    // Require authenticated user and get their practice
+    const authResult = await requireJwtAndPractice(req);
+    if (authResult instanceof Response) return authResult;
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { practiceId } = authResult;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createServiceClient();
+
+    console.log('Generating task suggestions for practice:', practiceId);
 
     // Gather context about the practice
     const [
@@ -32,7 +33,7 @@ serve(async (req) => {
     ] = await Promise.all([
       supabase.from('tasks').select('status, priority, due_at').eq('practice_id', practiceId).limit(50),
       supabase.from('incidents').select('severity, incident_category').eq('practice_id', practiceId).limit(20),
-      supabase.from('complaints').select('severity, sla_status').eq('practice_id', practiceId).limit(20),
+      supabase.from('complaints').select('status').eq('practice_id', practiceId).limit(20),
       supabase.from('fire_safety_actions').select('severity, completed_at').eq('practice_id', practiceId).is('completed_at', null),
       supabase.from('ipc_actions').select('severity, completed_at').eq('practice_id', practiceId).is('completed_at', null),
       supabase.from('dbs_checks').select('next_review_due').eq('practice_id', practiceId),
@@ -42,8 +43,10 @@ serve(async (req) => {
     // Calculate key metrics
     const overdueTasks = tasks?.filter(t => t.status !== 'complete' && new Date(t.due_at) < new Date()).length || 0;
     const criticalIncidents = incidents?.filter(i => i.severity === 'critical').length || 0;
-    const overdueComplaints = complaints?.filter(c => c.sla_status === 'overdue').length || 0;
+    const overdueComplaints = complaints?.filter(c => (c as any).sla_status === 'overdue').length || 0;
     const criticalFireActions = fireActions?.filter(a => a.severity === 'critical').length || 0;
+    const openFireActions = fireActions?.length || 0;
+    const openIPCActions = ipcActions?.length || 0;
     const dbsDueSoon = dbsChecks?.filter(d => {
       const dueDate = new Date(d.next_review_due);
       const sixMonthsFromNow = new Date();
@@ -62,9 +65,9 @@ serve(async (req) => {
       overdueTasks,
       criticalIncidents,
       overdueComplaints,
-      openFireActions: fireActions?.length || 0,
+      openFireActions,
       criticalFireActions,
-      openIPCActions: ipcActions?.length || 0,
+      openIPCActions,
       dbsDueSoon,
       trainingExpiringSoon,
     };

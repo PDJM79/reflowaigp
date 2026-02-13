@@ -5,10 +5,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { MessageSquare, Download, TrendingUp, AlertTriangle, ChevronDown } from 'lucide-react';
+import { MessageSquare, Download, TrendingUp, AlertTriangle, ChevronDown, Plus, List } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ComplaintThemeAnalysis } from '@/components/complaints/ComplaintThemeAnalysis';
 import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker';
+import { LogComplaintDialog } from '@/components/complaints/LogComplaintDialog';
+import { ViewComplaintsDialog } from '@/components/complaints/ViewComplaintsDialog';
 
 export default function ComplaintsPatientExperience() {
   const { user } = useAuth();
@@ -104,14 +106,36 @@ export default function ComplaintsPatientExperience() {
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">Feedback & SLA compliance</p>
         </div>
-        <Button 
-          onClick={handleExportPDF}
-          size={isMobile ? 'lg' : 'default'}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export PDF
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <LogComplaintDialog>
+            <Button 
+              size={isMobile ? 'lg' : 'default'}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Log Complaint
+            </Button>
+          </LogComplaintDialog>
+          <ViewComplaintsDialog>
+            <Button 
+              variant="outline"
+              size={isMobile ? 'lg' : 'default'}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              <List className="h-4 w-4 mr-2" />
+              View All
+            </Button>
+          </ViewComplaintsDialog>
+          <Button 
+            onClick={handleExportPDF}
+            variant="outline"
+            size={isMobile ? 'lg' : 'default'}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       <ComplaintSLATracker />

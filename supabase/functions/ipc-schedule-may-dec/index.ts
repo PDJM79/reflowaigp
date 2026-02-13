@@ -1,26 +1,31 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/ipc-schedule-may-dec/index.ts
+// CRON job: Creates IPC audits in May and December
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 interface Practice {
   id: string;
   name: string;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+serve(async (req) => {
+  // No CORS for CRON jobs - not called from browser
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('IPC Schedule CRON: Starting May/December audit generation');
+    // Require CRON secret
+    requireCronSecret(req);
+
+    const supabase = createServiceClient();
+    console.log('🗓️ IPC Schedule CRON: Starting May/December audit generation');
 
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1; // 1-12
@@ -29,8 +34,8 @@ Deno.serve(async (req) => {
     if (currentMonth !== 5 && currentMonth !== 12) {
       console.log(`Current month is ${currentMonth}, skipping (only runs in May/December)`);
       return new Response(
-        JSON.stringify({ message: 'Not May or December, skipping' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        JSON.stringify({ ok: true, message: 'Not May or December, skipping' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
@@ -110,17 +115,17 @@ Deno.serve(async (req) => {
       results.push({ practice: practice.name, status: 'created', audit_id: newAudit.id });
     }
 
-    console.log('IPC Schedule CRON: Completed', results);
+    console.log('✅ IPC Schedule CRON: Completed', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ ok: true, results }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
-    console.error('IPC Schedule CRON Error:', error);
+    console.error('❌ IPC Schedule CRON Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

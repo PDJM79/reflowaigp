@@ -1,65 +1,33 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/create-master-user/index.ts
+// JWT-protected - only existing master users can create new master users
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwt } from '../_shared/auth.ts';
+import { createServiceClient, createUserClientFromRequest } from '../_shared/supabase.ts';
 
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    // SECURITY: Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Verify JWT authentication
+    const authUserId = await requireJwt(req);
 
-    // Create client to verify user
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // SECURITY: Only existing master users or administrators can create master users
+    // Check if authenticated user is a master user
+    const supabaseClient = createUserClientFromRequest(req);
     const { data: existingUser } = await supabaseClient
       .from('users')
       .select('is_master_user')
-      .eq('auth_user_id', user.id)
+      .eq('auth_user_id', authUserId)
       .single();
     
     if (!existingUser?.is_master_user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: Master user privileges required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, 'Unauthorized: Master user privileges required', 403);
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    const supabaseAdmin = createServiceClient();
 
     // SECURITY: Generate secure random password
     const randomPassword = crypto.randomUUID();
@@ -77,10 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (authError) {
       console.error('Auth error:', authError);
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return errorResponse(req, authError.message, 400);
     }
 
     // Update the existing user record with the auth_user_id
@@ -93,10 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (updateError) {
       console.error('User table update error:', updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return errorResponse(req, updateError.message, 400);
     }
 
     // SECURITY: Send password reset email for first login
@@ -105,21 +67,17 @@ const handler = async (req: Request): Promise<Response> => {
       email: 'phil@reflowai.co.uk'
     });
 
-    return new Response(JSON.stringify({ 
+    return jsonResponse(req, { 
       user_id: authUser.user.id,
       email: authUser.user.email,
       message: 'Master user created successfully. Password reset email sent.'
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
-    console.error('Function error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    console.error('Function error:', message);
+    const status = message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
 };
 

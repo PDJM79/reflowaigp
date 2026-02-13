@@ -138,6 +138,13 @@ export type Database = {
             foreignKeyName: "audit_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -185,6 +192,13 @@ export type Database = {
             foreignKeyName: "audit_trail_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_trail_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -193,6 +207,156 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      baseline_documents: {
+        Row: {
+          baseline_id: string | null
+          confidence_score: number | null
+          document_end_date: string | null
+          document_start_date: string | null
+          extracted_data: Json | null
+          file_hash: string
+          file_name: string
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          practice_id: string
+          processed_at: string | null
+          processing_error: string | null
+          processing_status: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          baseline_id?: string | null
+          confidence_score?: number | null
+          document_end_date?: string | null
+          document_start_date?: string | null
+          extracted_data?: Json | null
+          file_hash: string
+          file_name: string
+          file_size_bytes?: number | null
+          file_type: string
+          id?: string
+          practice_id: string
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          baseline_id?: string | null
+          confidence_score?: number | null
+          document_end_date?: string | null
+          document_start_date?: string | null
+          extracted_data?: Json | null
+          file_hash?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          practice_id?: string
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baseline_documents_baseline_id_fkey"
+            columns: ["baseline_id"]
+            isOneToOne: false
+            referencedRelation: "baseline_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baseline_documents_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      baseline_snapshots: {
+        Row: {
+          baseline_name: string
+          compliance_score: number
+          created_at: string
+          created_by: string
+          driver_details: Json
+          end_date: string
+          fit_for_audit_score: number
+          id: string
+          model_version: string | null
+          pipeline_version: string | null
+          practice_id: string
+          rebaseline_reason: string | null
+          red_flags: Json
+          replaces_baseline_id: string | null
+          source_document_hashes: string[]
+          start_date: string
+          status: string
+        }
+        Insert: {
+          baseline_name?: string
+          compliance_score: number
+          created_at?: string
+          created_by: string
+          driver_details?: Json
+          end_date: string
+          fit_for_audit_score: number
+          id?: string
+          model_version?: string | null
+          pipeline_version?: string | null
+          practice_id: string
+          rebaseline_reason?: string | null
+          red_flags?: Json
+          replaces_baseline_id?: string | null
+          source_document_hashes?: string[]
+          start_date: string
+          status?: string
+        }
+        Update: {
+          baseline_name?: string
+          compliance_score?: number
+          created_at?: string
+          created_by?: string
+          driver_details?: Json
+          end_date?: string
+          fit_for_audit_score?: number
+          id?: string
+          model_version?: string | null
+          pipeline_version?: string | null
+          practice_id?: string
+          rebaseline_reason?: string | null
+          red_flags?: Json
+          replaces_baseline_id?: string | null
+          source_document_hashes?: string[]
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baseline_snapshots_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baseline_snapshots_replaces_baseline_id_fkey"
+            columns: ["replaces_baseline_id"]
+            isOneToOne: false
+            referencedRelation: "baseline_snapshots"
             referencedColumns: ["id"]
           },
         ]
@@ -364,6 +528,13 @@ export type Database = {
             foreignKeyName: "claim_review_logs_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_review_logs_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -448,6 +619,13 @@ export type Database = {
             foreignKeyName: "claim_runs_submitted_by_fkey"
             columns: ["submitted_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_runs_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -494,6 +672,13 @@ export type Database = {
           task_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cleaning_logs_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cleaning_logs_completed_by_fkey"
             columns: ["completed_by"]
@@ -624,7 +809,10 @@ export type Database = {
           ack_due: string
           ack_sent_at: string | null
           assigned_to: string | null
+          category: string | null
           channel: string | null
+          closed_at: string | null
+          complainant_name: string | null
           created_at: string | null
           description: string
           emis_hash: string | null
@@ -635,6 +823,9 @@ export type Database = {
           practice_id: string
           received_at: string
           redactions: Json | null
+          severity: string | null
+          sla_status: string | null
+          sla_timescale: string | null
           status: string | null
           updated_at: string | null
         }
@@ -642,7 +833,10 @@ export type Database = {
           ack_due: string
           ack_sent_at?: string | null
           assigned_to?: string | null
+          category?: string | null
           channel?: string | null
+          closed_at?: string | null
+          complainant_name?: string | null
           created_at?: string | null
           description: string
           emis_hash?: string | null
@@ -653,6 +847,9 @@ export type Database = {
           practice_id: string
           received_at: string
           redactions?: Json | null
+          severity?: string | null
+          sla_status?: string | null
+          sla_timescale?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -660,7 +857,10 @@ export type Database = {
           ack_due?: string
           ack_sent_at?: string | null
           assigned_to?: string | null
+          category?: string | null
           channel?: string | null
+          closed_at?: string | null
+          complainant_name?: string | null
           created_at?: string | null
           description?: string
           emis_hash?: string | null
@@ -671,10 +871,20 @@ export type Database = {
           practice_id?: string
           received_at?: string
           redactions?: Json | null
+          severity?: string | null
+          sla_status?: string | null
+          sla_timescale?: string | null
           status?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "complaints_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "complaints_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -738,6 +948,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "compliance_status_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "compliance_status_assessed_by_fkey"
             columns: ["assessed_by"]
@@ -1073,6 +1290,13 @@ export type Database = {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -1162,6 +1386,13 @@ export type Database = {
             foreignKeyName: "evidence_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -1232,6 +1463,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "evidence_v2_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "evidence_v2_created_by_fkey"
             columns: ["created_by"]
@@ -1311,6 +1549,13 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "fire_risk_assessments_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -1443,7 +1688,21 @@ export type Database = {
             foreignKeyName: "fire_safety_actions_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_safety_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_safety_actions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -1496,6 +1755,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fire_safety_assessments_assessor_id_fkey"
+            columns: ["assessor_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fire_safety_assessments_assessor_id_fkey"
             columns: ["assessor_id"]
@@ -1554,6 +1820,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_signed_off_by_fkey"
+            columns: ["signed_off_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -1690,6 +1963,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "generated_reports_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_approvals: {
+        Row: {
+          approval_notes: string | null
+          approval_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          decision: string
+          digital_signature: string | null
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          id: string
+          practice_id: string
+          requested_at: string | null
+          requested_by: string | null
+          reviewer_title: string | null
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          approval_notes?: string | null
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          decision?: string
+          digital_signature?: string | null
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          id?: string
+          practice_id: string
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewer_title?: string | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          approval_notes?: string | null
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          decision?: string
+          digital_signature?: string | null
+          entity_id?: string
+          entity_name?: string
+          entity_type?: string
+          id?: string
+          practice_id?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewer_title?: string | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_approvals_practice_id_fkey"
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
@@ -1965,6 +2306,13 @@ export type Database = {
             foreignKeyName: "hr_appraisals_reviewer_id_fkey"
             columns: ["reviewer_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_appraisals_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2081,6 +2429,13 @@ export type Database = {
             foreignKeyName: "improvement_recommendations_accepted_by_fkey"
             columns: ["accepted_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "improvement_recommendations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2151,6 +2506,13 @@ export type Database = {
             foreignKeyName: "incidents_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2203,6 +2565,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ipc_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ipc_actions_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -2271,6 +2640,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ipc_audits_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ipc_audits_completed_by_fkey"
             columns: ["completed_by"]
@@ -2376,6 +2752,13 @@ export type Database = {
             foreignKeyName: "issues_assigned_to_id_fkey"
             columns: ["assigned_to_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_assigned_to_id_fkey"
+            columns: ["assigned_to_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2384,6 +2767,13 @@ export type Database = {
             columns: ["process_instance_id"]
             isOneToOne: false
             referencedRelation: "process_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_raised_by_id_fkey"
+            columns: ["raised_by_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -2648,6 +3038,13 @@ export type Database = {
             foreignKeyName: "month_end_scripts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "month_end_scripts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2656,6 +3053,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "month_end_scripts_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -2717,6 +3121,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_delivery_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -2819,6 +3230,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -2975,6 +3393,13 @@ export type Database = {
             foreignKeyName: "policy_documents_last_reviewed_by_fkey"
             columns: ["last_reviewed_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_documents_last_reviewed_by_fkey"
+            columns: ["last_reviewed_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -2983,6 +3408,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -3040,6 +3472,13 @@ export type Database = {
             foreignKeyName: "policy_review_history_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_review_history_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -3073,6 +3512,77 @@ export type Database = {
             columns: ["policy_id"]
             isOneToOne: false
             referencedRelation: "policy_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_role_capabilities: {
+        Row: {
+          capability: Database["public"]["Enums"]["capability"]
+          created_at: string | null
+          id: string
+          practice_role_id: string
+        }
+        Insert: {
+          capability: Database["public"]["Enums"]["capability"]
+          created_at?: string | null
+          id?: string
+          practice_role_id: string
+        }
+        Update: {
+          capability?: Database["public"]["Enums"]["capability"]
+          created_at?: string | null
+          id?: string
+          practice_role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_role_capabilities_practice_role_id_fkey"
+            columns: ["practice_role_id"]
+            isOneToOne: false
+            referencedRelation: "practice_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          practice_id: string
+          role_catalog_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id: string
+          role_catalog_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id?: string
+          role_catalog_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_roles_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_roles_role_catalog_id_fkey"
+            columns: ["role_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "role_catalog"
             referencedColumns: ["id"]
           },
         ]
@@ -3191,7 +3701,76 @@ export type Database = {
             foreignKeyName: "practices_initial_setup_by_fkey"
             columns: ["initial_setup_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practices_initial_setup_by_fkey"
+            columns: ["initial_setup_by"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_diagrams: {
+        Row: {
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          is_ai_enhanced: boolean | null
+          mermaid_text: string
+          practice_id: string
+          process_template_id: string
+          source_hash: string
+        }
+        Insert: {
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          mermaid_text: string
+          practice_id: string
+          process_template_id: string
+          source_hash: string
+        }
+        Update: {
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          mermaid_text?: string
+          practice_id?: string
+          process_template_id?: string
+          source_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_diagrams_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_diagrams_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_diagrams_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_diagrams_process_template_id_fkey"
+            columns: ["process_template_id"]
+            isOneToOne: false
+            referencedRelation: "process_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -3240,6 +3819,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "process_instances_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "process_instances_assignee_id_fkey"
             columns: ["assignee_id"]
@@ -3447,6 +4033,13 @@ export type Database = {
             foreignKeyName: "risk_assessments_action_owner_fkey"
             columns: ["action_owner"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_assessments_action_owner_fkey"
+            columns: ["action_owner"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -3526,6 +4119,39 @@ export type Database = {
           },
         ]
       }
+      role_catalog: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_capabilities: Database["public"]["Enums"]["capability"][]
+          description: string | null
+          display_name: string
+          id: string
+          role_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          default_capabilities?: Database["public"]["Enums"]["capability"][]
+          description?: string | null
+          display_name: string
+          id?: string
+          role_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_capabilities?: Database["public"]["Enums"]["capability"][]
+          description?: string | null
+          display_name?: string
+          id?: string
+          role_key?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       room_assessments: {
         Row: {
           assessment_date: string
@@ -3561,6 +4187,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "room_assessments_assessor_id_fkey"
+            columns: ["assessor_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "room_assessments_assessor_id_fkey"
             columns: ["assessor_id"]
@@ -3778,6 +4411,13 @@ export type Database = {
             foreignKeyName: "script_claim_runs_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_claim_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -3894,15 +4534,81 @@ export type Database = {
           },
         ]
       }
+      task_events: {
+        Row: {
+          actor_user_id: string | null
+          after: Json | null
+          before: Json | null
+          event_at: string
+          event_type: string
+          id: string
+          practice_id: string
+          task_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          event_at?: string
+          event_type: string
+          id?: string
+          practice_id: string
+          task_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          event_at?: string
+          event_type?: string
+          id?: string
+          practice_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_templates: {
         Row: {
           allowed_roles: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks: string[]
           created_at: string | null
           default_assignee_role: Database["public"]["Enums"]["user_role"] | null
           description: string | null
           due_rule: string | null
+          evidence_min_count: number
           evidence_tags: string[] | null
+          fit_for_audit_weight: number
           id: string
+          is_auditable: boolean
           json_schema: Json | null
           module: string
           practice_id: string | null
@@ -3914,14 +4620,18 @@ export type Database = {
         }
         Insert: {
           allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks?: string[]
           created_at?: string | null
           default_assignee_role?:
             | Database["public"]["Enums"]["user_role"]
             | null
           description?: string | null
           due_rule?: string | null
+          evidence_min_count?: number
           evidence_tags?: string[] | null
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           json_schema?: Json | null
           module: string
           practice_id?: string | null
@@ -3933,14 +4643,18 @@ export type Database = {
         }
         Update: {
           allowed_roles?: Database["public"]["Enums"]["user_role"][] | null
+          audit_frameworks?: string[]
           created_at?: string | null
           default_assignee_role?:
             | Database["public"]["Enums"]["user_role"]
             | null
           description?: string | null
           due_rule?: string | null
+          evidence_min_count?: number
           evidence_tags?: string[] | null
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           json_schema?: Json | null
           module?: string
           practice_id?: string | null
@@ -3964,6 +4678,7 @@ export type Database = {
         Row: {
           assigned_to_role: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id: string | null
+          audit_frameworks: string[]
           completed_at: string | null
           completion_time_seconds: number | null
           compliance_metadata: Json | null
@@ -3971,7 +4686,10 @@ export type Database = {
           created_by: string | null
           description: string | null
           due_at: string
+          evidence_min_count: number
+          fit_for_audit_weight: number
           id: string
+          is_auditable: boolean
           module: string
           practice_id: string
           priority: string | null
@@ -3981,6 +4699,7 @@ export type Database = {
           returned_by: string | null
           returned_reason: string | null
           scheduled_at: string | null
+          search_vector: unknown
           status: string | null
           template_id: string | null
           title: string
@@ -3989,6 +4708,7 @@ export type Database = {
         Insert: {
           assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id?: string | null
+          audit_frameworks?: string[]
           completed_at?: string | null
           completion_time_seconds?: number | null
           compliance_metadata?: Json | null
@@ -3996,7 +4716,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_at: string
+          evidence_min_count?: number
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           module: string
           practice_id: string
           priority?: string | null
@@ -4006,6 +4729,7 @@ export type Database = {
           returned_by?: string | null
           returned_reason?: string | null
           scheduled_at?: string | null
+          search_vector?: unknown
           status?: string | null
           template_id?: string | null
           title: string
@@ -4014,6 +4738,7 @@ export type Database = {
         Update: {
           assigned_to_role?: Database["public"]["Enums"]["user_role"] | null
           assigned_to_user_id?: string | null
+          audit_frameworks?: string[]
           completed_at?: string | null
           completion_time_seconds?: number | null
           compliance_metadata?: Json | null
@@ -4021,7 +4746,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_at?: string
+          evidence_min_count?: number
+          fit_for_audit_weight?: number
           id?: string
+          is_auditable?: boolean
           module?: string
           practice_id?: string
           priority?: string | null
@@ -4031,6 +4759,7 @@ export type Database = {
           returned_by?: string | null
           returned_reason?: string | null
           scheduled_at?: string | null
+          search_vector?: unknown
           status?: string | null
           template_id?: string | null
           title?: string
@@ -4041,7 +4770,21 @@ export type Database = {
             foreignKeyName: "tasks_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -4056,6 +4799,13 @@ export type Database = {
             columns: ["practice_id"]
             isOneToOne: false
             referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -4117,6 +4867,13 @@ export type Database = {
             columns: ["fridge_id"]
             isOneToOne: false
             referencedRelation: "fridges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -4276,6 +5033,13 @@ export type Database = {
             foreignKeyName: "user_auth_sensitive_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_auth_sensitive_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -4311,6 +5075,69 @@ export type Database = {
             foreignKeyName: "user_contact_details_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_contact_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_practice_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          practice_id: string
+          practice_role_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          practice_id: string
+          practice_role_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          practice_id?: string
+          practice_role_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_practice_roles_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_practice_roles_practice_role_id_fkey"
+            columns: ["practice_role_id"]
+            isOneToOne: false
+            referencedRelation: "practice_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_practice_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_practice_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -4346,7 +5173,21 @@ export type Database = {
             foreignKeyName: "user_roles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -4448,7 +5289,43 @@ export type Database = {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          practice_id: string | null
+        }
+        Insert: {
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          practice_id?: string | null
+        }
+        Update: {
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          practice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
             referencedColumns: ["id"]
           },
         ]
@@ -4475,6 +5352,11 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      current_practice_id: { Args: never; Returns: string }
+      current_user_has_capability: {
+        Args: { _capability: Database["public"]["Enums"]["capability"] }
+        Returns: boolean
+      }
       expire_old_notifications: { Args: never; Returns: undefined }
       get_candidate_email_audited: {
         Args: { _candidate_id: string }
@@ -4485,6 +5367,15 @@ export type Database = {
         Args: { _employee_id: string }
         Returns: string
       }
+      get_practice_scores_secure: {
+        Args: {
+          p_as_of?: string
+          p_end_date?: string
+          p_practice_id: string
+          p_start_date?: string
+        }
+        Returns: Json
+      }
       get_role_assignment_email_audited: {
         Args: { _assignment_id: string }
         Returns: string
@@ -4492,6 +5383,10 @@ export type Database = {
       get_unacknowledged_policies_count: {
         Args: { p_user_id: string }
         Returns: number
+      }
+      get_user_capabilities: {
+        Args: { p_id?: string }
+        Returns: Database["public"]["Enums"]["capability"][]
       }
       get_user_email_audited: { Args: { _user_id: string }; Returns: string }
       get_user_id_from_auth: { Args: never; Returns: string }
@@ -4554,6 +5449,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_capability:
+        | {
+            Args: {
+              _capability: Database["public"]["Enums"]["capability"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              cap: Database["public"]["Enums"]["capability"]
+              p_id?: string
+            }
+            Returns: boolean
+          }
+      has_capability_for_practice: {
+        Args: {
+          _capability: Database["public"]["Enums"]["capability"]
+          _practice_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4578,6 +5496,33 @@ export type Database = {
         Args: { _practice_id: string; _user_id: string }
         Returns: boolean
       }
+      search_tasks_secure: {
+        Args: {
+          p_limit?: number
+          p_module?: string
+          p_offset?: number
+          p_only_my_tasks?: boolean
+          p_priority?: string
+          p_query?: string
+          p_status?: string
+        }
+        Returns: {
+          assigned_to_role: Database["public"]["Enums"]["user_role"]
+          assigned_to_user_id: string
+          completed_at: string
+          description: string
+          due_at: string
+          evidence_count: number
+          evidence_min_count: number
+          id: string
+          is_auditable: boolean
+          module: string
+          priority: string
+          rank: number
+          status: string
+          title: string
+        }[]
+      }
       user_has_mfa_enabled: { Args: { _user_id: string }; Returns: boolean }
       verify_user_mfa_token: {
         Args: { _token: string; _user_id: string }
@@ -4601,6 +5546,44 @@ export type Database = {
         | "reception"
         | "auditor"
         | "group_manager"
+      capability:
+        | "view_policies"
+        | "ack_policies"
+        | "manage_policies"
+        | "approve_policies"
+        | "manage_redactions"
+        | "manage_cleaning"
+        | "complete_cleaning"
+        | "manage_ipc"
+        | "run_ipc_audit"
+        | "manage_fire"
+        | "run_fire_checks"
+        | "manage_hs"
+        | "run_risk_assessment"
+        | "manage_rooms"
+        | "run_room_assessment"
+        | "manage_training"
+        | "view_training"
+        | "upload_certificate"
+        | "manage_appraisals"
+        | "run_appraisal"
+        | "collect_360"
+        | "report_incident"
+        | "manage_incident"
+        | "log_complaint"
+        | "manage_complaint"
+        | "record_script"
+        | "manage_claims"
+        | "manage_medical_requests"
+        | "manage_fridges"
+        | "record_fridge_temp"
+        | "manage_qof"
+        | "run_reports"
+        | "view_dashboards"
+        | "manage_users"
+        | "assign_roles"
+        | "configure_practice"
+        | "configure_notifications"
       clean_frequency: "full" | "spot" | "check" | "periodic" | "touch"
       country_code: "Wales" | "England" | "Scotland"
       evidence_type: "photo" | "note" | "signature"
@@ -4806,6 +5789,45 @@ export const Constants = {
         "reception",
         "auditor",
         "group_manager",
+      ],
+      capability: [
+        "view_policies",
+        "ack_policies",
+        "manage_policies",
+        "approve_policies",
+        "manage_redactions",
+        "manage_cleaning",
+        "complete_cleaning",
+        "manage_ipc",
+        "run_ipc_audit",
+        "manage_fire",
+        "run_fire_checks",
+        "manage_hs",
+        "run_risk_assessment",
+        "manage_rooms",
+        "run_room_assessment",
+        "manage_training",
+        "view_training",
+        "upload_certificate",
+        "manage_appraisals",
+        "run_appraisal",
+        "collect_360",
+        "report_incident",
+        "manage_incident",
+        "log_complaint",
+        "manage_complaint",
+        "record_script",
+        "manage_claims",
+        "manage_medical_requests",
+        "manage_fridges",
+        "record_fridge_temp",
+        "manage_qof",
+        "run_reports",
+        "view_dashboards",
+        "manage_users",
+        "assign_roles",
+        "configure_practice",
+        "configure_notifications",
       ],
       clean_frequency: ["full", "spot", "check", "periodic", "touch"],
       country_code: ["Wales", "England", "Scotland"],

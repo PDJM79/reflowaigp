@@ -1,3 +1,4 @@
+// PDF Export V2 - Comprehensive report generation utilities
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -623,4 +624,346 @@ export function generateRoomAssessmentPDF(data: {
   ]);
 
   return exporter;
+}
+
+// Fridge Temperature Report PDF Generator
+export function generateFridgeTempReportPDF(data: {
+  practiceName: string;
+  period: string;
+  fridges: Array<{
+    id: string;
+    name: string;
+    location: string | null;
+    min_temp: number;
+    max_temp: number;
+  }>;
+  logs: Array<{
+    id: string;
+    fridge_id: string;
+    reading: number;
+    log_date: string;
+    log_time: string;
+    breach_flag: boolean | null;
+    remedial_action: string | null;
+    outcome: string | null;
+  }>;
+  stats: {
+    totalLogs: number;
+    breaches: number;
+    complianceRate: number;
+  };
+}) {
+  const exporter = new UpdatePackPDFExporter();
+  
+  exporter.addPracticeHeader(data.practiceName, data.period);
+  exporter.addSectionTitle('Fridge Temperature Monitoring Report');
+  
+  // Overall Compliance Summary
+  exporter.addSubsectionTitle('Compliance Summary');
+  exporter.addKeyValuePairs([
+    { key: 'Report Period', value: data.period },
+    { key: 'Total Fridges', value: data.fridges.length.toString() },
+    { key: 'Total Readings', value: data.stats.totalLogs.toString() },
+    { key: 'Temperature Breaches', value: data.stats.breaches.toString() },
+    { key: 'Compliance Rate', value: `${data.stats.complianceRate.toFixed(1)}%` }
+  ]);
+
+  // Compliance RAG indicator
+  const ragStatus = data.stats.complianceRate >= 95 
+    ? 'green' 
+    : data.stats.complianceRate >= 85 
+      ? 'amber' 
+      : 'red';
+  exporter.addRAGIndicator(ragStatus, `Overall Compliance: ${ragStatus.toUpperCase()}`);
+
+  // Fridge Details
+  exporter.addSubsectionTitle('Registered Fridges');
+  const fridgeRows = data.fridges.map(fridge => {
+    const fridgeLogs = data.logs.filter(l => l.fridge_id === fridge.id);
+    const fridgeBreaches = fridgeLogs.filter(l => l.breach_flag).length;
+    const fridgeCompliance = fridgeLogs.length > 0 
+      ? ((fridgeLogs.length - fridgeBreaches) / fridgeLogs.length) * 100 
+      : 100;
+
+    return [
+      fridge.name,
+      fridge.location || 'N/A',
+      `${fridge.min_temp}°C - ${fridge.max_temp}°C`,
+      fridgeLogs.length.toString(),
+      fridgeBreaches.toString(),
+      `${fridgeCompliance.toFixed(0)}%`
+    ];
+  });
+  exporter.addTable(
+    ['Fridge', 'Location', 'Range', 'Readings', 'Breaches', 'Compliance'],
+    fridgeRows
+  );
+
+  // Temperature Breach Summary
+  const breachLogs = data.logs.filter(l => l.breach_flag);
+  if (breachLogs.length > 0) {
+    exporter.addSubsectionTitle('Temperature Breaches');
+    const breachRows = breachLogs.map(log => {
+      const fridge = data.fridges.find(f => f.id === log.fridge_id);
+      const outcomeLabels: Record<string, string> = {
+        'stock_ok': 'Stock OK',
+        'stock_moved': 'Stock Moved',
+        'stock_discarded': 'Stock Discarded',
+        'fridge_serviced': 'Fridge Serviced',
+        'monitoring': 'Monitoring',
+        'other': 'Other'
+      };
+
+      return [
+        new Date(log.log_date).toLocaleDateString(),
+        log.log_time,
+        fridge?.name || 'Unknown',
+        `${log.reading}°C`,
+        log.remedial_action || 'Not recorded',
+        log.outcome ? outcomeLabels[log.outcome] || log.outcome : 'Pending'
+      ];
+    });
+    exporter.addTable(
+      ['Date', 'Time', 'Fridge', 'Reading', 'Action Taken', 'Outcome'],
+      breachRows
+    );
+  }
+
+  // Daily Log Summary (last 7 days)
+  const recentLogs = data.logs.slice(0, 50);
+  if (recentLogs.length > 0) {
+    exporter.addSubsectionTitle('Recent Temperature Readings');
+    const logRows = recentLogs.map(log => {
+      const fridge = data.fridges.find(f => f.id === log.fridge_id);
+      return [
+        new Date(log.log_date).toLocaleDateString(),
+        log.log_time,
+        fridge?.name || 'Unknown',
+        `${log.reading}°C`,
+        log.breach_flag ? 'BREACH' : 'OK'
+      ];
+    });
+    exporter.addTable(
+      ['Date', 'Time', 'Fridge', 'Reading', 'Status'],
+      logRows
+    );
+
+    if (data.logs.length > 50) {
+      exporter.addParagraph(`Note: Showing first 50 of ${data.logs.length} total readings.`);
+    }
+  }
+
+  // Compliance Notes
+  exporter.addSubsectionTitle('Compliance Requirements');
+  exporter.addBulletList([
+    'Vaccine fridges must be maintained between 2°C and 8°C',
+    'Temperature should be recorded at least twice daily (AM and PM)',
+    'Any breach must have a documented remedial action within 24 hours',
+    'Fridge temperature logs should be retained for 3 years',
+    'Fridges should be calibrated annually and after any servicing'
+  ]);
+
+  exporter.addSignatureSection([
+    { role: 'Clinical Lead', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' }
+  ]);
+
+  return exporter;
+}
+
+// ============= MEDICAL REQUESTS REPORT =============
+interface MedicalRequestReportData {
+  practiceName: string;
+  dateRange: { from: string; to: string };
+  requests: Array<{
+    id: string;
+    request_type: string;
+    status: string;
+    received_at: string;
+    sent_at: string | null;
+    notes: string | null;
+    assigned_gp_name?: string | null;
+  }>;
+  metrics: {
+    totalReceived: number;
+    totalCompleted: number;
+    averageTurnaround: number;
+    pendingOver7Days: number;
+    byType: Record<string, number>;
+  };
+}
+
+export function generateMedicalRequestsReportPDF(data: MedicalRequestReportData): UpdatePackPDFExporter {
+  const exporter = new UpdatePackPDFExporter();
+
+  exporter.addPracticeHeader(data.practiceName, `${data.dateRange.from} to ${data.dateRange.to}`);
+  exporter.addSectionTitle('Medical & Insurance Requests Report');
+
+  // Summary Section
+  exporter.addSubsectionTitle('Summary Statistics');
+  exporter.addKeyValuePairs([
+    { key: 'Total Requests', value: data.metrics.totalReceived.toString() },
+    { key: 'Completed', value: data.metrics.totalCompleted.toString() },
+    { key: 'Avg Turnaround', value: `${data.metrics.averageTurnaround} days` },
+    { key: 'Overdue (>7 days)', value: data.metrics.pendingOver7Days.toString() },
+  ]);
+
+  // By Type Breakdown
+  if (Object.keys(data.metrics.byType).length > 0) {
+    exporter.addSubsectionTitle('Requests by Type');
+    const typeRows = Object.entries(data.metrics.byType).map(([type, count]) => [
+      type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      count.toString(),
+    ]);
+    exporter.addTable(['Request Type', 'Count'], typeRows);
+  }
+
+  // Outstanding Requests
+  const pendingRequests = data.requests.filter(r => r.status !== 'sent');
+  if (pendingRequests.length > 0) {
+    exporter.addSubsectionTitle('Outstanding Requests');
+    const pendingRows = pendingRequests.map(r => {
+      const daysPending = Math.ceil(
+        (new Date().getTime() - new Date(r.received_at).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return [
+        new Date(r.received_at).toLocaleDateString(),
+        r.request_type.replace(/_/g, ' '),
+        r.status.replace(/_/g, ' '),
+        r.notes?.substring(0, 30) || '-',
+        `${daysPending} days`,
+        r.assigned_gp_name || 'Unassigned',
+      ];
+    });
+    exporter.addTable(
+      ['Received', 'Type', 'Status', 'Notes', 'Pending', 'Assigned To'],
+      pendingRows
+    );
+  }
+
+  // Completed Requests
+  const completedRequests = data.requests.filter(r => r.status === 'sent' && r.sent_at);
+  if (completedRequests.length > 0) {
+    exporter.addSubsectionTitle('Completed Requests');
+    const completedRows = completedRequests.slice(0, 30).map(r => {
+      const turnaround = r.sent_at
+        ? Math.ceil(
+            (new Date(r.sent_at).getTime() - new Date(r.received_at).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : '-';
+      return [
+        new Date(r.received_at).toLocaleDateString(),
+        r.request_type.replace(/_/g, ' '),
+        r.notes?.substring(0, 30) || '-',
+        r.sent_at ? new Date(r.sent_at).toLocaleDateString() : '-',
+        `${turnaround} days`,
+      ];
+    });
+    exporter.addTable(
+      ['Received', 'Type', 'Notes', 'Sent', 'Turnaround'],
+      completedRows
+    );
+
+    if (completedRequests.length > 30) {
+      exporter.addParagraph(`Note: Showing first 30 of ${completedRequests.length} completed requests.`);
+    }
+  }
+
+  // Compliance Notes
+  exporter.addSubsectionTitle('Processing Guidelines');
+  exporter.addBulletList([
+    'All medical requests should be acknowledged within 2 working days',
+    'Target turnaround time is 14 working days for standard requests',
+    'Urgent insurance requests should be prioritized (7 days)',
+    'Solicitor requests may require additional time for legal review',
+    'All requests must be logged with patient identifier and requester details',
+  ]);
+
+  exporter.addSignatureSection([
+    { role: 'GP/Clinical Lead', name: '', date: '' },
+    { role: 'Practice Manager', name: '', date: '' },
+  ]);
+
+  return exporter;
+}
+
+// Governance Report PDF Generator
+export function generateGovernanceReportPDF(data: {
+  practiceName: string;
+  pendingItems: Array<{
+    entityType: string;
+    entityName: string;
+    requestedAt: string;
+    urgency: string;
+  }>;
+  historyItems: Array<{
+    entityType: string;
+    entityName: string;
+    decision: string;
+    approverName: string | null;
+    approvedAt: string;
+    notes: string | null;
+    digitalSignature: string | null;
+    reviewerTitle: string | null;
+  }>;
+  stats: {
+    totalPending: number;
+    pendingPolicies: number;
+    pendingAssessments: number;
+    approvedThisMonth: number;
+  };
+}) {
+  const exporter = new UpdatePackPDFExporter();
+
+  exporter.addPracticeHeader(data.practiceName);
+  exporter.addSectionTitle('Governance Approvals Report');
+
+  // Summary Statistics
+  exporter.addSubsectionTitle('Summary');
+  exporter.addKeyValuePairs([
+    { key: 'Total Pending', value: data.stats.totalPending.toString() },
+    { key: 'Pending Policies', value: data.stats.pendingPolicies.toString() },
+    { key: 'Pending Assessments', value: data.stats.pendingAssessments.toString() },
+    { key: 'Approved This Month', value: data.stats.approvedThisMonth.toString() },
+  ]);
+
+  // Pending Approvals
+  if (data.pendingItems.length > 0) {
+    exporter.addSubsectionTitle('Pending Approvals');
+    const pendingRows = data.pendingItems.map((item) => [
+      item.entityType.replace(/_/g, ' '),
+      item.entityName,
+      new Date(item.requestedAt).toLocaleDateString(),
+      item.urgency.charAt(0).toUpperCase() + item.urgency.slice(1),
+    ]);
+    exporter.addTable(['Type', 'Name', 'Requested', 'Urgency'], pendingRows);
+  } else {
+    exporter.addParagraph('No pending approvals at this time.');
+  }
+
+  // Approval History
+  if (data.historyItems.length > 0) {
+    exporter.addSubsectionTitle('Recent Approval History');
+    const historyRows = data.historyItems.slice(0, 20).map((item) => [
+      item.entityType.replace(/_/g, ' '),
+      item.entityName,
+      item.decision.charAt(0).toUpperCase() + item.decision.slice(1).replace(/_/g, ' '),
+      item.approverName || '-',
+      new Date(item.approvedAt).toLocaleDateString(),
+    ]);
+    exporter.addTable(['Type', 'Name', 'Decision', 'Approver', 'Date'], historyRows);
+
+    if (data.historyItems.length > 20) {
+      exporter.addParagraph(`Note: Showing first 20 of ${data.historyItems.length} historical approvals.`);
+    }
+  }
+
+  // Signature Section
+  exporter.addSignatureSection([
+    { role: 'Report Generated By', name: '', date: new Date().toLocaleDateString() },
+    { role: 'Practice Manager', name: '', date: '' },
+  ]);
+
+  exporter.save(`Governance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
 }

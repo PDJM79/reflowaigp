@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { Resend } from 'npm:resend@4.0.0';
 import React from 'npm:react@18.3.1';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { PolicyEscalationEmail } from './_templates/policy-escalation-email.tsx';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { getUsersWithCapability } from '../_shared/capabilities.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -37,13 +34,19 @@ interface ManagerData {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Only accept POST requests from CRON jobs
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  // Verify CRON secret
+  const authError = requireCronSecret(req);
+  if (authError) return authError;
+
+  const supabase = createServiceClient();
 
   console.log('🚨 Starting policy acknowledgment escalation notifications...');
 
@@ -81,9 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
           message: 'No policies requiring escalation',
           emails_sent: 0,
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -139,14 +140,14 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('practice_id', policy.practice_id)
         .in('user_id', unacknowledgedUsers.map(u => u.id));
 
-      // Get practice managers for this practice
-      const { data: practiceManagerRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('practice_id', policy.practice_id)
-        .eq('role', 'practice_manager');
+      // Get users with manage_staff capability for this practice
+      const practiceManagerUsers = await getUsersWithCapability(
+        supabase,
+        policy.practice_id,
+        'manage_staff'
+      );
 
-      const practiceManagerIds = practiceManagerRoles?.map(r => r.user_id) || [];
+      const practiceManagerIds = practiceManagerUsers.map(u => u.id);
 
       // Process each unacknowledged user
       for (const user of unacknowledgedUsers) {
@@ -239,15 +240,14 @@ const handler = async (req: Request): Promise<Response> => {
           message: 'No escalations needed - all policies acknowledged',
           emails_sent: 0,
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     // Send escalation emails to managers
     let emailsSent = 0;
     const emailResults = [];
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
     for (const managerData of allManagers.values()) {
       try {
@@ -345,9 +345,7 @@ const handler = async (req: Request): Promise<Response> => {
         escalation_threshold_days: ESCALATION_DAYS_THRESHOLD,
         email_results: emailResults,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('❌ Error in send-policy-escalation-emails:', error);
@@ -356,10 +354,7 @@ const handler = async (req: Request): Promise<Response> => {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 };

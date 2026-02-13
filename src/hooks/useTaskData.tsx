@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useMasterUser } from './useMasterUser';
 
@@ -23,73 +24,189 @@ export function useTaskData() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchTasks = async () => {
-      try {
-        const practiceId = (isMasterUser && selectedPracticeId) ? selectedPracticeId : user.practiceId;
-        if (!practiceId) {
-          setLoading(false);
-          return;
-        }
+  const fetchTasks = async () => {
+    try {
+      console.log('Fetching tasks for user:', user.id, 'Master user:', isMasterUser, 'Selected practice:', selectedPracticeId);
+      
+      // Get user's practice info
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, practice_id, name, is_master_user')
+        .eq('auth_user_id', user.id)
+        .single();
 
-        const response = await fetch(`/api/practices/${practiceId}/tasks`, {
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          console.error('Failed to fetch tasks:', response.status);
-          setUserTasks([]);
-          setOtherTasks([]);
-          setLoading(false);
-          return;
-        }
-
-        const tasksData = await response.json();
-
-        const tasks: Task[] = (tasksData || []).map((task: any) => {
-          let status: 'green' | 'amber' | 'red' = 'green';
-          let progress = 'Pending';
-
-          if (task.status === 'complete' || task.status === 'closed' || task.status === 'submitted') {
-            status = 'green';
-            progress = 'Complete';
-          } else if (task.status === 'in_progress') {
-            status = 'amber';
-            progress = 'In Progress';
-          } else if (task.dueAt && new Date(task.dueAt) < new Date()) {
-            status = 'red';
-            progress = 'Overdue';
-          } else if (task.due_at && new Date(task.due_at) < new Date()) {
-            status = 'red';
-            progress = 'Overdue';
-          }
-
-          const isCurrentUserTask = task.assigneeId === user.id || task.assignee_id === user.id;
-
-          return {
-            id: task.id,
-            name: task.title || task.name || 'Unnamed Task',
-            dueAt: task.dueAt || task.due_at ? new Date(task.dueAt || task.due_at).toLocaleDateString() : 'No due date',
-            status,
-            progress,
-            assigneeName: task.assigneeName || task.assignee_name || 'Unassigned',
-            assigneeRole: task.assigneeRole || task.assignee_role || task.module || 'General',
-            isCurrentUser: isCurrentUserTask,
-          };
-        });
-
-        const userTasksList = tasks.filter(task => task.isCurrentUser);
-        const otherTasksList = tasks.filter(task => !task.isCurrentUser);
-
-        setUserTasks(userTasksList);
-        setOtherTasks(otherTasksList);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-        setUserTasks([]);
-        setOtherTasks([]);
-      } finally {
-        setLoading(false);
+      console.log('User data:', userData, 'Error:', userError);
+      if (!userData) {
+        console.log('No user data found for auth user:', user.id);
+        return;
       }
-    };
+
+      // Determine which practice to fetch data for
+      let targetPracticeId = userData.practice_id;
+      if (userData.is_master_user && selectedPracticeId) {
+        targetPracticeId = selectedPracticeId;
+      }
+
+      console.log('Fetching data for practice:', targetPracticeId);
+
+      // Get practice manager for default assignment via new role system
+      // First try new role system, then fallback to is_practice_manager flag
+      const { data: practiceManagerViaRole } = await supabase
+        .from('user_practice_roles')
+        .select(`
+          user_id,
+          users!inner(id, name, practice_id),
+          practice_roles!inner(
+            role_catalog!inner(role_key)
+          )
+        `)
+        .eq('users.practice_id', targetPracticeId)
+        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+        .limit(1)
+        .maybeSingle();
+
+      let practiceManager: { id: string; name: string } | null = null;
+      
+      if (practiceManagerViaRole?.users) {
+        practiceManager = {
+          id: (practiceManagerViaRole.users as any).id,
+          name: (practiceManagerViaRole.users as any).name
+        };
+      } else {
+        // Fallback to is_practice_manager flag
+        const { data: fallbackPM } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('practice_id', targetPracticeId)
+          .eq('is_practice_manager', true)
+          .limit(1)
+          .maybeSingle();
+        
+        practiceManager = fallbackPM;
+      }
+
+      console.log('Practice manager:', practiceManager);
+
+      // Get ALL process instances for the target practice with template info
+      const { data: processInstances, error: processError } = await supabase
+        .from('process_instances')
+        .select(`
+          *,
+          process_templates!inner (
+            name,
+            responsible_role,
+            steps,
+            sla_hours
+          ),
+          users!assignee_id (
+            id,
+            name
+          )
+        `)
+        .eq('practice_id', targetPracticeId);
+
+      console.log('Process instances:', processInstances, 'Error:', processError);
+      if (!processInstances) {
+        console.log('No process instances found for practice:', targetPracticeId);
+        return;
+      }
+
+      // Auto-assign unassigned processes to practice manager
+      const unassignedProcesses = processInstances.filter(p => !p.assignee_id);
+      
+      if (unassignedProcesses.length > 0 && practiceManager) {
+        const { error: assignError } = await supabase
+          .from('process_instances')
+          .update({ assignee_id: practiceManager.id })
+          .in('id', unassignedProcesses.map(p => p.id));
+
+        if (assignError) {
+          console.error('Error auto-assigning to practice manager:', assignError);
+        } else {
+          // Refresh data after assignment
+          const { data: updatedProcessInstances } = await supabase
+            .from('process_instances')
+            .select(`
+              *,
+              process_templates!inner (
+                name,
+                responsible_role,
+                steps,
+                sla_hours
+              ),
+              users!assignee_id (
+                id,
+                name
+              )
+            `)
+            .eq('practice_id', targetPracticeId);
+          
+          if (updatedProcessInstances) {
+            processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
+          }
+        }
+      }
+
+      // Convert to Task format
+      const tasks: Task[] = processInstances.map(instance => {
+        const template = instance.process_templates;
+        const assignee = instance.users;
+        
+        // Calculate progress and status based on completion and SLA
+        let progress = '0/0 complete';
+        let status: 'green' | 'amber' | 'red' = 'red';
+        
+        if (instance.status === 'complete') {
+          status = 'green';
+          progress = 'Complete';
+        } else if (instance.status === 'in_progress') {
+          status = 'amber';
+          progress = 'In Progress';
+        } else if (new Date(instance.due_at) < new Date()) {
+          status = 'red';
+          progress = 'Overdue';
+        }
+
+        // Check if this task is assigned to ANY of the current user's roles
+        // A task is "current user's" if assigned to someone who has a role the current user also has
+        const isCurrentUserTask = assignee?.id === userData.id;
+
+        return {
+          id: instance.id,
+          name: template?.name || 'Unnamed Process',
+          dueAt: new Date(instance.due_at).toLocaleDateString(),
+          status,
+          progress,
+          assigneeName: assignee?.name || 'Unassigned',
+          assigneeRole: template?.responsible_role || 'Unknown',
+          isCurrentUser: isCurrentUserTask
+        };
+      });
+
+      console.log('All tasks:', tasks);
+      console.log('Current user ID:', userData.id);
+
+      // Split tasks based on current user
+      // User tasks = tasks assigned to the current user
+      // Other tasks = tasks assigned to other users
+      const userTasksList = tasks.filter(task => task.isCurrentUser);
+      const otherTasksList = tasks.filter(task => !task.isCurrentUser);
+
+      console.log('User tasks:', userTasksList);
+      console.log('Other tasks:', otherTasksList);
+
+      setUserTasks(userTasksList);
+      setOtherTasks(otherTasksList);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      
+      // Fallback to empty arrays on error
+      setUserTasks([]);
+      setOtherTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
     fetchTasks();
   }, [user, isMasterUser, selectedPracticeId]);

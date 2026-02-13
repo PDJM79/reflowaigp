@@ -77,3 +77,30 @@ verify_jwt = true
 
 [functions.seed-training-catalogue]
 verify_jwt = true
+
+[functions.send-email-reports]
+verify_jwt = false
+
+[functions.retry-email]
+verify_jwt = true
+
+[functions.send-governance-approval-emails]
+verify_jwt = true
+
+[functions.generate-process-diagram]
+verify_jwt = true
+
+[functions.manage-mfa-settings]
+verify_jwt = true
+
+[functions.send-mfa-change-notification]
+verify_jwt = true
+
+[functions.create-baseline]
+verify_jwt = true
+
+[functions.compute-delta]
+verify_jwt = true
+
+[functions.process-baseline-documents]
+verify_jwt = true

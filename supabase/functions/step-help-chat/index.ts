@@ -1,20 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { handleOptions, buildCorsHeaders } from '../_shared/cors.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-// Log API key status for debugging (without exposing the actual key)
-console.log('OpenAI API Key status:', openAIApiKey ? 'Present' : 'Missing');
-console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('OPENAI')));
-
 // CONFIGURE YOUR GPT ASSISTANT ID HERE
-// Replace with your specific GPT Assistant ID from https://platform.openai.com/assistants
 const CUSTOM_ASSISTANT_ID = Deno.env.get('STEP_ASSISTANT_ID') || null;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Function to use custom GPT Assistant
 async function useCustomAssistant(message: string, processName: string, stepTitle: string, stepDescription: string) {
@@ -95,14 +86,14 @@ Please provide specific, actionable guidance for completing this step in our GP 
   // Poll for completion
   let runStatus = run;
   let attempts = 0;
-  const maxAttempts = 30; // 30 seconds maximum wait
+  const maxAttempts = 30;
 
   while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
     if (attempts >= maxAttempts) {
       throw new Error('Assistant response timeout');
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
       headers: {
@@ -138,7 +129,7 @@ Please provide specific, actionable guidance for completing this step in our GP 
   }
 
   const messages = await messagesResponse.json();
-  const assistantMessage = messages.data.find(m => m.role === 'assistant');
+  const assistantMessage = messages.data.find((m: any) => m.role === 'assistant');
   
   if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
     throw new Error('No assistant response found');
@@ -213,22 +204,15 @@ Focus specifically on helping complete the current step while maintaining awaren
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleOptions(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
-    // Debug logging to understand the environment
-    console.log('=== DEBUGGING ENVIRONMENT ===');
-    console.log('All environment variables:', Object.keys(Deno.env.toObject()));
-    console.log('OpenAI key exists:', !!Deno.env.get('OPENAI_API_KEY'));
-    console.log('OpenAI key length:', Deno.env.get('OPENAI_API_KEY')?.length || 0);
-    console.log('Custom assistant ID:', CUSTOM_ASSISTANT_ID);
-    
     // Early validation - check if OpenAI API key is available
     if (!openAIApiKey) {
       console.error('OpenAI API key is missing from environment variables');
-      console.error('Available env vars containing OPENAI:', Object.keys(Deno.env.toObject()).filter(key => key.includes('OPENAI')));
       throw new Error('OpenAI API key is not configured. Please check the function secrets.');
     }
 
@@ -266,7 +250,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in step-help-chat function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unexpected error occurred',
+      error: (error as Error).message || 'An unexpected error occurred',
       assistantType: CUSTOM_ASSISTANT_ID ? 'custom_gpt' : 'default_chat'
     }), {
       status: 500,

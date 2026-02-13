@@ -1,25 +1,40 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// supabase/functions/generate-test-data/index.ts
+// CRON job: Generates test data for development/testing
+// Requires X-Job-Token header AND ALLOW_TEST_DATA=true environment variable
+// This function is BLOCKED in production
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { ensureUserPracticeRole } from '../_shared/capabilities.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  // No CORS for CRON jobs - not called from browser
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Require CRON secret
+    requireCronSecret(req);
+
+    // Environment gate: block in production
+    const allowTestData = Deno.env.get('ALLOW_TEST_DATA');
+    if (allowTestData !== 'true') {
+      console.error('❌ ALLOW_TEST_DATA is not enabled - test data generation blocked');
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Test data generation is disabled in this environment' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    const supabaseAdmin = createServiceClient();
 
     // Clean up any existing test data
-    console.log('Cleaning up existing test data...');
+    console.log('🧹 Cleaning up existing test data...');
     
     // Find and delete ALL existing test practices (there might be duplicates)
     const { data: existingPractices } = await supabaseAdmin
@@ -66,8 +81,10 @@ serve(async (req) => {
         await supabaseAdmin.from('claim_runs').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('audit_logs').delete().eq('practice_id', practice.id);
         await supabaseAdmin.from('leave_policies').delete().eq('practice_id', practice.id);
-        await supabaseAdmin.from('user_roles').delete().eq('practice_id', practice.id);
-        await supabaseAdmin.from('role_assignments').delete().eq('practice_id', practice.id);
+        // Note: Skipping old user_roles and role_assignments tables - using user_practice_roles now
+        await supabaseAdmin.from('user_practice_roles').delete().in('user_id',
+          (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || []
+        );
         
         // Delete user_auth_sensitive and user_contact_details for users in this practice
         const practiceUserIds = (await supabaseAdmin.from('users').select('id').eq('practice_id', practice.id)).data?.map(u => u.id) || [];
@@ -150,13 +167,14 @@ serve(async (req) => {
       }
 
       // Create users table record (without email - emails go in user_contact_details table)
+      // NOTE: is_practice_manager flag is deprecated - use user_practice_roles via ensureUserPracticeRole below
       const { data: dbUser, error: dbError } = await supabaseAdmin
         .from('users')
         .insert({
           auth_user_id: authUser.user.id,
           practice_id: practice.id,
           name: user.name,
-          is_practice_manager: user.role === 'practice_manager',
+          is_practice_manager: user.role === 'practice_manager', // DEPRECATED: kept for backward compatibility
           is_active: true
         })
         .select()
@@ -180,19 +198,10 @@ serve(async (req) => {
         console.error('Contact details error for', user.email, contactError);
       }
 
-      // Create user_roles entry
-      const { error: roleError } = await supabaseAdmin
-        .from('user_roles')
-        .insert({
-          user_id: authUser.user.id,
-          role: user.role,
-          practice_id: practice.id,
-          created_by: dbUser.id
-        });
+      // Note: Skipping old user_roles table - using user_practice_roles via ensureUserPracticeRole below
 
-      if (roleError) {
-        console.error('Role error for', user.email, roleError);
-      }
+      // Create user_practice_roles entry for the new role system
+      await ensureUserPracticeRole(supabaseAdmin, dbUser.id, practice.id, user.role);
 
       createdUsers.push({ ...dbUser, role: user.role });
       console.log('Created user:', user.email);
@@ -699,14 +708,14 @@ serve(async (req) => {
         })),
         message: 'Test data generated successfully'
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error generating test data:', error);
+    console.error('❌ Error generating test data:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

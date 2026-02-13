@@ -1,99 +1,79 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-interface CreateProcessesRequest {
-  practice_id: string;
-}
-
-const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Validate JWT and get practice from user's membership
+    const { practiceId } = await requireJwtAndPractice(req);
 
-    const { practice_id }: CreateProcessesRequest = await req.json();
+    console.log('[create-initial-processes] Creating processes for practice:', practiceId);
 
-    console.log('Creating initial processes for practice:', practice_id);
+    const supabase = createServiceClient();
 
     // Get all process templates for this practice
-    const { data: templates, error: templatesError } = await supabaseClient
+    const { data: templates, error: templatesError } = await supabase
       .from('process_templates')
       .select('*')
-      .eq('practice_id', practice_id)
+      .eq('practice_id', practiceId)
       .eq('active', true);
 
     if (templatesError) {
-      console.error('Error fetching templates:', templatesError);
+      console.error('[create-initial-processes] Error fetching templates:', templatesError);
       throw templatesError;
     }
 
     if (!templates || templates.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No templates found for this practice' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return jsonResponse(req, { error: 'No templates found for this practice' }, 404);
     }
 
-    // Get all users in this practice with their roles from user_roles table
-    const { data: practiceUsers, error: usersError } = await supabaseClient
+    // Get all users in this practice with their roles from user_practice_roles -> role_catalog
+    const { data: practiceUsers, error: usersError } = await supabase
       .from('users')
       .select(`
         id,
-        user_roles!inner(role)
+        user_practice_roles(
+          practice_roles(
+            role_catalog(role_key)
+          )
+        )
       `)
-      .eq('practice_id', practice_id)
+      .eq('practice_id', practiceId)
       .eq('is_active', true);
 
     if (usersError) {
-      console.error('Error fetching users:', usersError);
+      console.error('[create-initial-processes] Error fetching users:', usersError);
       throw usersError;
     }
 
     if (!practiceUsers || practiceUsers.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No users found for this practice' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return jsonResponse(req, { error: 'No users found for this practice' }, 404);
     }
 
     const now = new Date();
     const processInstances = [];
 
+    // Helper to check if user has a specific role
+    const userHasRole = (user: any, roleKey: string): boolean => {
+      return user.user_practice_roles?.some((upr: any) => 
+        upr.practice_roles?.role_catalog?.role_key === roleKey
+      ) ?? false;
+    };
+
     // Create process instances for each template
     for (const template of templates) {
       // Find users with matching roles for this template
       const assignedUsers = practiceUsers.filter(user => 
-        Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === template.responsible_role)
+        userHasRole(user, template.responsible_role)
       );
       
       // If no specific user found, assign to practice manager
       const targetUsers = assignedUsers.length > 0 ? assignedUsers : 
-        practiceUsers.filter(user => 
-          Array.isArray(user.user_roles) && user.user_roles.some((r: any) => r.role === 'practice_manager')
-        );
+        practiceUsers.filter(user => userHasRole(user, 'practice_manager'));
 
       for (const user of targetUsers) {
         // Calculate due date based on frequency
@@ -117,7 +97,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         processInstances.push({
           template_id: template.id,
-          practice_id: practice_id,
+          practice_id: practiceId,
           assignee_id: user.id,
           status: 'pending',
           period_start: now.toISOString(),
@@ -127,16 +107,16 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log(`Creating ${processInstances.length} process instances`);
+    console.log(`[create-initial-processes] Creating ${processInstances.length} process instances`);
 
     // Insert process instances
-    const { data: instances, error: instancesError } = await supabaseClient
+    const { data: instances, error: instancesError } = await supabase
       .from('process_instances')
       .insert(processInstances)
       .select();
 
     if (instancesError) {
-      console.error('Error creating process instances:', instancesError);
+      console.error('[create-initial-processes] Error creating process instances:', instancesError);
       throw instancesError;
     }
 
@@ -156,43 +136,31 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log(`Creating ${stepInstances.length} step instances`);
+    console.log(`[create-initial-processes] Creating ${stepInstances.length} step instances`);
 
     // Insert step instances
     if (stepInstances.length > 0) {
-      const { error: stepError } = await supabaseClient
+      const { error: stepError } = await supabase
         .from('step_instances')
         .insert(stepInstances);
 
       if (stepError) {
-        console.error('Error creating step instances:', stepError);
+        console.error('[create-initial-processes] Error creating step instances:', stepError);
         throw stepError;
       }
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        process_instances_created: processInstances.length,
-        step_instances_created: stepInstances.length,
-        message: `Created ${processInstances.length} process instances with ${stepInstances.length} steps`
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return jsonResponse(req, { 
+      success: true,
+      process_instances_created: processInstances.length,
+      step_instances_created: stepInstances.length,
+      message: `Created ${processInstances.length} process instances with ${stepInstances.length} steps`
+    });
 
   } catch (error) {
-    console.error('Error in create-initial-processes function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    console.error('[create-initial-processes] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('Missing') || message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
-};
-
-serve(handler);
+});

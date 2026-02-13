@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,15 +28,18 @@ interface Task {
   module: string;
   status: string;
   priority: string;
-  dueAt: string;
-  assignedToUserId: string;
-  createdAt: string;
-  assigneeName?: string;
+  due_at: string;
+  assigned_to_user_id: string;
+  created_at: string;
+  assignedUser?: {
+    name: string;
+  } | null;
 }
 
 export default function Reports() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { hasCapability } = useCapabilities();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string>('all');
@@ -42,8 +47,11 @@ export default function Reports() {
   const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'timeline'>('timeline');
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Check capability for viewing all tasks
+  const canSeeAllTasks = hasCapability('view_dashboards');
+
   useEffect(() => {
-    if (!user?.practiceId) {
+    if (!user) {
       navigate('/');
       return;
     }
@@ -51,26 +59,36 @@ export default function Reports() {
   }, [user, navigate, selectedModule, selectedPriority]);
 
   const fetchTasks = async () => {
-    if (!user?.practiceId) return;
-
     try {
-      const res = await fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const data = await res.json();
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
 
-      let filtered = data || [];
+      if (!userData) return;
+
+      let query = supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignedUser:users!tasks_assigned_to_user_id_fkey(name)
+        `)
+        .eq('practice_id', userData.practice_id)
+        .order('due_at', { ascending: true });
 
       if (selectedModule !== 'all') {
-        filtered = filtered.filter((t: any) => t.module === selectedModule);
+        query = query.eq('module', selectedModule);
       }
 
       if (selectedPriority !== 'all') {
-        filtered = filtered.filter((t: any) => t.priority === selectedPriority);
+        query = query.eq('priority', selectedPriority);
       }
 
-      filtered.sort((a: any, b: any) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+      const { data, error } = await query;
 
-      setTasks(filtered);
+      if (error) throw error;
+      setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -79,15 +97,15 @@ export default function Reports() {
   };
 
   const overdueTasks = tasks.filter(t => 
-    t.status !== 'complete' && new Date(t.dueAt) < new Date()
+    t.status !== 'complete' && new Date(t.due_at) < new Date()
   );
   
   const dueTodayTasks = tasks.filter(t => 
-    t.status !== 'complete' && isSameDay(new Date(t.dueAt), new Date())
+    t.status !== 'complete' && isSameDay(new Date(t.due_at), new Date())
   );
 
   const dueThisWeekTasks = tasks.filter(t => {
-    const dueDate = new Date(t.dueAt);
+    const dueDate = new Date(t.due_at);
     const weekStart = startOfWeek(new Date());
     const weekEnd = addDays(weekStart, 7);
     return t.status !== 'complete' && isAfter(dueDate, new Date()) && isBefore(dueDate, weekEnd);
@@ -96,7 +114,7 @@ export default function Reports() {
   const completedTasks = tasks.filter(t => t.status === 'complete');
 
   const getTasksByDate = (date: Date) => {
-    return tasks.filter(t => isSameDay(new Date(t.dueAt), date));
+    return tasks.filter(t => isSameDay(new Date(t.due_at), date));
   };
 
   const getPriorityColor = (priority: string) => {
@@ -119,8 +137,8 @@ export default function Reports() {
   };
 
   const TaskRow = ({ task }: { task: Task }) => {
-    const isOverdue = task.status !== 'complete' && new Date(task.dueAt) < new Date();
-    const dueDate = new Date(task.dueAt);
+    const isOverdue = task.status !== 'complete' && new Date(task.due_at) < new Date();
+    const dueDate = new Date(task.due_at);
 
     return (
       <div 
@@ -141,13 +159,13 @@ export default function Reports() {
             </p>
 
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{(task.module || '').replace('_', ' ')}</Badge>
+              <Badge variant="outline">{task.module.replace('_', ' ')}</Badge>
               <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
                 {task.priority}
               </Badge>
-              {task.assigneeName && (
+              {task.assignedUser && (
                 <Badge variant="secondary">
-                  {task.assigneeName}
+                  {task.assignedUser.name}
                 </Badge>
               )}
             </div>
@@ -242,6 +260,7 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
@@ -290,6 +309,7 @@ export default function Reports() {
         </Card>
       </div>
 
+      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

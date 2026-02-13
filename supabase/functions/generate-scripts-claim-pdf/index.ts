@@ -1,11 +1,11 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+// supabase/functions/generate-scripts-claim-pdf/index.ts
+// JWT-protected - generates PDF for claim runs in user's practice
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireJwtAndPractice } from '../_shared/auth.ts';
+import { createServiceClient, createUserClientFromRequest } from '../_shared/supabase.ts';
 
 interface ScriptData {
   id: string;
@@ -24,7 +24,7 @@ interface ClaimRunData {
   period_end: string;
   total_scripts: number;
   total_items: number;
-  practice: {
+  practices: {
     name: string;
     address?: string;
   };
@@ -32,48 +32,26 @@ interface ClaimRunData {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS preflight
+  const optRes = handleOptions(req);
+  if (optRes) return optRes;
 
   console.log('📄 Starting PDF generation for scripts claim...');
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Authenticate and get practice from JWT
+    const { practiceId } = await requireJwtAndPractice(req);
 
     const { claim_run_id } = await req.json();
 
     if (!claim_run_id) {
-      return new Response(
-        JSON.stringify({ error: 'claim_run_id is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, 'claim_run_id is required', 400);
     }
 
     console.log(`Fetching claim run data for ID: ${claim_run_id}`);
 
-    // Fetch claim run with related data
+    // Fetch claim run with RLS (user client ensures access control)
+    const supabaseClient = createUserClientFromRequest(req);
     const { data: claimRun, error: claimError } = await supabaseClient
       .from('claim_runs')
       .select(`
@@ -94,10 +72,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (claimError || !claimRun) {
       console.error('Error fetching claim run:', claimError);
-      return new Response(
-        JSON.stringify({ error: 'Claim run not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, 'Claim run not found', 404);
+    }
+
+    // SECURITY: Verify claim run belongs to authenticated user's practice
+    if (claimRun.practice_id !== practiceId) {
+      console.error('Practice mismatch - access denied');
+      return errorResponse(req, 'Unauthorized: Claim run belongs to a different practice', 403);
     }
 
     // Fetch all scripts for this claim run
@@ -110,10 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (scriptsError) {
       console.error('Error fetching scripts:', scriptsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch scripts' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(req, 'Failed to fetch scripts', 500);
     }
 
     console.log(`Found ${scripts?.length || 0} scripts for claim run`);
@@ -153,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
     yPosition -= 40;
 
     // Practice Details
-    page.drawText(`Practice: ${claimData.practice.name}`, {
+    page.drawText(`Practice: ${claimData.practices.name}`, {
       x: margin,
       y: yPosition,
       size: 12,
@@ -161,8 +139,8 @@ const handler = async (req: Request): Promise<Response> => {
     });
     yPosition -= 20;
 
-    if (claimData.practice.address) {
-      page.drawText(`Address: ${claimData.practice.address}`, {
+    if (claimData.practices.address) {
+      page.drawText(`Address: ${claimData.practices.address}`, {
         x: margin,
         y: yPosition,
         size: 10,
@@ -305,19 +283,9 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Saving PDF...');
     const pdfBytes = await pdfDoc.save();
 
-    // Upload to storage
+    // Upload to storage using admin client
     const fileName = `claim-runs/${claimData.practice_id}/${claim_run_id}.pdf`;
-    
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    const supabaseAdmin = createServiceClient();
 
     console.log(`Uploading PDF to storage: ${fileName}`);
     
@@ -353,28 +321,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ PDF generated successfully');
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        claim_run_id: claim_run_id,
-        pdf_path: fileName,
-        download_url: signedUrlData?.signedUrl,
-        scripts_count: scripts?.length || 0,
-        total_scripts: claimData.total_scripts,
-        total_items: claimData.total_items
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+    return jsonResponse(req, {
+      success: true,
+      claim_run_id: claim_run_id,
+      pdf_path: fileName,
+      download_url: signedUrlData?.signedUrl,
+      scripts_count: scripts?.length || 0,
+      total_scripts: claimData.total_scripts,
+      total_items: claimData.total_items
+    });
 
-  } catch (error: any) {
-    console.error('❌ Error in generate-scripts-claim-pdf:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    console.error('❌ Error in generate-scripts-claim-pdf:', message);
+    const status = message.includes('Unauthorized') ? 401 : 500;
+    return errorResponse(req, message, status);
   }
 };
 

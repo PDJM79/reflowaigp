@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,9 +25,12 @@ export default function Policies() {
   const [ackDialogOpen, setAckDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [selectedPolicyForTracker, setSelectedPolicyForTracker] = useState<string | null>(null);
-
-  const practiceId = user?.practiceId || '';
-  const canUpload = user?.isPracticeManager || user?.role === 'practice_manager';
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [checkingReviews, setCheckingReviews] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
+  const [sendingAckReminders, setSendingAckReminders] = useState(false);
+  const [sendingEscalations, setSendingEscalations] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -34,18 +38,84 @@ export default function Policies() {
       return;
     }
     fetchPolicies();
+    fetchUserRoles();
   }, [user, navigate]);
 
-  const fetchPolicies = async () => {
-    if (!practiceId) return;
+  const fetchUserRoles = async () => {
     try {
-      const res = await fetch(`/api/practices/${practiceId}/policies`, { credentials: 'include' });
+      const { data: userData } = await supabase
+        .from('users')
+        .select(`
+          user_practice_roles(
+            practice_roles(
+              role_catalog(role_key)
+            )
+          )
+        `)
+        .eq('auth_user_id', user?.id)
+        .single();
 
-      if (!res.ok) throw new Error('Failed to fetch policies');
-      const data = await res.json();
+      if (userData?.user_practice_roles) {
+        const roles = userData.user_practice_roles
+          .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
+          .filter(Boolean);
+        setUserRoles(roles);
+      }
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+    }
+  };
+
+  const fetchPolicies = async () => {
+    try {
+      setError(null);
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        setError('Failed to load user data. Please try refreshing the page.');
+        setLoading(false);
+        return;
+      }
+
+      if (!userData) {
+        setError('User data not found. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: policiesError } = await supabase
+        .from('policy_documents')
+        .select('*')
+        .eq('practice_id', userData.practice_id)
+        .order('created_at', { ascending: false });
+
+      if (policiesError) {
+        console.error('Error fetching policies:', policiesError);
+        setError('Failed to load policies. Please try refreshing the page.');
+        setLoading(false);
+        return;
+      }
+      
       setPolicies(data || []);
+
+      // Fetch user's acknowledgments
+      const { data: acks } = await supabase
+        .from('policy_acknowledgments')
+        .select('policy_id, version_acknowledged')
+        .eq('user_id', userData.id);
+
+      const ackSet = new Set(
+        acks?.map(a => `${a.policy_id}_${a.version_acknowledged}`) || []
+      );
+      setMyAcknowledgments(ackSet);
     } catch (error) {
       console.error('Error fetching policies:', error);
+      setError('An unexpected error occurred. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
@@ -56,10 +126,12 @@ export default function Policies() {
   );
 
   const activePolicies = policies.filter(p => p.status === 'active');
-  const dueForReview = activePolicies.filter(p => p.nextReviewDate && new Date(p.nextReviewDate) < new Date());
+  const dueForReview = activePolicies.filter(p => p.review_due && new Date(p.review_due) < new Date());
   const needsMyAcknowledgment = activePolicies.filter(p => 
     !myAcknowledgments.has(`${p.id}_${p.version || 'unversioned'}`)
   );
+
+  const canUpload = userRoles.includes('practice_manager') || userRoles.includes('ig_lead');
 
   const handleAcknowledgeClick = (policy: any) => {
     setSelectedPolicy(policy);
@@ -71,19 +143,125 @@ export default function Policies() {
   };
 
   const handleCheckPolicyReviews = async () => {
-    toast.info('Policy review check is not available in this mode.');
+    setCheckingReviews(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('policy-review-reminders');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success('Policy Review Check Complete', {
+          description: `Checked ${data.policies_checked} policies. Created ${data.notifications_created} notification(s) for ${data.practices_affected} practice(s).`
+        });
+      } else {
+        toast.error('Check failed', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error checking policy reviews:', error);
+      toast.error('Failed to check policy reviews', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setCheckingReviews(false);
+    }
   };
 
   const handleSendEmailReminders = async () => {
-    toast.info('Email reminders are not available in this mode.');
+    setSendingEmails(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-review-emails');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Email Reminders Needed', {
+            description: data.message || 'No overdue policies found that require email notifications.'
+          });
+        } else {
+          toast.success('Email Reminders Sent Successfully', {
+            description: `Sent ${data.emails_sent} email(s) to managers about ${data.overdue_policies} overdue policy review(s) across ${data.practices_affected} practice(s).`
+          });
+        }
+      } else {
+        toast.error('Failed to send emails', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending email reminders:', error);
+      toast.error('Failed to send email reminders', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingEmails(false);
+    }
   };
 
   const handleSendAcknowledgmentReminders = async () => {
-    toast.info('Acknowledgement reminders are not available in this mode.');
+    setSendingAckReminders(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-acknowledgment-reminders');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Acknowledgment Reminders Needed', {
+            description: 'All staff have acknowledged their required policies.'
+          });
+        } else {
+          toast.success('Acknowledgment Reminders Sent Successfully', {
+            description: `Sent ${data.emails_sent} reminder(s) to staff about ${data.policies_checked} policy acknowledgment(s).`
+          });
+        }
+      } else {
+        toast.error('Failed to send acknowledgment reminders', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending acknowledgment reminders:', error);
+      toast.error('Failed to send acknowledgment reminders', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingAckReminders(false);
+    }
   };
 
   const handleSendEscalationEmails = async () => {
-    toast.info('Escalation emails are not available in this mode.');
+    setSendingEscalations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-policy-escalation-emails');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        if (data.emails_sent === 0) {
+          toast.info('No Escalations Needed', {
+            description: 'No staff have exceeded the 21-day acknowledgment deadline.'
+          });
+        } else {
+          toast.success('Escalation Emails Sent Successfully', {
+            description: `Sent ${data.emails_sent} escalation(s) to managers about staff who haven't acknowledged policies after 21 days.`
+          });
+        }
+      } else {
+        toast.error('Failed to send escalation emails', {
+          description: data?.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error) {
+      console.error('Error sending escalation emails:', error);
+      toast.error('Failed to send escalation emails', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setSendingEscalations(false);
+    }
   };
 
   return (
@@ -104,7 +282,6 @@ export default function Policies() {
             <Button 
               variant="outline" 
               onClick={() => navigate('/policies/review-history')}
-              data-testid="button-review-history"
             >
               <FileText className="h-4 w-4 mr-2" />
               Review History
@@ -112,37 +289,37 @@ export default function Policies() {
             <Button 
               variant="outline" 
               onClick={handleCheckPolicyReviews}
-              data-testid="button-check-reviews"
+              disabled={checkingReviews}
             >
               <Bell className="h-4 w-4 mr-2" />
-              Check Policy Reviews Now
+              {checkingReviews ? 'Checking...' : 'Check Policy Reviews Now'}
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendEmailReminders}
-              data-testid="button-send-email-reminders"
+              disabled={sendingEmails}
             >
               <Mail className="h-4 w-4 mr-2" />
-              Send Email Reminders Now
+              {sendingEmails ? 'Sending Emails...' : 'Send Email Reminders Now'}
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendAcknowledgmentReminders}
-              data-testid="button-send-ack-reminders"
+              disabled={sendingAckReminders}
             >
               <Clock className="h-4 w-4 mr-2" />
-              Send Acknowledgement Reminders
+              {sendingAckReminders ? 'Sending Reminders...' : 'Send Acknowledgment Reminders'}
             </Button>
             <Button 
               variant="outline" 
               onClick={handleSendEscalationEmails}
+              disabled={sendingEscalations}
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              data-testid="button-send-escalations"
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Send Escalation Emails
+              {sendingEscalations ? 'Sending Escalations...' : 'Send Escalation Emails'}
             </Button>
-            <Button onClick={() => setUploadDialogOpen(true)} data-testid="button-upload-policy">
+            <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Policy
             </Button>
@@ -156,7 +333,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Active Policies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-active-policies-count">{activePolicies.length}</div>
+            <div className="text-3xl font-bold">{activePolicies.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Currently in effect</p>
           </CardContent>
         </Card>
@@ -166,17 +343,17 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Due for Review</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600" data-testid="text-due-review-count">{dueForReview.length}</div>
+            <div className="text-3xl font-bold text-orange-600">{dueForReview.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Require attention</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Needs My Acknowledgement</CardTitle>
+            <CardTitle className="text-sm font-medium">Needs My Acknowledgment</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600" data-testid="text-needs-ack-count">{needsMyAcknowledgment.length}</div>
+            <div className="text-3xl font-bold text-blue-600">{needsMyAcknowledgment.length}</div>
             <p className="text-sm text-muted-foreground mt-1">Require your review</p>
           </CardContent>
         </Card>
@@ -186,7 +363,7 @@ export default function Policies() {
             <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-total-policies-count">{policies.length}</div>
+            <div className="text-3xl font-bold">{policies.length}</div>
             <p className="text-sm text-muted-foreground mt-1">All policies</p>
           </CardContent>
         </Card>
@@ -202,7 +379,6 @@ export default function Policies() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
-                data-testid="input-search-policies"
               />
             </div>
           </div>
@@ -211,9 +387,20 @@ export default function Policies() {
 
       {loading ? (
         <div className="text-center py-8">Loading policies...</div>
+      ) : error ? (
+        <Card className="border-destructive">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <p className="text-destructive font-medium mb-2">Error Loading Policies</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => { setLoading(true); fetchPolicies(); }}>
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       ) : selectedPolicyForTracker ? (
         <div className="space-y-4">
-          <Button variant="outline" onClick={() => setSelectedPolicyForTracker(null)} data-testid="button-back-to-policies">
+          <Button variant="outline" onClick={() => setSelectedPolicyForTracker(null)}>
             ← Back to Policies
           </Button>
           <PolicyStaffTracker policyId={selectedPolicyForTracker} />
@@ -221,9 +408,9 @@ export default function Policies() {
       ) : (
         <Tabs defaultValue="all" className="w-full">
           <TabsList>
-            <TabsTrigger value="all" data-testid="tab-all-policies">All Policies</TabsTrigger>
-            <TabsTrigger value="needs_ack" data-testid="tab-needs-ack">
-              Needs My Acknowledgement {needsMyAcknowledgment.length > 0 && `(${needsMyAcknowledgment.length})`}
+            <TabsTrigger value="all">All Policies</TabsTrigger>
+            <TabsTrigger value="needs_ack">
+              Needs My Acknowledgment {needsMyAcknowledgment.length > 0 && `(${needsMyAcknowledgment.length})`}
             </TabsTrigger>
           </TabsList>
 
@@ -241,7 +428,7 @@ export default function Policies() {
                 ) : (
                   <div className="space-y-3">
                     {filteredPolicies.map((policy) => {
-                      const isOverdue = policy.nextReviewDate && new Date(policy.nextReviewDate) < new Date();
+                      const isOverdue = policy.review_due && new Date(policy.review_due) < new Date();
                       const needsAck = !myAcknowledgments.has(`${policy.id}_${policy.version || 'unversioned'}`);
                       return (
                         <div
@@ -249,7 +436,6 @@ export default function Policies() {
                           className={`p-4 border rounded-lg ${
                             isOverdue ? 'border-orange-300 bg-orange-50' : ''
                           }`}
-                          data-testid={`card-policy-${policy.id}`}
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
@@ -269,7 +455,7 @@ export default function Policies() {
                                 )}
                                 {needsAck && policy.status === 'active' && (
                                   <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                    Needs Acknowledgement
+                                    Needs Acknowledgment
                                   </Badge>
                                 )}
                                 {!needsAck && policy.status === 'active' && (
@@ -280,9 +466,15 @@ export default function Policies() {
                                 )}
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                                {policy.nextReviewDate && (
+                                {policy.owner_role && (
+                                  <p>Owner: {policy.owner_role}</p>
+                                )}
+                                {policy.effective_from && (
+                                  <p>Effective: {new Date(policy.effective_from).toLocaleDateString()}</p>
+                                )}
+                                {policy.review_due && (
                                   <p className={isOverdue ? 'text-orange-600 font-medium' : ''}>
-                                    Review Due: {new Date(policy.nextReviewDate).toLocaleDateString()}
+                                    Review Due: {new Date(policy.review_due).toLocaleDateString()}
                                   </p>
                                 )}
                               </div>
@@ -293,7 +485,6 @@ export default function Policies() {
                                   variant="default" 
                                   size="sm"
                                   onClick={() => handleAcknowledgeClick(policy)}
-                                  data-testid={`button-acknowledge-${policy.id}`}
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-2" />
                                   Acknowledge
@@ -304,7 +495,6 @@ export default function Policies() {
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => handleViewStaffTracker(policy.id)}
-                                  data-testid={`button-staff-status-${policy.id}`}
                                 >
                                   <Users className="h-4 w-4 mr-2" />
                                   Staff Status
@@ -324,7 +514,7 @@ export default function Policies() {
           <TabsContent value="needs_ack" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Policies Needing Your Acknowledgement</CardTitle>
+                <CardTitle>Policies Needing Your Acknowledgment</CardTitle>
               </CardHeader>
               <CardContent>
                 {needsMyAcknowledgment.length === 0 ? (
@@ -353,7 +543,6 @@ export default function Policies() {
                             variant="default" 
                             size="sm"
                             onClick={() => handleAcknowledgeClick(policy)}
-                            data-testid={`button-acknowledge-needed-${policy.id}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-2" />
                             Acknowledge

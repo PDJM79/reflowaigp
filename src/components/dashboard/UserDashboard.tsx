@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, UserPlus, Info, Crown, Building2, KeyRound, ArrowRight } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, XCircle, User, Settings, Loader2, Info, Crown, Building2, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
 import { useTaskData } from '@/hooks/useTaskData';
-import { AppHeader } from '@/components/layout/AppHeader';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
-import { CreateMasterUser } from '@/components/admin/CreateMasterUser';
-import { PasswordReset } from '@/components/admin/PasswordReset';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
@@ -20,41 +20,67 @@ export function UserDashboard() {
   const { user, signOut } = useAuth();
   const { isMasterUser, selectedPracticeId, selectedPracticeName, clearSelectedPractice } = useMasterUser();
   const { userTasks, otherTasks, loading } = useTaskData();
+  const { hasCapability, userRoles: capabilityRoles } = useCapabilities();
+  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
+  const [userPracticeId, setUserPracticeId] = useState('');
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
-  const [showCreateMasterUser, setShowCreateMasterUser] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [assigningTasks, setAssigningTasks] = useState(false);
-  const [creatingAccounts, setCreatingAccounts] = useState(false);
   const [passingTask, setPassingTask] = useState<string | null>(null);
 
-  const isPracticeManager = user?.isPracticeManager || false;
-  const userName = user?.name || '';
-  const userRole = user?.role || '';
-  const userPracticeId = (isMasterUser && selectedPracticeId) ? selectedPracticeId : (user?.practiceId || '');
+  // Use capability system for access control
+  const canViewDashboards = hasCapability('view_dashboards') || isMasterUser;
+  const canManageRoles = hasCapability('assign_roles') || isMasterUser;
 
   useEffect(() => {
-    if (!user?.practiceId || !userPracticeId) return;
+    if (!user) return;
 
-    const fetchProcessTemplates = async () => {
+    const fetchUserInfo = async () => {
       try {
-        const response = await fetch(`/api/practices/${userPracticeId}/process-templates`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const templates = await response.json();
-          const filtered = templates.filter((t: any) => t.responsibleRole === userRole);
-          setAllProcessesByRole(filtered);
+        console.log('Fetching user info for auth user:', user.id);
+        const { data, error } = await supabase
+          .from('users')
+          .select('name, practice_id, is_master_user')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        console.log('User dashboard data:', data, 'Error:', error);
+        
+        if (data) {
+          setUserName(data.name);
+          
+          // For master users, use selected practice, otherwise use user's practice
+          const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
+          setUserPracticeId(practiceId);
+
+          // Get display role from capability system's userRoles
+          const displayRole = capabilityRoles[0]?.practice_role?.role_catalog?.display_name || 
+                             (canViewDashboards ? 'Manager' : 'Staff');
+          setUserRole(displayRole);
+
+          console.log('User role:', displayRole, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
+
+          // Fetch all process templates for the practice
+          const { data: templates, error: templatesError } = await supabase
+            .from('process_templates')
+            .select('name, responsible_role, frequency')
+            .eq('practice_id', practiceId);
+
+          console.log('Process templates:', templates, 'Error:', templatesError);
+          setAllProcessesByRole(templates || []);
+        } else {
+          console.log('No user data found in dashboard');
         }
       } catch (error) {
-        console.error('Error fetching process templates:', error);
+        console.error('Error fetching user info:', error);
       }
     };
 
-    fetchProcessTemplates();
-  }, [user, isMasterUser, selectedPracticeId, userPracticeId, userRole]);
+    fetchUserInfo();
+  }, [user, isMasterUser, selectedPracticeId, capabilityRoles, canViewDashboards]);
 
   const handleTaskClick = (taskId: string) => {
+    console.log('Navigate to task:', taskId);
     navigate(`/task/${taskId}`);
   };
 
@@ -75,74 +101,113 @@ export function UserDashboard() {
     return 'Start';
   };
 
-  const createMissingAccounts = async () => {
-    if (!userPracticeId) return;
-    
-    setCreatingAccounts(true);
-    try {
-      toast.info('Account creation feature is not yet available via API.');
-    } catch (error) {
-      console.error('Error creating accounts:', error);
-      toast.error('Failed to create user accounts');
-    } finally {
-      setCreatingAccounts(false);
-    }
-  };
-
   const createInitialProcesses = async () => {
     if (!userPracticeId) return;
     
     try {
-      toast.info('Process creation feature is not yet available via API.');
+      console.log('Creating initial processes for practice:', userPracticeId);
+      
+      const { data, error } = await supabase.functions.invoke('create-initial-processes', {
+        body: { practice_id: userPracticeId }
+      });
+
+      console.log('Create initial processes response:', data, 'Error:', error);
+
+      if (error) {
+        console.error('Error creating initial processes:', error);
+        toast.error(`Failed to create initial processes: ${error.message}`);
+        return;
+      }
+
+      toast.success(`Created ${data?.process_instances_created || 0} tasks for all users`);
+      
+      // Refresh the page to show the new tasks
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error('Error creating initial processes:', error);
       toast.error('Failed to create initial processes');
     }
   };
 
+  // Auto-create tasks if none exist and user can manage
   useEffect(() => {
-    if (isPracticeManager && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
-      console.log('No tasks found for practice manager');
+    if (canViewDashboards && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
+      console.log('No tasks found, auto-creating initial processes...');
+      createInitialProcesses();
     }
-  }, [isPracticeManager, userTasks.length, otherTasks.length, loading, userPracticeId]);
-
-  const assignAllTasksToMe = async () => {
-    if (!user?.practiceId) return;
-    
-    setAssigningTasks(true);
-    try {
-      toast.info('Task assignment feature is not yet available via API.');
-    } catch (error) {
-      console.error('Error assigning tasks:', error);
-      toast.error('Failed to assign tasks');
-    } finally {
-      setAssigningTasks(false);
-    }
-  };
+  }, [canViewDashboards, userTasks.length, otherTasks.length, loading, userPracticeId]);
 
   const passTaskToPracticeManager = async (taskId: string) => {
-    if (!user?.practiceId) return;
+    if (!user) return;
     
     setPassingTask(taskId);
     try {
-      const usersResponse = await fetch(`/api/practices/${userPracticeId}/users`, {
-        credentials: 'include',
-      });
+      // Get the current user's practice ID
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
 
-      if (!usersResponse.ok) {
-        toast.error('Failed to find practice manager');
+      if (!userData) {
+        toast.error('Could not find user data');
         return;
       }
 
-      const users = await usersResponse.json();
-      const practiceManager = users.find((u: any) => u.isPracticeManager);
+      // Find the practice manager via new role system first
+      const { data: pmViaRole } = await supabase
+        .from('user_practice_roles')
+        .select(`
+          user_id,
+          users!inner(id, practice_id),
+          practice_roles!inner(
+            role_catalog!inner(role_key)
+          )
+        `)
+        .eq('users.practice_id', userData.practice_id)
+        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+        .limit(1)
+        .maybeSingle();
 
-      if (!practiceManager) {
+      let practiceManagerId: string | null = null;
+
+      if (pmViaRole?.users) {
+        practiceManagerId = (pmViaRole.users as any).id;
+      } else {
+        // Fallback to is_practice_manager flag for backward compatibility
+        const { data: fallbackPM } = await supabase
+          .from('users')
+          .select('id')
+          .eq('practice_id', userData.practice_id)
+          .eq('is_practice_manager', true)
+          .limit(1)
+          .maybeSingle();
+        
+        practiceManagerId = fallbackPM?.id || null;
+      }
+
+      if (!practiceManagerId) {
         toast.error('No practice manager found');
         return;
       }
 
-      toast.info('Task reassignment feature is not yet fully available via API.');
+      // Update the task to assign it to the practice manager
+      const { error } = await supabase
+        .from('process_instances')
+        .update({ assignee_id: practiceManagerId })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error passing task:', error);
+        toast.error('Failed to pass task to practice manager');
+        return;
+      }
+
+      toast.success('Task passed to practice manager!');
+      // Refresh the page to show updated task assignments
+      window.location.reload();
     } catch (error) {
       console.error('Error passing task:', error);
       toast.error('Failed to pass task to practice manager');
@@ -153,8 +218,7 @@ export function UserDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background" data-testid="user-dashboard-loading">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="flex items-center justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -163,8 +227,7 @@ export function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background" data-testid="user-dashboard">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
@@ -172,7 +235,7 @@ export function UserDashboard() {
             {isMasterUser && <Crown className="h-6 w-6 text-yellow-500" />}
             <User className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold" data-testid="text-user-welcome">
+              <h1 className="text-2xl font-bold">
                 Welcome back, {userName}!
                 {isMasterUser && <Badge variant="secondary" className="ml-2">Master Admin</Badge>}
               </h1>
@@ -193,30 +256,29 @@ export function UserDashboard() {
                   clearSelectedPractice();
                   window.location.reload();
                 }}
-                data-testid="button-switch-practice"
               >
                 <Building2 className="h-4 w-4" />
                 Switch Practice
               </Button>
             )}
-            {(isPracticeManager || isMasterUser) && (
+            {canManageRoles && (
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2"
                 onClick={() => setShowRoleManagement(true)}
-                data-testid="button-change-roles"
               >
                 <Settings className="h-4 w-4" />
                 Change Roles/Designations
               </Button>
             )}
-            <Button variant="outline" onClick={signOut} data-testid="button-sign-out">
+            <Button variant="outline" onClick={signOut}>
               Sign Out
             </Button>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
+          {/* Your Tasks */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
@@ -235,12 +297,11 @@ export function UserDashboard() {
                       key={task.id} 
                       className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => handleTaskClick(task.id)}
-                      data-testid={`card-user-task-${task.id}`}
                     >
                       <div className="flex items-center gap-3">
                         {getStatusIcon(task.status)}
                         <div>
-                          <h3 className="font-medium" data-testid={`text-task-name-${task.id}`}>{task.name}</h3>
+                          <h3 className="font-medium">{task.name}</h3>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
@@ -252,7 +313,7 @@ export function UserDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <RAGBadge status={task.status} />
-                        {!isPracticeManager && (
+                        {!canViewDashboards && (
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -261,7 +322,6 @@ export function UserDashboard() {
                               passTaskToPracticeManager(task.id);
                             }}
                             disabled={passingTask === task.id}
-                            data-testid={`button-pass-task-${task.id}`}
                           >
                             {passingTask === task.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -271,14 +331,14 @@ export function UserDashboard() {
                             Pass to PM
                           </Button>
                         )}
-                        <Button size="sm" variant={task.status === 'red' ? 'destructive' : 'default'} data-testid={`button-action-task-${task.id}`}>
+                        <Button size="sm" variant={task.status === 'red' ? 'destructive' : 'default'}>
                           {getButtonText(task.status)}
                         </Button>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-tasks">
+                  <div className="text-center py-8 text-muted-foreground">
                     <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
                     <p>No tasks assigned to you today!</p>
                     <p className="text-sm">Great job staying on top of your processes.</p>
@@ -287,11 +347,13 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            {(isPracticeManager || isMasterUser) && (
+            {/* Ready for Audit - visible to users with dashboard access */}
+            {canViewDashboards && (
               <ReadyForAudit />
             )}
 
-            {(isPracticeManager || isMasterUser) && (
+            {/* Other Tasks - visible to users with dashboard access */}
+            {canViewDashboards && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -308,7 +370,6 @@ export function UserDashboard() {
                       key={task.id} 
                       className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => handleTaskClick(task.id)}
-                      data-testid={`card-other-task-${task.id}`}
                     >
                       <div className="flex items-center gap-3">
                         {getStatusIcon(task.status)}
@@ -339,6 +400,7 @@ export function UserDashboard() {
             )}
           </div>
 
+          {/* Summary */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -350,7 +412,7 @@ export function UserDashboard() {
                     <span className="text-sm">Completed</span>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium" data-testid="text-completed-count">
+                      <span className="text-sm font-medium">
                         {[...userTasks, ...otherTasks].filter(t => t.progress === 'Complete').length}
                       </span>
                     </div>
@@ -359,7 +421,7 @@ export function UserDashboard() {
                     <span className="text-sm">On Track</span>
                     <div className="flex items-center gap-2">
                       <RAGBadge status="green" />
-                      <span className="text-sm font-medium" data-testid="text-on-track-count">
+                      <span className="text-sm font-medium">
                         {[...userTasks, ...otherTasks].filter(t => t.status === 'green' && t.progress !== 'Complete').length}
                       </span>
                     </div>
@@ -368,7 +430,7 @@ export function UserDashboard() {
                     <span className="text-sm">At Risk</span>
                     <div className="flex items-center gap-2">
                       <RAGBadge status="amber" />
-                      <span className="text-sm font-medium" data-testid="text-at-risk-count">
+                      <span className="text-sm font-medium">
                         {[...userTasks, ...otherTasks].filter(t => t.status === 'amber').length}
                       </span>
                     </div>
@@ -377,7 +439,7 @@ export function UserDashboard() {
                     <span className="text-sm">Overdue</span>
                     <div className="flex items-center gap-2">
                       <RAGBadge status="red" />
-                      <span className="text-sm font-medium" data-testid="text-overdue-count">
+                      <span className="text-sm font-medium">
                         {[...userTasks, ...otherTasks].filter(t => t.status === 'red').length}
                       </span>
                     </div>
@@ -407,8 +469,8 @@ export function UserDashboard() {
                             You are responsible for these processes:
                           </p>
                           <ul className="space-y-1">
-                            {allProcessesByRole.map((process: any, index: number) => (
-                              <li key={index} className="text-sm text-blue-700 dark:text-blue-300" data-testid={`text-process-${index}`}>
+                            {allProcessesByRole.map((process, index) => (
+                              <li key={index} className="text-sm text-blue-700 dark:text-blue-300">
                                 • {process.name} ({process.frequency})
                               </li>
                             ))}
@@ -421,130 +483,15 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/processes')}
-                    data-testid="button-view-processes"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    View All Processes
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/risk-register')}
-                    data-testid="button-risk-register"
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Risk Register
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate('/team')}
-                    data-testid="button-team-dashboard"
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Team Dashboard
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={assignAllTasksToMe}
-                    disabled={assigningTasks}
-                    data-testid="button-assign-all-tasks"
-                  >
-                    {assigningTasks ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4 mr-2" />
-                    )}
-                    Assign All Tasks to Me
-                  </Button>
-                  {(isPracticeManager || isMasterUser) && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={createInitialProcesses}
-                      data-testid="button-create-tasks"
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Create Tasks for All Users
-                    </Button>
-                  )}
-                  {(isPracticeManager || isMasterUser) && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowCreateMasterUser(true)}
-                        data-testid="button-create-master-user"
-                      >
-                        <Crown className="h-4 w-4 mr-2" />
-                        Create Master User
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowPasswordReset(true)}
-                        data-testid="button-reset-password"
-                      >
-                        <KeyRound className="h-4 w-4 mr-2" />
-                        Reset User Password
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
 
-      {showRoleManagement && (
-        <RoleManagement onClose={() => setShowRoleManagement(false)} />
-      )}
-      
-      {showCreateMasterUser && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute -top-2 -right-2 z-10"
-              onClick={() => setShowCreateMasterUser(false)}
-              data-testid="button-close-create-master"
-            >
-              ×
-            </Button>
-            <CreateMasterUser />
-          </div>
-        </div>
-      )}
+      <RoleManagement 
+        open={showRoleManagement} 
+        onOpenChange={setShowRoleManagement} 
+      />
 
-      {showPasswordReset && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute -top-2 -right-2 z-10"
-              onClick={() => setShowPasswordReset(false)}
-              data-testid="button-close-password-reset"
-            >
-              ×
-            </Button>
-            <PasswordReset />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

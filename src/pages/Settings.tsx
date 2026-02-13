@@ -1,18 +1,54 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sun, Moon, Monitor, Bell, Lock, User, Mail } from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, Lock, User, Mail, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotificationPreferences, type EmailFrequency } from '@/hooks/useNotificationPreferences';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { MFASetupDialog } from '@/components/auth/MFASetupDialog';
+import { DisableMFADialog } from '@/components/auth/DisableMFADialog';
+import { Badge } from '@/components/ui/badge';
 
 type Theme = "light" | "dark" | "system";
 
 export default function Settings() {
   const [theme, setTheme] = useState<Theme>("system");
   const { preferences, loading, updatePreferences } = useNotificationPreferences();
+  const { user } = useAuth();
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(true);
+  const [showMfaSetup, setShowMfaSetup] = useState(false);
+  const [showMfaDisable, setShowMfaDisable] = useState(false);
+  const [userData, setUserData] = useState<{ id: string; email: string } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchMfaStatus();
+    }
+  }, [user]);
+
+  const fetchMfaStatus = async () => {
+    setMfaLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, mfa_enabled')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+      setMfaEnabled(data?.mfa_enabled || false);
+      setUserData({ id: data.id, email: user?.email || '' });
+    } catch (error) {
+      console.error('Error fetching MFA status:', error);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme") as Theme | null;
@@ -195,6 +231,65 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* Security */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Security
+          </CardTitle>
+          <CardDescription>
+            Manage your account security settings
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              {mfaEnabled ? (
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+              ) : (
+                <ShieldOff className="h-5 w-5 text-muted-foreground" />
+              )}
+              <div>
+                <Label className="text-base">Two-Factor Authentication</Label>
+                <p className="text-sm text-muted-foreground">
+                  Add an extra layer of security to your account
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {mfaLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
+              ) : mfaEnabled ? (
+                <>
+                  <Badge variant="default" className="bg-green-600">Enabled</Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowMfaDisable(true)}
+                  >
+                    Disable
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => setShowMfaSetup(true)}
+                >
+                  Enable MFA
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full justify-start">
+            <Lock className="h-4 w-4 mr-2" />
+            Change Password
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Account */}
       <Card>
         <CardHeader>
@@ -211,12 +306,33 @@ export default function Settings() {
             <User className="h-4 w-4 mr-2" />
             Edit Profile
           </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Lock className="h-4 w-4 mr-2" />
-            Change Password
-          </Button>
         </CardContent>
       </Card>
+
+      {/* MFA Dialogs */}
+      {userData && (
+        <>
+          <MFASetupDialog
+            open={showMfaSetup}
+            onOpenChange={setShowMfaSetup}
+            userEmail={userData.email}
+            onSuccess={() => {
+              setMfaEnabled(true);
+              fetchMfaStatus();
+            }}
+          />
+          <DisableMFADialog
+            open={showMfaDisable}
+            onOpenChange={setShowMfaDisable}
+            userId={userData.id}
+            userEmail={userData.email}
+            onSuccess={() => {
+              setMfaEnabled(false);
+              fetchMfaStatus();
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

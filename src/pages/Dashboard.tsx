@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
-import { format, isThisMonth, isPast, isFuture } from 'date-fns';
+import { Calendar, Clock, CheckCircle2, XCircle, ArrowLeft, GitBranch } from 'lucide-react';
+import { format, isThisMonth, isPast } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { PoliciesNeedingAcknowledgment } from '@/components/dashboard/PoliciesNeedingAcknowledgment';
 import { AITaskSuggestions } from '@/components/dashboard/AITaskSuggestions';
-import { AIComplianceScores } from '@/components/dashboard/AIComplianceScores';
+import { PracticeScoresCard } from '@/components/dashboard/PracticeScoresCard';
+import { ShowProcessDialog } from '@/components/process/ShowProcessDialog';
 
 type Task = {
   id: string;
@@ -25,40 +28,48 @@ type Task = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [practiceId, setPracticeId] = useState<string | null>(null);
 
-  const userRole = user?.role || '';
-  const isManager = userRole === 'practice_manager' || userRole === 'administrator' || userRole === 'group_manager';
+  // Check for manager capabilities via new role system
+  const isManager = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice', 'run_reports');
 
   useEffect(() => {
-    if (!user?.practiceId) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
     const fetchTasks = async () => {
-      try {
-        const response = await fetch(`/api/practices/${user.practiceId}/tasks`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const tasksData = await response.json();
-          setTasks(tasksData || []);
-        }
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      } finally {
-        setLoading(false);
+      // Get user data with practice_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userData) {
+        setPracticeId(userData.practice_id);
+        
+        // Fetch tasks assigned to this user
+        const { data: tasksData } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('assigned_to_user_id', userData.id)
+          .order('due_at', { ascending: true });
+
+        setTasks(tasksData || []);
       }
+      setLoading(false);
     };
 
     fetchTasks();
   }, [user]);
 
+  // Filter tasks for current month, completed, and timed out
   const currentMonthTasks = tasks.filter(task => 
-    task.due_at && isThisMonth(new Date(task.due_at)) && 
+    isThisMonth(new Date(task.due_at)) && 
     !['closed', 'submitted'].includes(task.status)
   );
 
@@ -67,33 +78,32 @@ export default function Dashboard() {
   );
 
   const timedOutTasks = tasks.filter(task => 
-    task.due_at && isPast(new Date(task.due_at)) && 
+    isPast(new Date(task.due_at)) && 
     !['closed', 'submitted'].includes(task.status)
   );
 
   const getStatusBadge = (task: Task) => {
-    if (!task.due_at) return <Badge variant="secondary">{t('tasks.on_track')}</Badge>;
     const dueDate = new Date(task.due_at);
     const now = new Date();
     const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (task.status === 'overdue' || (isPast(dueDate) && task.status !== 'closed')) {
-      return <Badge variant="destructive" data-testid={`badge-status-overdue-${task.id}`}>{t('tasks.status.overdue')}</Badge>;
+      return <Badge variant="destructive">{t('tasks.status.overdue')}</Badge>;
     }
     
     if (daysUntilDue <= 2) {
-      return <Badge className="bg-orange-500" data-testid={`badge-status-due-soon-${task.id}`}>{t('tasks.due_soon')}</Badge>;
+      return <Badge className="bg-orange-500">{t('tasks.due_soon')}</Badge>;
     }
 
-    return <Badge variant="secondary" data-testid={`badge-status-on-track-${task.id}`}>{t('tasks.on_track')}</Badge>;
+    return <Badge variant="secondary">{t('tasks.on_track')}</Badge>;
   };
 
   const TaskCard = ({ task }: { task: Task }) => (
-    <Card className="hover:shadow-md transition-shadow" data-testid={`card-task-${task.id}`}>
+    <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
-            <CardTitle className="text-lg" data-testid={`text-task-title-${task.id}`}>{task.title}</CardTitle>
+            <CardTitle className="text-lg">{task.title}</CardTitle>
             <CardDescription>{task.description}</CardDescription>
           </div>
           {getStatusBadge(task)}
@@ -104,7 +114,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>{task.due_at ? format(new Date(task.due_at), 'PPP') : 'No due date'}</span>
+              <span>{format(new Date(task.due_at), 'PPP')}</span>
             </div>
             <Badge variant="outline">{task.module}</Badge>
             {task.requires_photo && (
@@ -113,8 +123,8 @@ export default function Dashboard() {
           </div>
           
           <div className="flex gap-2">
-            <Button size="sm" className="flex-1" data-testid={`button-complete-task-${task.id}`}>Complete Task</Button>
-            <Button size="sm" variant="outline" data-testid={`button-send-back-${task.id}`}>
+            <Button size="sm" className="flex-1">Complete Task</Button>
+            <Button size="sm" variant="outline">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Send Back
             </Button>
@@ -124,9 +134,9 @@ export default function Dashboard() {
     </Card>
   );
 
-  if (loading) {
+  if (loading || capabilitiesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" data-testid="dashboard-loading">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">{t('app.loading')}</p>
@@ -135,11 +145,12 @@ export default function Dashboard() {
     );
   }
 
+  // Manager/Admin Dashboard
   if (isManager) {
     return (
-      <div className="container mx-auto p-6 space-y-6" data-testid="dashboard-manager">
+      <div className="container mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-welcome">{t('home.welcome')}</h1>
+          <h1 className="text-3xl font-bold">{t('home.welcome')}</h1>
           <p className="text-muted-foreground">Practice Manager Dashboard</p>
         </div>
 
@@ -149,7 +160,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Due This Week</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-due-this-week">12</div>
+              <div className="text-2xl font-bold">12</div>
               <p className="text-xs text-muted-foreground">+3 from last week</p>
             </CardContent>
           </Card>
@@ -159,7 +170,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive" data-testid="text-overdue-tasks">5</div>
+              <div className="text-2xl font-bold text-destructive">5</div>
               <p className="text-xs text-muted-foreground">Requires attention</p>
             </CardContent>
           </Card>
@@ -169,20 +180,47 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-completion-rate">87%</div>
+              <div className="text-2xl font-bold">87%</div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Ready for Audit Section */}
         <ReadyForAudit />
 
+        {/* Policies Needing Acknowledgment */}
         <PoliciesNeedingAcknowledgment />
 
+        {/* AI Components - PracticeScoresCard replaces AIComplianceScores */}
         <div className="grid gap-6 md:grid-cols-2">
           <AITaskSuggestions />
-          <AIComplianceScores />
+          <PracticeScoresCard />
         </div>
+
+        {/* Process Mapping */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5" />
+              Process Mapping
+            </CardTitle>
+            <CardDescription>View and generate process diagrams for your practice</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setShowProcessDialog(true)}>
+              Show Process
+            </Button>
+          </CardContent>
+        </Card>
+
+        {practiceId && (
+          <ShowProcessDialog
+            open={showProcessDialog}
+            onOpenChange={setShowProcessDialog}
+            practiceId={practiceId}
+          />
+        )}
 
         <Card>
           <CardHeader>
@@ -197,26 +235,28 @@ export default function Dashboard() {
     );
   }
 
+  // Standard User Dashboard
   return (
-    <div className="container mx-auto p-6 space-y-6" data-testid="dashboard-user">
+    <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-welcome">{t('home.welcome')}</h1>
+        <h1 className="text-3xl font-bold">{t('home.welcome')}</h1>
         <p className="text-muted-foreground">{t('home.my_todos')}</p>
       </div>
 
+      {/* Policies Widget for Standard Users */}
       <PoliciesNeedingAcknowledgment />
 
       <Tabs defaultValue="current" className="w-full">
         <TabsList>
-          <TabsTrigger value="current" data-testid="tab-current-tasks">
+          <TabsTrigger value="current">
             <Clock className="h-4 w-4 mr-2" />
             {t('home.my_todos')} ({currentMonthTasks.length})
           </TabsTrigger>
-          <TabsTrigger value="completed" data-testid="tab-completed-tasks">
+          <TabsTrigger value="completed">
             <CheckCircle2 className="h-4 w-4 mr-2" />
             {t('home.completed')} ({completedTasks.length})
           </TabsTrigger>
-          <TabsTrigger value="timedout" data-testid="tab-timedout-tasks">
+          <TabsTrigger value="timedout">
             <XCircle className="h-4 w-4 mr-2" />
             {t('home.timed_out')} ({timedOutTasks.length})
           </TabsTrigger>

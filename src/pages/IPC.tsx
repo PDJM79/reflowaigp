@@ -1,21 +1,192 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCapabilities } from "@/hooks/useCapabilities";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, CheckCircle2, AlertCircle, Download, Info } from "lucide-react";
+import { Plus, FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { IPCAuditCard } from "@/components/ipc/IPCAuditCard";
+import { generateIPCStatementPDF } from "@/lib/pdfExportV2";
 
 export default function IPC() {
-  const handleCreateAudit = () => {
-    toast("This feature will be available in a future update", {
-      description: "IPC audit creation is coming soon"
-    });
+  const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [audits, setAudits] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    openActions: 0
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/');
+        return;
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      // Fetch audits
+      const { data: auditsData, error: auditsError } = await supabase
+        .from('ipc_audits')
+        .select('*')
+        .eq('practice_id', userData.practice_id)
+        .order('period_year', { ascending: false })
+        .order('period_month', { ascending: false });
+
+      if (auditsError) throw auditsError;
+
+      // Fetch actions for stats
+      const { data: actionsData, error: actionsError } = await supabase
+        .from('ipc_actions')
+        .select('status')
+        .eq('practice_id', userData.practice_id);
+
+      if (actionsError) throw actionsError;
+
+      setAudits(auditsData || []);
+      setStats({
+        total: auditsData?.length || 0,
+        completed: auditsData?.filter(a => a.completed_at !== null).length || 0,
+        pending: auditsData?.filter(a => a.completed_at === null).length || 0,
+        openActions: actionsData?.filter(a => a.status === 'open').length || 0
+      });
+    } catch (error: any) {
+      console.error('Error fetching IPC data:', error);
+      toast.error('Failed to load IPC data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleExportIPCStatement = () => {
-    toast("This feature will be available in a future update", {
-      description: "IPC statement export is coming soon"
-    });
+  const handleCreateAudit = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      
+      // IPC audits are May (5) or December (12) only
+      const nextAuditMonth = currentMonth <= 5 ? 5 : 12;
+      const nextAuditYear = currentMonth > 12 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
+      
+      const { data, error} = await supabase
+        .from('ipc_audits')
+        .insert([{
+          practice_id: userData.practice_id,
+          period_month: nextAuditMonth,
+          period_year: nextAuditYear,
+          location_scope: 'whole_practice'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('IPC audit created successfully');
+      navigate(`/ipc/audit/${data.id}`);
+    } catch (error: any) {
+      console.error('Error creating audit:', error);
+      toast.error(error.message || 'Failed to create audit');
+    }
   };
+
+  const handleExportIPCStatement = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) throw new Error('User data not found');
+
+      const { data: practiceData } = await supabase
+        .from('practices')
+        .select('name')
+        .eq('id', userData.practice_id)
+        .single();
+
+      const completedAudits = audits.filter(a => a.completed_at !== null);
+      const { data: actionsData } = await supabase
+        .from('ipc_actions')
+        .select('*')
+        .eq('practice_id', userData.practice_id);
+
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const period = `${oneYearAgo.toLocaleDateString()} to ${new Date().toLocaleDateString()}`;
+
+      const exporter = generateIPCStatementPDF({
+        practiceName: practiceData?.name || 'Practice',
+        period,
+        audits: completedAudits,
+        actions: actionsData || [],
+        completionRate: completedAudits.length > 0 ? Math.round((completedAudits.length / audits.length) * 100) : 0
+      });
+
+      exporter.save(`IPC_Statement_12_Month_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('IPC Statement PDF exported successfully');
+    } catch (error: any) {
+      console.error('Error exporting IPC statement:', error);
+      toast.error('Failed to export IPC statement');
+    }
+  };
+
+  // Capability check - requires manage_ipc capability
+  const canManageIPC = hasCapability('manage_ipc');
+
+  if (loading || capabilitiesLoading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!canManageIPC) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              You need the "manage_ipc" capability to access IPC management.
+            </p>
+            <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -49,7 +220,7 @@ export default function IPC() {
           <CardContent>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              <span className="text-2xl font-bold">0</span>
+              <span className="text-2xl font-bold">{stats.total}</span>
             </div>
           </CardContent>
         </Card>
@@ -61,7 +232,7 @@ export default function IPC() {
           <CardContent>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <span className="text-2xl font-bold">0</span>
+              <span className="text-2xl font-bold">{stats.completed}</span>
             </div>
           </CardContent>
         </Card>
@@ -73,7 +244,7 @@ export default function IPC() {
           <CardContent>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-amber-600" />
-              <span className="text-2xl font-bold">0</span>
+              <span className="text-2xl font-bold">{stats.pending}</span>
             </div>
           </CardContent>
         </Card>
@@ -85,7 +256,7 @@ export default function IPC() {
           <CardContent>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
-              <span className="text-2xl font-bold">0</span>
+              <span className="text-2xl font-bold">{stats.openActions}</span>
             </div>
           </CardContent>
         </Card>
@@ -93,13 +264,23 @@ export default function IPC() {
 
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Audits</h2>
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No IPC audits yet.</p>
-            <p className="text-sm mt-1">This feature will be available in a future update.</p>
-          </CardContent>
-        </Card>
+        {audits.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No IPC audits yet. Create your first audit to get started.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {audits.map((audit) => (
+              <IPCAuditCard
+                key={audit.id}
+                audit={audit}
+                onView={(id) => navigate(`/ipc/audits/${id}`)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { ArrowLeft, Search, Clock, User, Filter } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
@@ -75,8 +74,7 @@ export default function AllProcesses() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -85,8 +83,7 @@ export default function AllProcesses() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">

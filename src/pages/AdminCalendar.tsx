@@ -4,91 +4,107 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AppHeader } from '@/components/layout/AppHeader';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { format, startOfMonth, endOfMonth, addDays, isSameDay, parseISO } from 'date-fns';
 import { CalendarDays, BarChart3, Settings, ChevronLeft, ChevronRight, Edit3, Eye, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
-interface CalendarTask {
+interface ProcessInstance {
   id: string;
-  title: string;
-  dueAt: string;
+  template_id: string;
+  period_start: string;
+  period_end: string;
+  due_at: string;
   status: string;
-  assignedToUserId: string;
-  assigneeName?: string;
-  module?: string;
+  assignee_id: string;
+  assignee_name?: string;
+  process_name?: string;
 }
 
 export default function AdminCalendar() {
   const { user, signOut } = useAuth();
+  const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewDate, setViewDate] = useState<Date>(new Date());
-  const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [processes, setProcesses] = useState<ProcessInstance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<CalendarTask | null>(null);
+  const [selectedProcess, setSelectedProcess] = useState<ProcessInstance | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
   const [newDueDate, setNewDueDate] = useState('');
 
-  const isAdmin = user?.isPracticeManager || user?.role === 'administrator';
+  // Check admin access via capabilities
+  const isAdmin = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice');
 
   useEffect(() => {
-    fetchTasks();
+    fetchProcesses();
   }, [user, viewDate]);
 
-  const fetchTasks = async () => {
-    if (!user?.practiceId) return;
+  const fetchProcesses = async () => {
+    if (!user) return;
 
     try {
-      const res = await fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const data = await res.json();
-
-      const usersRes = await fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' });
-      const usersData = usersRes.ok ? await usersRes.json() : [];
-      const userMap = new Map((usersData || []).map((u: any) => [u.id, u.name]));
-
       const startDate = startOfMonth(viewDate);
       const endDate = endOfMonth(viewDate);
 
-      const filtered = (data || [])
-        .filter((task: any) => {
-          const dueDate = new Date(task.dueAt);
-          return dueDate >= startDate && dueDate <= endDate;
-        })
-        .map((task: any) => ({
-          id: task.id,
-          title: task.title,
-          dueAt: task.dueAt,
-          status: task.status,
-          assignedToUserId: task.assignedToUserId,
-          assigneeName: userMap.get(task.assignedToUserId) || 'Unassigned',
-          module: task.module,
-        }));
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user.id)
+        .single();
 
-      setTasks(filtered);
+      if (!userData) return;
+
+      const { data: processData, error } = await supabase
+        .from('process_instances')
+        .select(`
+          *,
+          process_templates!inner(name),
+          users!assignee_id(name)
+        `)
+        .eq('practice_id', userData.practice_id)
+        .gte('due_at', startDate.toISOString())
+        .lte('due_at', endDate.toISOString())
+        .order('due_at');
+
+      if (error) throw error;
+
+      const formattedProcesses = processData?.map(process => ({
+        id: process.id,
+        template_id: process.template_id,
+        period_start: process.period_start,
+        period_end: process.period_end,
+        due_at: process.due_at,
+        status: process.status,
+        assignee_id: process.assignee_id,
+        assignee_name: process.users?.name || 'Unassigned',
+        process_name: process.process_templates.name
+      })) || [];
+
+      setProcesses(formattedProcesses);
     } catch (error) {
-      console.error('Error fetching tasks:', error);
-      toast.error('Failed to load tasks');
+      console.error('Error fetching processes:', error);
+      toast.error('Failed to load processes');
     } finally {
       setLoading(false);
     }
   };
 
-  const getTasksForDate = (date: Date) => {
-    return tasks.filter(task => 
-      isSameDay(parseISO(task.dueAt), date)
+  const getProcessesForDate = (date: Date) => {
+    return processes.filter(process => 
+      isSameDay(parseISO(process.due_at), date)
     );
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-      case 'complete': return 'bg-green-500';
+      case 'completed': return 'bg-green-500';
       case 'in_progress': return 'bg-blue-500';
       case 'overdue': return 'bg-red-500';
       default: return 'bg-gray-500';
@@ -96,35 +112,42 @@ export default function AdminCalendar() {
   };
 
   const handleReschedule = async () => {
-    if (!selectedTask || !newDueDate || !user?.practiceId) return;
+    if (!selectedProcess || !newDueDate) return;
 
     try {
-      const res = await fetch(`/api/practices/${user.practiceId}/tasks`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id: selectedTask.id, dueAt: newDueDate }),
-      });
+      const { error } = await supabase
+        .from('process_instances')
+        .update({ due_at: newDueDate })
+        .eq('id', selectedProcess.id);
 
-      if (!res.ok) throw new Error('Failed to reschedule');
+      if (error) throw error;
 
-      toast.success('Task rescheduled successfully');
+      toast.success('Process rescheduled successfully');
       setShowRescheduleDialog(false);
-      setSelectedTask(null);
+      setSelectedProcess(null);
       setNewDueDate('');
-      fetchTasks();
+      fetchProcesses();
     } catch (error) {
-      console.error('Error rescheduling task:', error);
-      toast.error('Failed to reschedule task');
+      console.error('Error rescheduling process:', error);
+      toast.error('Failed to reschedule process');
     }
   };
 
-  const tasksForSelectedDate = getTasksForDate(selectedDate);
+  const processesForSelectedDate = getProcessesForDate(selectedDate);
+
+  if (capabilitiesLoading || loading) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <div className="p-4 md:p-6">
         <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
@@ -143,9 +166,9 @@ export default function AdminCalendar() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <div className="p-4 md:p-6">
       <div className="container mx-auto p-6">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">Administrator Calendar</h1>
@@ -168,12 +191,13 @@ export default function AdminCalendar() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Calendar */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <CalendarDays className="h-5 w-5" />
-                  Task Calendar
+                  Process Calendar
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
@@ -206,18 +230,18 @@ export default function AdminCalendar() {
                 className="w-full"
                 components={{
                   Day: ({ date, ...props }) => {
-                    const dayTasks = getTasksForDate(date);
+                    const dayProcesses = getProcessesForDate(date);
                     return (
                       <div className="relative">
                         <button {...props}>
                           {format(date, 'd')}
                         </button>
-                        {dayTasks.length > 0 && (
+                        {dayProcesses.length > 0 && (
                           <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 flex gap-1">
-                            {dayTasks.slice(0, 3).map((task, index) => (
+                            {dayProcesses.slice(0, 3).map((process, index) => (
                               <div
                                 key={index}
-                                className={`w-1.5 h-1.5 rounded-full ${getStatusColor(task.status)}`}
+                                className={`w-1.5 h-1.5 rounded-full ${getStatusColor(process.status)}`}
                               />
                             ))}
                           </div>
@@ -230,42 +254,43 @@ export default function AdminCalendar() {
             </CardContent>
           </Card>
 
+          {/* Selected Date Processes */}
           <Card>
             <CardHeader>
               <CardTitle>
-                Tasks for {format(selectedDate, 'MMM d, yyyy')}
+                Processes for {format(selectedDate, 'MMM d, yyyy')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="text-center py-4">Loading...</div>
-              ) : tasksForSelectedDate.length === 0 ? (
+              ) : processesForSelectedDate.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground">
-                  No tasks scheduled for this date
+                  No processes scheduled for this date
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {tasksForSelectedDate.map((task) => (
-                    <div key={task.id} className="border rounded-lg p-3">
+                  {processesForSelectedDate.map((process) => (
+                    <div key={process.id} className="border rounded-lg p-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{task.title}</h4>
+                          <h4 className="font-medium truncate">{process.process_name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            Assigned to: {task.assigneeName}
+                            Assigned to: {process.assignee_name}
                           </p>
                           <Badge 
                             variant="outline" 
-                            className={`mt-1 ${getStatusColor(task.status)} text-white border-none`}
+                            className={`mt-1 ${getStatusColor(process.status)} text-white border-none`}
                           >
-                            {task.status}
+                            {process.status}
                           </Badge>
                         </div>
                         <div className="flex gap-1 ml-2">
-                          {task.status === 'completed' || task.status === 'complete' ? (
+                          {process.status === 'completed' ? (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => navigate(`/task/${task.id}`)}
+                              onClick={() => navigate(`/task/${process.id}`)}
                             >
                               <Eye className="h-3 w-3" />
                             </Button>
@@ -275,8 +300,8 @@ export default function AdminCalendar() {
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => {
-                                  setSelectedTask(task);
-                                  setNewDueDate(task.dueAt.split('T')[0]);
+                                  setSelectedProcess(process);
+                                  setNewDueDate(process.due_at.split('T')[0]);
                                   setShowRescheduleDialog(true);
                                 }}
                               >
@@ -285,7 +310,7 @@ export default function AdminCalendar() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => navigate(`/task/${task.id}`)}
+                                onClick={() => navigate(`/task/${process.id}`)}
                               >
                                 <Eye className="h-3 w-3" />
                               </Button>
@@ -302,16 +327,17 @@ export default function AdminCalendar() {
         </div>
       </div>
 
+      {/* Reschedule Dialog */}
       <Dialog open={showRescheduleDialog} onOpenChange={setShowRescheduleDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reschedule Task</DialogTitle>
+            <DialogTitle>Reschedule Process</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Task</Label>
+              <Label>Process</Label>
               <p className="text-sm text-muted-foreground">
-                {selectedTask?.title}
+                {selectedProcess?.process_name}
               </p>
             </div>
             <div>

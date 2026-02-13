@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Activity, Users, Building2, MessageSquare, BarChart3 } from 'lucide-react';
+import { Shield, Activity, Users, Building2, MessageSquare, BarChart3, Stamp } from 'lucide-react';
 
 export default function DashboardsHub() {
   const { user } = useAuth();
@@ -47,6 +47,13 @@ export default function DashboardsHub() {
       icon: MessageSquare,
       path: '/dashboards/patient-experience',
       color: 'text-destructive',
+    },
+    {
+      title: 'Governance Approvals',
+      description: 'Formal sign-off tracking, bulk approvals, and regulatory audit trail',
+      icon: Stamp,
+      path: '/dashboards/governance',
+      color: 'text-info',
     },
   ];
 

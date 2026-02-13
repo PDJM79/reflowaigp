@@ -3,9 +3,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePracticeSelection } from '@/hooks/usePracticeSelection';
+import { useRoleCatalog } from '@/hooks/useRoleCatalog';
+import type { PracticeRole } from '@/types/roles';
 
 interface UserManagementDialogProps {
   isOpen: boolean;
@@ -14,30 +20,21 @@ interface UserManagementDialogProps {
   user?: any;
 }
 
-const roleOptions = [
-  { value: 'practice_manager', label: 'Practice Manager', description: 'Full system access and administrative rights' },
-  { value: 'administrator', label: 'Administrator', description: 'Administrative tasks and user management' },
-  { value: 'nurse_lead', label: 'Nurse Lead', description: 'Lead nursing staff, IPC audits' },
-  { value: 'cd_lead_gp', label: 'CD Lead GP', description: 'Clinical governance and quality improvement' },
-  { value: 'estates_lead', label: 'Estates Lead', description: 'Facilities, fire safety, maintenance' },
-  { value: 'ig_lead', label: 'IG Lead', description: 'Information governance, complaints handling' },
-  { value: 'reception_lead', label: 'Reception Lead', description: 'Reception team coordination' },
-  { value: 'gp', label: 'GP', description: 'General practitioner' },
-  { value: 'nurse', label: 'Nurse', description: 'Nursing staff' },
-  { value: 'hca', label: 'HCA', description: 'Healthcare assistant' },
-  { value: 'reception', label: 'Reception', description: 'Reception staff' },
-  { value: 'cleaner', label: 'Cleaner', description: 'Cleaning staff' },
-];
-
 export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserManagementDialogProps) {
   const { user: currentUser } = useAuth();
+  const { selectedPracticeId } = usePracticeSelection();
+  const { practiceRoles, practiceRolesLoading, getActivePracticeRoles } = useRoleCatalog();
+  
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    role: '',
+    selectedPracticeRoleIds: [] as string[],
   });
+  const [existingRoleIds, setExistingRoleIds] = useState<string[]>([]);
+
+  const activePracticeRoles = getActivePracticeRoles();
 
   useEffect(() => {
     if (user) {
@@ -45,17 +42,48 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: user.name || '',
         email: '',
         password: '',
-        role: user.role || '',
+        selectedPracticeRoleIds: [],
       });
+      fetchUserRoles(user.id);
     } else {
       setFormData({
         name: '',
         email: '',
         password: '',
-        role: '',
+        selectedPracticeRoleIds: [],
       });
+      setExistingRoleIds([]);
     }
-  }, [user]);
+  }, [user, isOpen]);
+
+  const fetchUserRoles = async (userId: string) => {
+    if (!selectedPracticeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_practice_roles')
+        .select('practice_role_id')
+        .eq('user_id', userId)
+        .eq('practice_id', selectedPracticeId);
+
+      if (error) throw error;
+      
+      const roleIds = (data || []).map(r => r.practice_role_id);
+      setExistingRoleIds(roleIds);
+      setFormData(prev => ({ ...prev, selectedPracticeRoleIds: roleIds }));
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+    }
+  };
+
+  const handleRoleToggle = (practiceRoleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedPracticeRoleIds: prev.selectedPracticeRoleIds.includes(practiceRoleId)
+        ? prev.selectedPracticeRoleIds.filter(id => id !== practiceRoleId)
+        : [...prev.selectedPracticeRoleIds, practiceRoleId]
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,13 +98,13 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       return;
     }
 
-    if (!formData.role) {
-      toast.error('Please select a role');
+    if (formData.selectedPracticeRoleIds.length === 0) {
+      toast.error('Please select at least one role');
       return;
     }
 
-    if (!currentUser?.practiceId) {
-      toast.error('Practice not found');
+    if (!selectedPracticeId) {
+      toast.error('No practice selected');
       return;
     }
 
@@ -84,40 +112,12 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
 
     try {
       if (user) {
-        const response = await fetch(`/api/practices/${currentUser.practiceId}/users/${user.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: formData.name,
-            role: formData.role,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to update user');
-        }
+        await updateUserRoles(user.id);
       } else {
-        const response = await fetch(`/api/practices/${currentUser.practiceId}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password || undefined,
-            role: formData.role,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to create user');
-        }
+        await createNewUser();
       }
 
-      toast.success(user ? 'User updated successfully' : 'User created successfully');
+      toast.success(user ? 'User roles updated successfully' : 'User created successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -128,19 +128,109 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
+  const updateUserRoles = async (userId: string) => {
+    if (!selectedPracticeId) return;
+
+    // Delete removed roles
+    const rolesToRemove = existingRoleIds.filter(id => !formData.selectedPracticeRoleIds.includes(id));
+    if (rolesToRemove.length > 0) {
+      const { error } = await supabase
+        .from('user_practice_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('practice_id', selectedPracticeId)
+        .in('practice_role_id', rolesToRemove);
+      if (error) throw error;
+    }
+
+    // Add new roles
+    const rolesToAdd = formData.selectedPracticeRoleIds.filter(id => !existingRoleIds.includes(id));
+    if (rolesToAdd.length > 0) {
+      const { error } = await supabase
+        .from('user_practice_roles')
+        .insert(
+          rolesToAdd.map(practiceRoleId => ({
+            user_id: userId,
+            practice_id: selectedPracticeId,
+            practice_role_id: practiceRoleId,
+          }))
+        );
+      if (error) throw error;
+    }
+
+    // Update name if changed
+    if (formData.name !== user.name) {
+      const { error } = await supabase
+        .from('users')
+        .update({ name: formData.name })
+        .eq('id', userId);
+      if (error) throw error;
+    }
+  };
+
+  const createNewUser = async () => {
+    if (!selectedPracticeId) return;
+
+    // Get primary role for user metadata
+    const primaryRole = activePracticeRoles.find(
+      pr => pr.id === formData.selectedPracticeRoleIds[0]
+    );
+    const roleKey = primaryRole?.role_catalog?.role_key || 'user';
+
+    // Call edge function to create user account
+    const { data, error } = await supabase.functions.invoke('create-user-accounts', {
+      body: {
+        email: formData.email,
+        name: formData.name,
+        role: roleKey,
+        practice_id: selectedPracticeId,
+        password: formData.password || undefined,
+      }
+    });
+
+    if (error) throw error;
+
+    // Add roles to user_practice_roles table
+    if (data?.user_id && formData.selectedPracticeRoleIds.length > 0) {
+      const { error: rolesError } = await supabase
+        .from('user_practice_roles')
+        .insert(
+          formData.selectedPracticeRoleIds.map(practiceRoleId => ({
+            user_id: data.user_id,
+            practice_id: selectedPracticeId,
+            practice_role_id: practiceRoleId,
+          }))
+        );
+      if (rolesError) throw rolesError;
+    }
+  };
+
+  const getCategoryColor = (category: string | undefined): string => {
+    const colors: Record<string, string> = {
+      clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      governance: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      it: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      support: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+      pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    };
+    return colors[category || 'support'] || colors.support;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl" data-testid="text-dialog-title">
-            {user ? 'Edit User' : 'Create New User'}
+          <DialogTitle className="text-lg sm:text-xl">
+            {user ? 'Edit User Roles' : 'Create New User'}
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
-            {user ? 'Update details and role for this user' : 'Add a new user account with a role'}
+            {user ? 'Update roles and permissions for this user' : 'Add a new user account with roles and permissions'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-user-management">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-base">Full Name *</Label>
@@ -151,7 +241,6 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                 placeholder="Enter full name"
                 className="h-11"
                 required
-                data-testid="input-user-name"
               />
             </div>
 
@@ -167,7 +256,6 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                     placeholder="user@example.com"
                     className="h-11"
                     required
-                    data-testid="input-user-email"
                   />
                 </div>
 
@@ -180,7 +268,6 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Leave blank to auto-generate"
                     className="h-11"
-                    data-testid="input-user-password"
                   />
                   <p className="text-sm text-muted-foreground">
                     If left blank, a secure password will be generated automatically
@@ -190,27 +277,65 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
             )}
           </div>
 
+          {/* Role Selection */}
           <div className="space-y-3">
-            <Label className="text-base">User Role *</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value) => setFormData({ ...formData, role: value })}
-              data-testid="select-user-role"
-            >
-              <SelectTrigger className="h-11" data-testid="select-trigger-role">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {roleOptions.map((role) => (
-                  <SelectItem key={role.value} value={role.value} data-testid={`select-role-${role.value}`}>
-                    <div className="flex flex-col">
-                      <span>{role.label}</span>
-                      <span className="text-xs text-muted-foreground">{role.description}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-base">User Roles * (Select one or more)</Label>
+            {practiceRolesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : activePracticeRoles.length === 0 ? (
+              <div className="border rounded-lg p-4 text-center text-muted-foreground">
+                <p>No roles have been enabled for this practice yet.</p>
+                <p className="text-sm mt-1">Go to Role Management to enable roles.</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-lg p-4">
+                <div className="space-y-3">
+                  {activePracticeRoles.map((practiceRole) => {
+                    const roleInfo = practiceRole.role_catalog;
+                    if (!roleInfo) return null;
+
+                    return (
+                      <div
+                        key={practiceRole.id}
+                        className={`flex items-start space-x-3 p-3 rounded-lg transition-colors cursor-pointer ${
+                          formData.selectedPracticeRoleIds.includes(practiceRole.id)
+                            ? 'bg-primary/10 border border-primary/20'
+                            : 'hover:bg-muted/50 border border-transparent'
+                        }`}
+                        onClick={() => handleRoleToggle(practiceRole.id)}
+                      >
+                        <Checkbox
+                          id={practiceRole.id}
+                          checked={formData.selectedPracticeRoleIds.includes(practiceRole.id)}
+                          onCheckedChange={() => handleRoleToggle(practiceRole.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <label
+                              htmlFor={practiceRole.id}
+                              className="text-sm font-medium leading-none cursor-pointer"
+                            >
+                              {roleInfo.display_name}
+                            </label>
+                            <Badge variant="outline" className={getCategoryColor(roleInfo.category)}>
+                              {roleInfo.category}
+                            </Badge>
+                          </div>
+                          {roleInfo.description && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {roleInfo.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -219,15 +344,13 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
               variant="outline" 
               onClick={onClose}
               className="w-full sm:w-auto min-h-[44px]"
-              data-testid="button-cancel"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || activePracticeRoles.length === 0}
               className="w-full sm:w-auto min-h-[44px]"
-              data-testid="button-submit"
             >
               {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
             </Button>

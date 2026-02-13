@@ -1,35 +1,37 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+// supabase/functions/claims-reminders/index.ts
+// CRON job: Sends claims reminders on 5th, 10th, 15th of month
+// Requires X-Job-Token header for authentication (verify_jwt=false)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { requireCronSecret } from '../_shared/auth.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { getPracticeManagersForPractice } from '../_shared/capabilities.ts';
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+serve(async (req) => {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('Claims Reminders CRON: Starting at 09:00 on 5th/10th/15th');
+    requireCronSecret(req);
+
+    const supabase = createServiceClient();
+    console.log('💰 Claims Reminders CRON: Starting at 09:00 on 5th/10th/15th');
 
     const currentDate = new Date();
     const dayOfMonth = currentDate.getDate();
 
-    // Only run on 5th, 10th, or 15th
     if (![5, 10, 15].includes(dayOfMonth)) {
       console.log(`Today is ${dayOfMonth}, not a reminder day (5/10/15)`);
       return new Response(
-        JSON.stringify({ message: 'Not a reminder day' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        JSON.stringify({ ok: true, message: 'Not a reminder day' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // Get all active practices
     const { data: practices, error: practicesError } = await supabase
       .from('practices')
       .select('id, name')
@@ -44,21 +46,11 @@ Deno.serve(async (req) => {
 
     const results = [];
 
-    for (const practice of practices) {
-      // Get practice managers
-      const { data: managers } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'practice_manager')
-        .in('user_id', 
-          supabase
-            .from('users')
-            .select('id')
-            .eq('practice_id', practice.id)
-            .eq('is_active', true)
-        );
+    for (const practice of practices || []) {
+      // Get practice managers using role system with fallback
+      const managers = await getPracticeManagersForPractice(supabase, practice.id);
 
-      if (!managers || managers.length === 0) {
+      if (managers.length === 0) {
         console.log(`No practice managers found for ${practice.name}`);
         continue;
       }
@@ -67,7 +59,7 @@ Deno.serve(async (req) => {
       const firstOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      const { data: scriptsData, count } = await supabase
+      const { count } = await supabase
         .from('month_end_scripts')
         .select('*', { count: 'exact', head: true })
         .eq('practice_id', practice.id)
@@ -77,10 +69,9 @@ Deno.serve(async (req) => {
 
       const scriptsCount = count || 0;
 
-      // Send in-app notification to practice managers
-      const notifications = managers.map((manager: { user_id: string }) => ({
+      const notifications = managers.map((manager: { id: string }) => ({
         practice_id: practice.id,
-        user_id: manager.user_id,
+        user_id: manager.id,
         notification_type: 'claims_reminder',
         priority: 'high',
         title: `Enhanced Service Claims Reminder - ${dayOfMonth}th`,
@@ -99,17 +90,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log('Claims Reminders CRON: Completed', results);
+    console.log('✅ Claims Reminders CRON: Completed', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ ok: true, results }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
-    console.error('Claims Reminders CRON Error:', error);
+    console.error('❌ Claims Reminders CRON Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { 'Content-Type': 'application/json' }, status: 401 }
     );
   }
 });

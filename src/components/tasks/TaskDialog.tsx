@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,35 +49,49 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
   useEffect(() => {
     if (task) {
       setFormData({
-        template_id: task.templateId || task.template_id || '',
+        template_id: task.template_id || '',
         title: task.title || '',
         description: task.description || '',
         module: task.module || '',
-        due_at: task.dueAt || task.due_at ? new Date(task.dueAt || task.due_at).toISOString().split('T')[0] : '',
+        due_at: task.due_at ? new Date(task.due_at).toISOString().split('T')[0] : '',
         priority: task.priority || 'medium',
-        assigned_to_user_id: task.assignedToUserId || task.assigned_to_user_id || '',
+        assigned_to_user_id: task.assigned_to_user_id || '',
       });
     }
   }, [task]);
 
   const fetchTemplatesAndUsers = async () => {
-    if (!user?.practiceId) return;
-
     try {
-      const [templatesResponse, usersResponse] = await Promise.all([
-        fetch(`/api/practices/${user.practiceId}/process-templates`, { credentials: 'include' }),
-        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (!userData) return;
+
+      const [templatesData, usersData] = await Promise.all([
+        supabase
+          .from('task_templates')
+          .select('*')
+          .eq('practice_id', userData.practice_id),
+        supabase
+          .from('users')
+          .select(`
+            id, 
+            name,
+            user_practice_roles(
+              practice_roles(
+                role_catalog(role_key, display_name)
+              )
+            )
+          `)
+          .eq('practice_id', userData.practice_id)
+          .eq('is_active', true),
       ]);
 
-      if (templatesResponse.ok) {
-        const templatesData = await templatesResponse.json();
-        setTemplates(templatesData || []);
-      }
-
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers((usersData || []).filter((u: any) => u.isActive !== false));
-      }
+      setTemplates(templatesData.data || []);
+      setUsers(usersData.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -97,55 +112,57 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.practiceId) {
-      toast.error('Practice not found');
-      return;
-    }
-
     setLoading(true);
 
     try {
       const validatedData = taskSchema.parse(formData);
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('auth_user_id', user?.id)
+        .single();
+
+      if (!userData) throw new Error('User not found');
+
       const taskData = {
+        practice_id: userData.practice_id,
         title: validatedData.title,
         description: validatedData.description || '',
         module: validatedData.module,
-        dueAt: new Date(validatedData.due_at).toISOString(),
+        due_at: new Date(validatedData.due_at).toISOString(),
         priority: validatedData.priority,
-        templateId: formData.template_id || null,
-        assignedToUserId: formData.assigned_to_user_id || null,
+        template_id: formData.template_id || null,
+        assigned_to_user_id: formData.assigned_to_user_id || null,
         status: 'open',
       };
 
-      const taskId = task?.id;
-      const url = taskId
-        ? `/api/practices/${user.practiceId}/tasks/${taskId}`
-        : `/api/practices/${user.practiceId}/tasks`;
-      const method = taskId ? 'PATCH' : 'POST';
+      if (task?.id) {
+        const { error } = await supabase
+          .from('tasks')
+          .update(taskData)
+          .eq('id', task.id);
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(taskData),
-      });
+        if (error) throw error;
+        toast.success('Task updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('tasks')
+          .insert([taskData]);
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Failed to save task' }));
-        throw new Error(err.error || 'Failed to save task');
+        if (error) throw error;
+        toast.success('Task created successfully');
       }
 
-      toast.success(taskId ? 'Task updated successfully' : 'Task created successfully');
       onSuccess();
     } catch (error) {
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
           toast.error(err.message);
         });
-      } else if (error instanceof Error) {
+      } else {
         console.error('Error saving task:', error);
-        toast.error(error.message || 'Failed to save task');
+        toast.error('Failed to save task');
       }
     } finally {
       setLoading(false);
@@ -275,11 +292,16 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id} className="py-3">
-                      {u.name} ({u.role || 'No role'})
-                    </SelectItem>
-                  ))}
+                  {users.map((u) => {
+                    const roleKeys = u.user_practice_roles?.map((upr: any) => 
+                      upr.practice_roles?.role_catalog?.role_key
+                    ).filter(Boolean) || [];
+                    return (
+                      <SelectItem key={u.id} value={u.id} className="py-3">
+                        {u.name} ({roleKeys.length > 0 ? roleKeys.join(', ') : 'No role'})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
