@@ -1,8 +1,40 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Validate required environment variables before starting
+const requiredEnvVars = ['SESSION_SECRET', 'DATABASE_URL'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`FATAL: Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+if (process.env.SESSION_SECRET!.length < 32) {
+  console.error('FATAL: SESSION_SECRET must be at least 32 characters');
+  process.exit(1);
+}
+
 const app = express();
+
+// Security headers (must be before other middleware)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

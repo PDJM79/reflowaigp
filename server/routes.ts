@@ -1,14 +1,24 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
-import { 
+import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
   insertProcessTemplateSchema
 } from "@shared/schema";
 import { z } from "zod";
+
+// Ensures the authenticated user can only access their own practice's data
+const requireSamePractice: RequestHandler = (req, res, next) => {
+  const requestedPracticeId = req.params.practiceId;
+  if (!requestedPracticeId) return next();
+  if (req.session.practiceId !== requestedPracticeId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
+};
 
 function stripPracticeId<T extends Record<string, any>>(data: T): Omit<T, 'practiceId'> {
   const { practiceId, ...rest } = data;
@@ -22,17 +32,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Public: needed during login to list available practices
   app.get("/api/practices", async (_req, res) => {
     try {
       const practices = await storage.getPractices();
-      res.json(practices);
+      // Only expose safe fields to unauthenticated callers
+      res.json(practices.map(({ id, name, country }) => ({ id, name, country })));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch practices" });
     }
   });
 
-  app.get("/api/practices/:id", async (req, res) => {
+  app.get("/api/practices/:id", isAuthenticated, async (req, res) => {
     try {
+      // Users may only fetch their own practice
+      if (req.session.practiceId !== req.params.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const practice = await storage.getPractice(req.params.id);
       if (!practice) {
         return res.status(404).json({ error: "Practice not found" });
@@ -43,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices", async (req, res) => {
+  app.post("/api/practices", isAuthenticated, async (req, res) => {
     try {
       const validated = insertPracticeSchema.parse(req.body);
       const practice = await storage.createPractice(validated);
@@ -56,8 +72,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:id", async (req, res) => {
+  app.patch("/api/practices/:id", isAuthenticated, async (req, res) => {
     try {
+      if (req.session.practiceId !== req.params.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const practice = await storage.updatePractice(req.params.id, req.body);
       if (!practice) {
         return res.status(404).json({ error: "Practice not found" });
@@ -68,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users", async (req, res) => {
+  app.get("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const users = await storage.getUsersByPractice(req.params.practiceId);
       res.json(users);
@@ -77,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id, req.params.practiceId);
       if (!user) {
@@ -89,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/users", async (req, res) => {
+  app.post("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertUserSchema.parse(dataWithPractice);
@@ -103,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/users/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const user = await storage.updateUser(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!user) {
@@ -115,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/employees", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const employees = await storage.getEmployeesByPractice(req.params.practiceId);
       res.json(employees);
@@ -124,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/employees/active", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees/active", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const employees = await storage.getActiveEmployeesByPractice(req.params.practiceId);
       res.json(employees);
@@ -133,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/employees/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const employee = await storage.getEmployee(req.params.id, req.params.practiceId);
       if (!employee) {
@@ -145,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/employees", async (req, res) => {
+  app.post("/api/practices/:practiceId/employees", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertEmployeeSchema.parse(dataWithPractice);
@@ -159,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/employees/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/employees/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const employee = await storage.updateEmployee(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!employee) {
@@ -171,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/process-templates", async (req, res) => {
+  app.get("/api/practices/:practiceId/process-templates", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const templates = await storage.getProcessTemplatesByPractice(req.params.practiceId);
       res.json(templates);
@@ -180,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/process-templates/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/process-templates/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const template = await storage.getProcessTemplate(req.params.id, req.params.practiceId);
       if (!template) {
@@ -192,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/process-templates", async (req, res) => {
+  app.post("/api/practices/:practiceId/process-templates", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertProcessTemplateSchema.parse(dataWithPractice);
@@ -206,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/process-templates/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/process-templates/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const template = await storage.updateProcessTemplate(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!template) {
@@ -218,7 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const tasks = await storage.getTasksByPractice(req.params.practiceId);
       res.json(tasks);
@@ -227,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks/overdue", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks/overdue", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const tasks = await storage.getOverdueTasks(req.params.practiceId);
       res.json(tasks);
@@ -236,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const task = await storage.getTask(req.params.id, req.params.practiceId);
       if (!task) {
@@ -248,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/tasks", async (req, res) => {
+  app.post("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertTaskSchema.parse(dataWithPractice);
@@ -262,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/tasks/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/tasks/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const task = await storage.updateTask(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!task) {
@@ -274,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/incidents", async (req, res) => {
+  app.get("/api/practices/:practiceId/incidents", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const incidents = await storage.getIncidentsByPractice(req.params.practiceId);
       res.json(incidents);
@@ -283,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/incidents/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/incidents/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const incident = await storage.getIncident(req.params.id, req.params.practiceId);
       if (!incident) {
@@ -295,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/incidents", async (req, res) => {
+  app.post("/api/practices/:practiceId/incidents", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertIncidentSchema.parse(dataWithPractice);
@@ -309,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/incidents/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/incidents/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const incident = await storage.updateIncident(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!incident) {
@@ -321,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/complaints", async (req, res) => {
+  app.get("/api/practices/:practiceId/complaints", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const complaints = await storage.getComplaintsByPractice(req.params.practiceId);
       res.json(complaints);
@@ -330,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/complaints/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/complaints/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const complaint = await storage.getComplaint(req.params.id, req.params.practiceId);
       if (!complaint) {
@@ -342,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/complaints", async (req, res) => {
+  app.post("/api/practices/:practiceId/complaints", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertComplaintSchema.parse(dataWithPractice);
@@ -356,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/complaints/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/complaints/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const complaint = await storage.updateComplaint(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!complaint) {
@@ -368,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/policies", async (req, res) => {
+  app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice(req.params.practiceId);
       res.json(policies);
@@ -377,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/policies/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/policies/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policy = await storage.getPolicyDocument(req.params.id, req.params.practiceId);
       if (!policy) {
@@ -389,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/policies", async (req, res) => {
+  app.post("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertPolicyDocumentSchema.parse(dataWithPractice);
@@ -403,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/policies/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/policies/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policy = await storage.updatePolicyDocument(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!policy) {
@@ -415,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const records = await storage.getTrainingRecordsByPractice(req.params.practiceId);
       res.json(records);
@@ -424,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records/expiring", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records/expiring", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 30;
       const records = await storage.getExpiringTrainingRecords(req.params.practiceId, days);
@@ -434,7 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const record = await storage.getTrainingRecord(req.params.id, req.params.practiceId);
       if (!record) {
@@ -446,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/training-records", async (req, res) => {
+  app.post("/api/practices/:practiceId/training-records", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertTrainingRecordSchema.parse(dataWithPractice);
@@ -460,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/training-records/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/training-records/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const record = await storage.updateTrainingRecord(req.params.id, req.params.practiceId, stripPracticeId(req.body));
       if (!record) {
@@ -472,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:userId/notifications", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:userId/notifications", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const notifications = await storage.getNotificationsByUser(req.params.userId, req.params.practiceId);
       res.json(notifications);
@@ -481,7 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:userId/notifications/unread", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:userId/notifications/unread", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const notifications = await storage.getUnreadNotificationsByUser(req.params.userId, req.params.practiceId);
       res.json(notifications);
@@ -490,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/notifications", async (req, res) => {
+  app.post("/api/practices/:practiceId/notifications", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
       const validated = insertNotificationSchema.parse(dataWithPractice);
@@ -504,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/notifications/:id/read", async (req, res) => {
+  app.patch("/api/practices/:practiceId/notifications/:id/read", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       await storage.markNotificationRead(req.params.id, req.params.practiceId);
       res.json({ success: true });
@@ -513,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/users/:userId/notifications/read-all", async (req, res) => {
+  app.patch("/api/practices/:practiceId/users/:userId/notifications/read-all", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       await storage.markAllNotificationsRead(req.params.userId, req.params.practiceId);
       res.json({ success: true });
