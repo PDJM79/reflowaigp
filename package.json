@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:users": "npx tsx scripts/seedTestUsers.ts",
+    "seed:users:force": "npx tsx scripts/seedTestUsers.ts --force"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
