@@ -39,6 +39,7 @@ import Policies from "./pages/Policies";
 import PolicyReviewHistory from "./pages/PolicyReviewHistory";
 import Reports from "./pages/Reports";
 import EmailLogs from "./pages/EmailLogs";
+import AuditLogs from "./pages/AuditLogs";
 import EmailReportsSettings from "./pages/EmailReportsSettings";
 
 // Role Management
@@ -120,6 +121,7 @@ const App = () => (
                   <Route path="/fridge-temps" element={<FridgeTemps />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/email-logs" element={<EmailLogs />} />
+                  <Route path="/audit-logs" element={<AuditLogs />} />
                   <Route path="/email-reports-settings" element={<EmailReportsSettings />} />
                   
                   {/* Phase 3 Specialized Dashboards */}
