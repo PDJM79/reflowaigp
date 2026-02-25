@@ -212,8 +212,14 @@ export const auditLogs = pgTable("audit_logs", {
   action: text("action").notNull(),
   beforeData: jsonb("before_data"),
   afterData: jsonb("after_data"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_audit_logs_practice_created").on(table.practiceId, table.createdAt),
+  index("idx_audit_logs_entity").on(table.entityType, table.entityId),
+  index("idx_audit_logs_user_created").on(table.userId, table.createdAt),
+]);
 
 export const policyDocuments = pgTable("policy_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
