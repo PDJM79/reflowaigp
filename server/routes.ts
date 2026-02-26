@@ -1,14 +1,25 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
-import { 
+import { auditLogger } from "./auditLogger";
+import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
   insertProcessTemplateSchema
 } from "@shared/schema";
 import { z } from "zod";
+
+// Ensures the authenticated user can only access their own practice's data
+const requireSamePractice: RequestHandler = (req, res, next) => {
+  const requestedPracticeId = (req.params.practiceId as string);
+  if (!requestedPracticeId) return next();
+  if (req.session.practiceId !== requestedPracticeId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
+};
 
 function stripPracticeId<T extends Record<string, any>>(data: T): Omit<T, 'practiceId'> {
   const { practiceId, ...rest } = data;
@@ -18,22 +29,32 @@ function stripPracticeId<T extends Record<string, any>>(data: T): Omit<T, 'pract
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
+  // Audit all mutating requests on practice routes after session is available
+  app.use("/api/practices", auditLogger);
+
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Public: needed during login to list available practices
   app.get("/api/practices", async (_req, res) => {
     try {
       const practices = await storage.getPractices();
-      res.json(practices);
+      // Only expose safe fields to unauthenticated callers
+      res.json(practices.map(({ id, name, country }) => ({ id, name, country })));
     } catch (error) {
+      console.error("GET /api/practices error:", error);
       res.status(500).json({ error: "Failed to fetch practices" });
     }
   });
 
-  app.get("/api/practices/:id", async (req, res) => {
+  app.get("/api/practices/:id", isAuthenticated, async (req, res) => {
     try {
-      const practice = await storage.getPractice(req.params.id);
+      // Users may only fetch their own practice
+      if (req.session.practiceId !== (req.params.id as string)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const practice = await storage.getPractice((req.params.id as string));
       if (!practice) {
         return res.status(404).json({ error: "Practice not found" });
       }
@@ -43,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices", async (req, res) => {
+  app.post("/api/practices", isAuthenticated, async (req, res) => {
     try {
       const validated = insertPracticeSchema.parse(req.body);
       const practice = await storage.createPractice(validated);
@@ -56,9 +77,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:id", async (req, res) => {
+  app.patch("/api/practices/:id", isAuthenticated, async (req, res) => {
     try {
-      const practice = await storage.updatePractice(req.params.id, req.body);
+      if (req.session.practiceId !== (req.params.id as string)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const practice = await storage.updatePractice((req.params.id as string), req.body);
       if (!practice) {
         return res.status(404).json({ error: "Practice not found" });
       }
@@ -68,18 +92,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users", async (req, res) => {
+  app.get("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const users = await storage.getUsersByPractice(req.params.practiceId);
+      const users = await storage.getUsersByPractice((req.params.practiceId as string));
       res.json(users);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.id, req.params.practiceId);
+      const user = await storage.getUser((req.params.id as string), (req.params.practiceId as string));
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -89,9 +113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/users", async (req, res) => {
+  app.post("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertUserSchema.parse(dataWithPractice);
       const user = await storage.createUser(validated);
       res.status(201).json(user);
@@ -103,9 +127,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/users/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const user = await storage.updateUser(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const user = await storage.updateUser((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -115,27 +139,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/employees", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const employees = await storage.getEmployeesByPractice(req.params.practiceId);
+      const employees = await storage.getEmployeesByPractice((req.params.practiceId as string));
       res.json(employees);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch employees" });
     }
   });
 
-  app.get("/api/practices/:practiceId/employees/active", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees/active", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const employees = await storage.getActiveEmployeesByPractice(req.params.practiceId);
+      const employees = await storage.getActiveEmployeesByPractice((req.params.practiceId as string));
       res.json(employees);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch active employees" });
     }
   });
 
-  app.get("/api/practices/:practiceId/employees/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/employees/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const employee = await storage.getEmployee(req.params.id, req.params.practiceId);
+      const employee = await storage.getEmployee((req.params.id as string), (req.params.practiceId as string));
       if (!employee) {
         return res.status(404).json({ error: "Employee not found" });
       }
@@ -145,9 +169,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/employees", async (req, res) => {
+  app.post("/api/practices/:practiceId/employees", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertEmployeeSchema.parse(dataWithPractice);
       const employee = await storage.createEmployee(validated);
       res.status(201).json(employee);
@@ -159,9 +183,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/employees/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/employees/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const employee = await storage.updateEmployee(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const employee = await storage.updateEmployee((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!employee) {
         return res.status(404).json({ error: "Employee not found" });
       }
@@ -171,18 +195,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/process-templates", async (req, res) => {
+  app.get("/api/practices/:practiceId/process-templates", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const templates = await storage.getProcessTemplatesByPractice(req.params.practiceId);
+      const templates = await storage.getProcessTemplatesByPractice((req.params.practiceId as string));
       res.json(templates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch process templates" });
     }
   });
 
-  app.get("/api/practices/:practiceId/process-templates/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/process-templates/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const template = await storage.getProcessTemplate(req.params.id, req.params.practiceId);
+      const template = await storage.getProcessTemplate((req.params.id as string), (req.params.practiceId as string));
       if (!template) {
         return res.status(404).json({ error: "Process template not found" });
       }
@@ -192,9 +216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/process-templates", async (req, res) => {
+  app.post("/api/practices/:practiceId/process-templates", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertProcessTemplateSchema.parse(dataWithPractice);
       const template = await storage.createProcessTemplate(validated);
       res.status(201).json(template);
@@ -206,9 +230,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/process-templates/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/process-templates/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const template = await storage.updateProcessTemplate(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const template = await storage.updateProcessTemplate((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!template) {
         return res.status(404).json({ error: "Process template not found" });
       }
@@ -218,27 +242,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const tasks = await storage.getTasksByPractice(req.params.practiceId);
+      const tasks = await storage.getTasksByPractice((req.params.practiceId as string));
       res.json(tasks);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tasks" });
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks/overdue", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks/overdue", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const tasks = await storage.getOverdueTasks(req.params.practiceId);
+      const tasks = await storage.getOverdueTasks((req.params.practiceId as string));
       res.json(tasks);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch overdue tasks" });
     }
   });
 
-  app.get("/api/practices/:practiceId/tasks/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/tasks/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const task = await storage.getTask(req.params.id, req.params.practiceId);
+      const task = await storage.getTask((req.params.id as string), (req.params.practiceId as string));
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
@@ -248,9 +272,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/tasks", async (req, res) => {
+  app.post("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertTaskSchema.parse(dataWithPractice);
       const task = await storage.createTask(validated);
       res.status(201).json(task);
@@ -262,9 +286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/tasks/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/tasks/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const task = await storage.updateTask(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const task = await storage.updateTask((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
@@ -274,18 +298,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/incidents", async (req, res) => {
+  app.get("/api/practices/:practiceId/incidents", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const incidents = await storage.getIncidentsByPractice(req.params.practiceId);
+      const incidents = await storage.getIncidentsByPractice((req.params.practiceId as string));
       res.json(incidents);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch incidents" });
     }
   });
 
-  app.get("/api/practices/:practiceId/incidents/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/incidents/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const incident = await storage.getIncident(req.params.id, req.params.practiceId);
+      const incident = await storage.getIncident((req.params.id as string), (req.params.practiceId as string));
       if (!incident) {
         return res.status(404).json({ error: "Incident not found" });
       }
@@ -295,9 +319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/incidents", async (req, res) => {
+  app.post("/api/practices/:practiceId/incidents", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertIncidentSchema.parse(dataWithPractice);
       const incident = await storage.createIncident(validated);
       res.status(201).json(incident);
@@ -309,9 +333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/incidents/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/incidents/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const incident = await storage.updateIncident(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const incident = await storage.updateIncident((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!incident) {
         return res.status(404).json({ error: "Incident not found" });
       }
@@ -321,18 +345,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/complaints", async (req, res) => {
+  app.get("/api/practices/:practiceId/complaints", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const complaints = await storage.getComplaintsByPractice(req.params.practiceId);
+      const complaints = await storage.getComplaintsByPractice((req.params.practiceId as string));
       res.json(complaints);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch complaints" });
     }
   });
 
-  app.get("/api/practices/:practiceId/complaints/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/complaints/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const complaint = await storage.getComplaint(req.params.id, req.params.practiceId);
+      const complaint = await storage.getComplaint((req.params.id as string), (req.params.practiceId as string));
       if (!complaint) {
         return res.status(404).json({ error: "Complaint not found" });
       }
@@ -342,9 +366,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/complaints", async (req, res) => {
+  app.post("/api/practices/:practiceId/complaints", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertComplaintSchema.parse(dataWithPractice);
       const complaint = await storage.createComplaint(validated);
       res.status(201).json(complaint);
@@ -356,9 +380,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/complaints/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/complaints/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const complaint = await storage.updateComplaint(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const complaint = await storage.updateComplaint((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!complaint) {
         return res.status(404).json({ error: "Complaint not found" });
       }
@@ -368,18 +392,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/policies", async (req, res) => {
+  app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const policies = await storage.getPolicyDocumentsByPractice(req.params.practiceId);
+      const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));
       res.json(policies);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch policies" });
     }
   });
 
-  app.get("/api/practices/:practiceId/policies/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/policies/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const policy = await storage.getPolicyDocument(req.params.id, req.params.practiceId);
+      const policy = await storage.getPolicyDocument((req.params.id as string), (req.params.practiceId as string));
       if (!policy) {
         return res.status(404).json({ error: "Policy not found" });
       }
@@ -389,9 +413,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/policies", async (req, res) => {
+  app.post("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertPolicyDocumentSchema.parse(dataWithPractice);
       const policy = await storage.createPolicyDocument(validated);
       res.status(201).json(policy);
@@ -403,9 +427,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/policies/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/policies/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const policy = await storage.updatePolicyDocument(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const policy = await storage.updatePolicyDocument((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!policy) {
         return res.status(404).json({ error: "Policy not found" });
       }
@@ -415,28 +439,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const records = await storage.getTrainingRecordsByPractice(req.params.practiceId);
+      const records = await storage.getTrainingRecordsByPractice((req.params.practiceId as string));
       res.json(records);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch training records" });
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records/expiring", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records/expiring", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 30;
-      const records = await storage.getExpiringTrainingRecords(req.params.practiceId, days);
+      const records = await storage.getExpiringTrainingRecords((req.params.practiceId as string), days);
       res.json(records);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch expiring training records" });
     }
   });
 
-  app.get("/api/practices/:practiceId/training-records/:id", async (req, res) => {
+  app.get("/api/practices/:practiceId/training-records/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const record = await storage.getTrainingRecord(req.params.id, req.params.practiceId);
+      const record = await storage.getTrainingRecord((req.params.id as string), (req.params.practiceId as string));
       if (!record) {
         return res.status(404).json({ error: "Training record not found" });
       }
@@ -446,9 +470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/practices/:practiceId/training-records", async (req, res) => {
+  app.post("/api/practices/:practiceId/training-records", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertTrainingRecordSchema.parse(dataWithPractice);
       const record = await storage.createTrainingRecord(validated);
       res.status(201).json(record);
@@ -460,9 +484,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/training-records/:id", async (req, res) => {
+  app.patch("/api/practices/:practiceId/training-records/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const record = await storage.updateTrainingRecord(req.params.id, req.params.practiceId, stripPracticeId(req.body));
+      const record = await storage.updateTrainingRecord((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
       if (!record) {
         return res.status(404).json({ error: "Training record not found" });
       }
@@ -472,27 +496,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:userId/notifications", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:userId/notifications", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const notifications = await storage.getNotificationsByUser(req.params.userId, req.params.practiceId);
+      const notifications = await storage.getNotificationsByUser((req.params.userId as string), (req.params.practiceId as string));
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
 
-  app.get("/api/practices/:practiceId/users/:userId/notifications/unread", async (req, res) => {
+  app.get("/api/practices/:practiceId/users/:userId/notifications/unread", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const notifications = await storage.getUnreadNotificationsByUser(req.params.userId, req.params.practiceId);
+      const notifications = await storage.getUnreadNotificationsByUser((req.params.userId as string), (req.params.practiceId as string));
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch unread notifications" });
     }
   });
 
-  app.post("/api/practices/:practiceId/notifications", async (req, res) => {
+  app.post("/api/practices/:practiceId/notifications", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId };
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
       const validated = insertNotificationSchema.parse(dataWithPractice);
       const notification = await storage.createNotification(validated);
       res.status(201).json(notification);
@@ -504,18 +528,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/practices/:practiceId/notifications/:id/read", async (req, res) => {
+  app.patch("/api/practices/:practiceId/notifications/:id/read", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      await storage.markNotificationRead(req.params.id, req.params.practiceId);
+      await storage.markNotificationRead((req.params.id as string), (req.params.practiceId as string));
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
 
-  app.patch("/api/practices/:practiceId/users/:userId/notifications/read-all", async (req, res) => {
+  app.patch("/api/practices/:practiceId/users/:userId/notifications/read-all", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      await storage.markAllNotificationsRead(req.params.userId, req.params.practiceId);
+      await storage.markAllNotificationsRead((req.params.userId as string), (req.params.practiceId as string));
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all notifications as read" });

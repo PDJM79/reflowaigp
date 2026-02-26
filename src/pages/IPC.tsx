@@ -6,11 +6,13 @@ import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { IPCAuditCard } from "@/components/ipc/IPCAuditCard";
 import { generateIPCStatementPDF } from "@/lib/pdfExportV2";
 
 export default function IPC() {
+  const { user } = useAuth();
   const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -28,19 +30,12 @@ export default function IPC() {
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate('/');
         return;
       }
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
+      const userData = { practice_id: user.practiceId };
 
       // Fetch audits
       const { data: auditsData, error: auditsError } = await supabase
@@ -77,16 +72,9 @@ export default function IPC() {
 
   const handleCreateAudit = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
+      const userData = { practice_id: user.practiceId };
 
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
@@ -118,16 +106,9 @@ export default function IPC() {
 
   const handleExportIPCStatement = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('User data not found');
+      const userData = { practice_id: user.practiceId };
 
       const { data: practiceData } = await supabase
         .from('practices')

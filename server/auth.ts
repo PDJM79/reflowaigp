@@ -1,9 +1,32 @@
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import type { InsertUser } from "@shared/schema";
+
+const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+
+function validatePasswordStrength(password: string): string | null {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+  }
+  if (!PASSWORD_REGEX.test(password)) {
+    return "Password must contain uppercase, lowercase, a number, and a special character";
+  }
+  return null;
+}
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  skipSuccessfulRequests: true,
+});
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
@@ -21,8 +44,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: sessionTtl,
     },
   });
@@ -39,7 +62,7 @@ export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
       const { email, password, practiceId } = req.body;
 
@@ -98,8 +121,9 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email, password, name, and practice are required" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
       }
 
       const existingUser = await storage.getUserByEmail(email, practiceId);

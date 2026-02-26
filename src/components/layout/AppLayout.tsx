@@ -11,7 +11,7 @@ import {
   Home, Calendar, ListTodo, FileText, FolderOpen, BarChart3,
   Pill, PoundSterling, Shield, Droplet, AlertTriangle, Flame,
   Users, MessageSquare, FileCheck, BookOpen, Thermometer, Mail,
-  Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight
+  Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight, ScrollText
 } from 'lucide-react';
 import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import type { Capability } from '@/types/roles';
@@ -118,6 +118,7 @@ export function AppLayout() {
       items: [
         { icon: BarChart3, label: 'Reports', path: '/reports', capabilities: 'run_reports' },
         { icon: Mail, label: t('nav.email_logs'), path: '/email-logs', capabilities: 'configure_notifications' },
+        { icon: ScrollText, label: 'Audit Logs', path: '/audit-logs', capabilities: 'manage_users' },
       ]
     }
   ];

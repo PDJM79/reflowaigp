@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Copy, Check, QrCode, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import * as OTPAuth from 'otpauth';
 import { ReauthenticationDialog } from './ReauthenticationDialog';
@@ -19,6 +20,7 @@ interface MFASetupDialogProps {
 }
 
 export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSuccess }: MFASetupDialogProps) {
+  const { user: sessionUser } = useAuth();
   const [step, setStep] = useState<'reauth' | 'generate' | 'verify'>('reauth');
   const [secret, setSecret] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -128,17 +130,8 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
       // Get target user ID
       let targetUserId = userId;
       if (!targetUserId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (!userData) throw new Error('User not found');
-        targetUserId = userData.id;
+        if (!sessionUser) throw new Error('Not authenticated');
+        targetUserId = sessionUser.id;
       }
 
       // Call the secure edge function to enable MFA

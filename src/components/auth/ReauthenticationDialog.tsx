@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ShieldCheck, KeyRound } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface ReauthenticationDialogProps {
@@ -16,13 +16,14 @@ interface ReauthenticationDialogProps {
   description?: string;
 }
 
-export function ReauthenticationDialog({ 
-  open, 
-  onOpenChange, 
+export function ReauthenticationDialog({
+  open,
+  onOpenChange,
   onSuccess,
   title = "Verify Your Identity",
   description = "Please enter your password to continue with this security-sensitive action"
 }: ReauthenticationDialogProps) {
+  const { user } = useAuth();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,23 +34,23 @@ export function ReauthenticationDialog({
       return;
     }
 
+    if (!user) {
+      setError('Unable to verify user session');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // Get current user's email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        throw new Error('Unable to verify user session');
-      }
-
-      // Attempt to sign in with current credentials to verify password
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: password,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: user.email, password, practiceId: user.practiceId }),
       });
 
-      if (signInError) {
+      if (!res.ok) {
         setError('Incorrect password. Please try again.');
         setPassword('');
         setLoading(false);

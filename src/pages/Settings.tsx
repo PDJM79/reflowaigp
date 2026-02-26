@@ -37,7 +37,7 @@ export default function Settings() {
       const { data, error } = await supabase
         .from('users')
         .select('id, mfa_enabled')
-        .eq('auth_user_id', user?.id)
+        .eq('id', user?.id)
         .single();
 
       if (error) throw error;
