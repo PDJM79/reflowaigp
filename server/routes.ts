@@ -43,6 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only expose safe fields to unauthenticated callers
       res.json(practices.map(({ id, name, country }) => ({ id, name, country })));
     } catch (error) {
+      console.error("GET /api/practices error:", error);
       res.status(500).json({ error: "Failed to fetch practices" });
     }
   });
