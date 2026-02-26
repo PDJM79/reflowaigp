@@ -1,7 +1,7 @@
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import type { InsertUser } from "@shared/schema";
