@@ -43,26 +43,10 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
       setLoading(true);
       setError(null);
 
-      // Get user's internal ID, practice_id, and is_practice_manager flag
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, is_practice_manager, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError || !userData) {
-        setCapabilities([]);
-        setUserRoles([]);
-        setIsPracticeManager(false);
-        setLoading(false);
-        return;
-      }
-
-      // Use selectedPracticeId if set (for master users switching), otherwise fall back to user's practice
-      const effectivePracticeId = selectedPracticeId || userData.practice_id;
+      // Use session user directly — no Supabase user lookup needed
+      const effectivePracticeId = selectedPracticeId || user.practiceId;
 
       if (!effectivePracticeId) {
-        // No practice association - can't determine capabilities
         setCapabilities([]);
         setUserRoles([]);
         setIsPracticeManager(false);
@@ -70,18 +54,15 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
         return;
       }
 
-      // TEMPORARY FALLBACK: Grant all capabilities to practice managers
-      // This ensures existing managers aren't locked out during role migration
-      // TODO: Remove this fallback once all users have been migrated to user_practice_roles
-      // The is_practice_manager flag is deprecated - use user_practice_roles with practice_manager role
-      if (userData.is_practice_manager) {
+      // Grant all capabilities to practice managers (fallback until role migration complete)
+      if (user.isPracticeManager) {
         setIsPracticeManager(true);
         setCapabilities([...ALL_CAPABILITIES]);
         setUserRoles([]);
         setLoading(false);
         return;
       }
-      
+
       setIsPracticeManager(false);
 
       // Fetch user's practice roles with role catalog details
@@ -113,7 +94,7 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
             )
           )
         `)
-        .eq('user_id', userData.id)
+        .eq('user_id', user.id)
         .eq('practice_id', effectivePracticeId);
 
       if (rolesError) {
