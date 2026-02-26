@@ -1,143 +1,114 @@
-// Auth context - clean rewrite 2025-06-18
 import { useState, useEffect, useContext, createContext, type ReactNode } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
-// Auth cleanup utility to prevent limbo states
-function cleanupAuthState(): void {
-  // Clear the specific Supabase auth token for this project
-  const supabaseKey = 'sb-eeqfqklcdstbziedsnxc-auth-token';
-  localStorage.removeItem(supabaseKey);
-  
-  // Clear all Supabase-related keys from localStorage
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith('supabase') || key.includes('sb-') || key.includes('auth')) {
-      localStorage.removeItem(key);
-    }
-  });
-  
-  // Clear session storage completely
-  sessionStorage.clear();
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  practiceId: string;
+  isPracticeManager: boolean;
+  practice: { id: string; name: string; country: string } | null;
 }
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: unknown }>;
-  signIn: (email: string, password: string, isAdmin?: boolean) => Promise<{ error: unknown }>;
+  signIn: (email: string, password: string, practiceId: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, name: string, practiceId: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Restore session on mount via server-side session cookie
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    fetch('/api/auth/user', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setUser(data ?? null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  async function signUp(email: string, password: string) {
+  async function signIn(email: string, password: string, practiceId: string): Promise<{ error: string | null }> {
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: redirectUrl }
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, practiceId }),
       });
 
-      if (error) {
-        toast({
-          title: "Sign up failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Check your email",
-          description: "We've sent you a confirmation link",
-        });
+      if (!res.ok) {
+        const data = await res.json();
+        const message = data.error ?? 'Sign in failed';
+        toast({ title: 'Sign in failed', description: message, variant: 'destructive' });
+        return { error: message };
       }
-      return { error };
+
+      // Fetch full user object (includes practice details)
+      const userRes = await fetch('/api/auth/user', { credentials: 'include' });
+      const userData = await userRes.json();
+      setUser(userData);
+      return { error: null };
+    } catch {
+      const message = 'Network error — please try again';
+      toast({ title: 'Sign in failed', description: message, variant: 'destructive' });
+      return { error: message };
     } finally {
       setLoading(false);
     }
   }
 
-  async function signIn(email: string, password: string, isAdmin?: boolean) {
+  async function signUp(email: string, password: string, name: string, practiceId: string): Promise<{ error: string | null }> {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, name, practiceId }),
+      });
 
-      if (error) {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else if (isAdmin) {
-        window.location.href = '/admin/calendar';
+      if (!res.ok) {
+        const data = await res.json();
+        const message = data.error ?? 'Registration failed';
+        toast({ title: 'Registration failed', description: message, variant: 'destructive' });
+        return { error: message };
       }
-      return { error };
+
+      const userRes = await fetch('/api/auth/user', { credentials: 'include' });
+      const userData = await userRes.json();
+      setUser(userData);
+      toast({ title: 'Account created', description: 'Welcome to FitForAudit!' });
+      return { error: null };
+    } catch {
+      const message = 'Network error — please try again';
+      toast({ title: 'Registration failed', description: message, variant: 'destructive' });
+      return { error: message };
     } finally {
       setLoading(false);
     }
   }
 
   async function signOut() {
-    // Immediately clear state to prevent auto-login loop
     setUser(null);
-    setSession(null);
-    setLoading(true);
-    
-    // Clear all auth storage
-    cleanupAuthState();
-    
     try {
-      await supabase.auth.signOut({ scope: 'global' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (err) {
       console.warn('Sign out error (continuing):', err);
     }
-    
-    toast({
-      title: "Signed out",
-      description: "You have been signed out successfully",
-    });
-    
-    // Redirect to login page (not root which may auto-redirect back)
+    toast({ title: 'Signed out', description: 'You have been signed out successfully' });
     window.location.href = '/login';
   }
 
-  const value: AuthContextType = {
-    user,
-    session,
-    loading,
-    signUp,
-    signIn,
-    signOut,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
