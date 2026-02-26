@@ -62,7 +62,7 @@
     "i18next": "^25.5.3",
     "input-otp": "^1.4.2",
     "jsdom": "^27.3.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.462.0",
     "mermaid": "^11.12.2",
@@ -98,7 +98,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
-    "drizzle-kit": "^0.31.9",
+    "drizzle-kit": "^0.18.1",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -109,6 +109,6 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "^6.0.0"
   }
 }
