@@ -1,83 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export function useOrganizationSetup() {
-  const { user } = useAuth();
-  const [needsSetup, setNeedsSetup] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const checkSetupStatus = async () => {
-      try {
-        // Check if user exists in users table
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, practice_id, is_practice_manager')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (userError || !userData) {
-          // New user needs setup (assumes they are a practice manager)
-          setNeedsSetup(true);
-          setLoading(false);
-          return;
-        }
-
-        // Check if user is a practice manager via new role system
-        const { data: pmRole } = await supabase
-          .from('user_practice_roles')
-          .select(`
-            id,
-            practice_roles!inner(
-              role_catalog!inner(role_key)
-            )
-          `)
-          .eq('user_id', userData.id)
-          .eq('practice_roles.role_catalog.role_key', 'practice_manager')
-          .maybeSingle();
-
-        // User is PM if they have the role via new system OR via legacy flag (backward compatibility)
-        const isPracticeManager = !!pmRole || userData.is_practice_manager;
-
-        // Non-practice managers never need organization setup
-        if (!isPracticeManager) {
-          setNeedsSetup(false);
-          setLoading(false);
-          return;
-        }
-
-        // Practice managers: check if organization setup is complete
-        const { data: setupData, error: setupError } = await supabase
-          .from('organization_setup')
-          .select('setup_completed')
-          .eq('practice_id', userData.practice_id)
-          .maybeSingle(); // Use maybeSingle to handle no rows gracefully
-
-        // If no setup record exists, it needs setup
-        // If setup record exists but setup_completed is false, it needs setup
-        // Otherwise, setup is complete
-        if (!setupData) {
-          setNeedsSetup(true);
-        } else {
-          setNeedsSetup(setupData.setup_completed !== true);
-        }
-      } catch (error) {
-        console.error('Error checking setup status:', error);
-        // On error, assume no setup needed to avoid blocking existing users
-        setNeedsSetup(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSetupStatus();
-  }, [user]);
-
-  return { needsSetup, loading };
+  // With custom session-based auth, users always have a practice assigned at login.
+  // The organisation setup wizard is not used in this auth flow.
+  return { needsSetup: false, loading };
 }

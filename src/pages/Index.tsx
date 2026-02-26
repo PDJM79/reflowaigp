@@ -14,8 +14,8 @@ const Index = () => {
   const { isMasterUser, selectedPracticeId, setSelectedPractice, clearSelectedPractice, loading: masterLoading } = useMasterUser();
   const { needsSetup, loading: setupLoading } = useOrganizationSetup();
   
-  // Check if user needs to change password
-  const needsPasswordChange = user?.user_metadata?.force_password_change === true;
+  // Not applicable with custom session auth
+  const needsPasswordChange = false;
 
   if (authLoading || setupLoading || masterLoading) {
     return (

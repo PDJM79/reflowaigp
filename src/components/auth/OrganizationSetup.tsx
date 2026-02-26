@@ -18,7 +18,7 @@ interface OrganizationSetupProps {
 }
 
 export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [organizationName, setOrganizationName] = useState('');
   const [country, setCountry] = useState<'Wales' | 'England' | 'Scotland'>('England');
   const [roleAssignments, setRoleAssignments] = useState<RoleEmailAssignment[]>([
@@ -201,7 +201,6 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
       // Create practice using security definer function
