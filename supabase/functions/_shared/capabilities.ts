@@ -288,7 +288,7 @@ export async function ensureUserPracticeRole(
   }
 
   // 2. Ensure practice_roles entry exists (create if needed)
-  let { data: practiceRole, error: practiceRoleError } = await supabase
+  const { data: practiceRole, error: practiceRoleError } = await supabase
     .from('practice_roles')
     .select('id')
     .eq('practice_id', practiceId)

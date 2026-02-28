@@ -43,7 +43,7 @@ export default function StepExecution() {
   const { taskId, stepIndex } = useParams<{ taskId: string; stepIndex: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast: useToastHook } = useToast();
+  const { toast } = useToast();
   const [stepInstance, setStepInstance] = useState<StepInstance | null>(null);
   const [processTemplate, setProcessTemplate] = useState<ProcessTemplate | null>(null);
   const [notes, setNotes] = useState('');
@@ -172,7 +172,7 @@ export default function StepExecution() {
     if (!stepInstance) return;
 
     if (!isConfirmed) {
-      useToastHook({
+      toast({
         title: "Confirmation Required",
         description: "Please confirm that this step is as expected before completing.",
         variant: "destructive"
@@ -209,7 +209,7 @@ export default function StepExecution() {
         throw new Error('Step status verification failed');
       }
 
-      useToastHook({
+      toast({
         title: "Step Completed",
         description: "Your progress has been saved successfully.",
       });
@@ -238,7 +238,7 @@ export default function StepExecution() {
           console.error('Error completing process:', processError);
         }
 
-        useToastHook({
+        toast({
           title: "Process Completed",
           description: "Congratulations! You have completed the entire process.",
         });
@@ -250,7 +250,7 @@ export default function StepExecution() {
       }
     } catch (error) {
       console.error('Error completing step:', error);
-      useToastHook({
+      toast({
         title: "Error",
         description: "Failed to complete step. Please try again.",
         variant: "destructive"
@@ -273,13 +273,13 @@ export default function StepExecution() {
         })
         .eq('id', stepInstance.id);
 
-      useToastHook({
+      toast({
         title: "Draft Saved",
         description: "Your progress has been saved as a draft.",
       });
     } catch (error) {
       console.error('Error saving draft:', error);
-      useToastHook({
+      toast({
         title: "Error",
         description: "Failed to save draft. Please try again.",
         variant: "destructive"
