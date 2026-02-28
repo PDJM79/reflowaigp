@@ -12,7 +12,6 @@ import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
@@ -21,9 +20,7 @@ export function UserDashboard() {
   const { isMasterUser, selectedPracticeId, selectedPracticeName, clearSelectedPractice } = useMasterUser();
   const { userTasks, otherTasks, loading } = useTaskData();
   const { hasCapability, userRoles: capabilityRoles } = useCapabilities();
-  const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
-  const [userPracticeId, setUserPracticeId] = useState('');
   const [allProcessesByRole, setAllProcessesByRole] = useState<any[]>([]);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [passingTask, setPassingTask] = useState<string | null>(null);
@@ -32,52 +29,31 @@ export function UserDashboard() {
   const canViewDashboards = hasCapability('view_dashboards') || isMasterUser;
   const canManageRoles = hasCapability('assign_roles') || isMasterUser;
 
+  // All user identity data comes from the session — no extra Supabase lookup needed
+  const effectivePracticeId = (isMasterUser && selectedPracticeId) ? selectedPracticeId : user?.practiceId;
+
   useEffect(() => {
-    if (!user) return;
+    if (!user || !effectivePracticeId) return;
 
-    const fetchUserInfo = async () => {
+    const fetchProcessTemplates = async () => {
       try {
-        console.log('Fetching user info for auth user:', user.id);
-        const { data, error } = await supabase
-          .from('users')
-          .select('name, practice_id, is_master_user')
-          .eq('auth_user_id', user.id)
-          .single();
+        const displayRole = capabilityRoles[0]?.practice_role?.role_catalog?.display_name ||
+                            (canViewDashboards ? 'Manager' : 'Staff');
+        setUserRole(displayRole);
 
-        console.log('User dashboard data:', data, 'Error:', error);
-        
-        if (data) {
-          setUserName(data.name);
-          
-          // For master users, use selected practice, otherwise use user's practice
-          const practiceId = isMasterUser && selectedPracticeId ? selectedPracticeId : data.practice_id;
-          setUserPracticeId(practiceId);
+        const { data: templates } = await supabase
+          .from('process_templates')
+          .select('name, responsible_role, frequency')
+          .eq('practice_id', effectivePracticeId);
 
-          // Get display role from capability system's userRoles
-          const displayRole = capabilityRoles[0]?.practice_role?.role_catalog?.display_name || 
-                             (canViewDashboards ? 'Manager' : 'Staff');
-          setUserRole(displayRole);
-
-          console.log('User role:', displayRole, 'Practice ID:', practiceId, 'Is Master:', data.is_master_user);
-
-          // Fetch all process templates for the practice
-          const { data: templates, error: templatesError } = await supabase
-            .from('process_templates')
-            .select('name, responsible_role, frequency')
-            .eq('practice_id', practiceId);
-
-          console.log('Process templates:', templates, 'Error:', templatesError);
-          setAllProcessesByRole(templates || []);
-        } else {
-          console.log('No user data found in dashboard');
-        }
+        setAllProcessesByRole(templates || []);
       } catch (error) {
-        console.error('Error fetching user info:', error);
+        console.error('Error fetching process templates:', error);
       }
     };
 
-    fetchUserInfo();
-  }, [user, isMasterUser, selectedPracticeId, capabilityRoles, canViewDashboards]);
+    fetchProcessTemplates();
+  }, [user, effectivePracticeId, capabilityRoles, canViewDashboards]);
 
   const handleTaskClick = (taskId: string) => {
     console.log('Navigate to task:', taskId);
@@ -101,58 +77,15 @@ export function UserDashboard() {
     return 'Start';
   };
 
-  const createInitialProcesses = async () => {
-    if (!userPracticeId) return;
-    
-    try {
-      console.log('Creating initial processes for practice:', userPracticeId);
-      
-      const { data, error } = await supabase.functions.invoke('create-initial-processes', {
-        body: { practice_id: userPracticeId }
-      });
-
-      console.log('Create initial processes response:', data, 'Error:', error);
-
-      if (error) {
-        console.error('Error creating initial processes:', error);
-        toast.error(`Failed to create initial processes: ${error.message}`);
-        return;
-      }
-
-      toast.success(`Created ${data?.process_instances_created || 0} tasks for all users`);
-      
-      // Refresh the page to show the new tasks
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (error) {
-      console.error('Error creating initial processes:', error);
-      toast.error('Failed to create initial processes');
-    }
-  };
-
-  // Auto-create tasks if none exist and user can manage
-  useEffect(() => {
-    if (canViewDashboards && userTasks.length === 0 && otherTasks.length === 0 && !loading && userPracticeId) {
-      console.log('No tasks found, auto-creating initial processes...');
-      createInitialProcesses();
-    }
-  }, [canViewDashboards, userTasks.length, otherTasks.length, loading, userPracticeId]);
-
   const passTaskToPracticeManager = async (taskId: string) => {
     if (!user) return;
     
     setPassingTask(taskId);
     try {
-      // Get the current user's practice ID
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) {
-        toast.error('Could not find user data');
+      // practice_id comes from the session — no extra DB lookup needed
+      const practiceId = effectivePracticeId;
+      if (!practiceId) {
+        toast.error('Could not determine practice');
         return;
       }
 
@@ -166,7 +99,7 @@ export function UserDashboard() {
             role_catalog!inner(role_key)
           )
         `)
-        .eq('users.practice_id', userData.practice_id)
+        .eq('users.practice_id', practiceId)
         .eq('practice_roles.role_catalog.role_key', 'practice_manager')
         .limit(1)
         .maybeSingle();
@@ -180,7 +113,7 @@ export function UserDashboard() {
         const { data: fallbackPM } = await supabase
           .from('users')
           .select('id')
-          .eq('practice_id', userData.practice_id)
+          .eq('practice_id', practiceId)
           .eq('is_practice_manager', true)
           .limit(1)
           .maybeSingle();
@@ -236,7 +169,7 @@ export function UserDashboard() {
             <User className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-2xl font-bold">
-                Welcome back, {userName}!
+                Welcome back, {user?.name}!
                 {isMasterUser && <Badge variant="secondary" className="ml-2">Master Admin</Badge>}
               </h1>
               {isMasterUser && selectedPracticeName && (
