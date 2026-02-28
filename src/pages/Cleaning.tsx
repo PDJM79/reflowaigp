@@ -112,8 +112,8 @@ export default function Cleaning() {
     }
   };
 
-  // Today's tasks = daily + twice_daily; group by zone
-  const todayTasks = tasks.filter(t => ['daily', 'twice_daily'].includes(t.frequency));
+  // All active tasks appear in today's schedule regardless of frequency type
+  const todayTasks = tasks;
   const completedIds = new Set(todayLogs.filter(l => l.completed_at).map(l => l.task_id));
 
   const tasksByZone = zones
@@ -228,9 +228,7 @@ export default function Cleaning() {
             <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
             <p className="font-medium mb-2">No daily tasks configured</p>
             <p className="text-sm text-muted-foreground">
-              {tasks.length > 0
-                ? `${tasks.length} task${tasks.length !== 1 ? 's' : ''} exist but none are set to daily or twice-daily frequency.`
-                : 'Add daily cleaning tasks to zones to see them here.'}
+              Add cleaning tasks to zones to see them here.
             </p>
           </CardContent>
         </Card>
