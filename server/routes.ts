@@ -244,7 +244,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const tasks = await storage.getTasksByPractice((req.params.practiceId as string));
+      const module = typeof req.query.module === 'string' ? req.query.module : undefined;
+      const tasks = await storage.getTasksByPractice(req.params.practiceId, module);
       res.json(tasks);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tasks" });

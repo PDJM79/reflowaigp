@@ -45,7 +45,7 @@ export interface IStorage {
   updateProcessInstance(id: string, practiceId: string, data: Partial<InsertProcessInstance>): Promise<ProcessInstance | undefined>;
 
   getTask(id: string, practiceId: string): Promise<Task | undefined>;
-  getTasksByPractice(practiceId: string): Promise<Task[]>;
+  getTasksByPractice(practiceId: string, module?: string): Promise<Task[]>;
   getOverdueTasks(practiceId: string): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: string, practiceId: string, data: Partial<InsertTask>): Promise<Task | undefined>;
@@ -249,8 +249,11 @@ export class DatabaseStorage implements IStorage {
     return task;
   }
 
-  async getTasksByPractice(practiceId: string): Promise<Task[]> {
-    return db.select().from(schema.tasks).where(eq(schema.tasks.practiceId, practiceId)).orderBy(desc(schema.tasks.createdAt));
+  async getTasksByPractice(practiceId: string, module?: string): Promise<Task[]> {
+    const condition = module
+      ? and(eq(schema.tasks.practiceId, practiceId), eq(schema.tasks.module, module))
+      : eq(schema.tasks.practiceId, practiceId);
+    return db.select().from(schema.tasks).where(condition).orderBy(desc(schema.tasks.createdAt));
   }
 
   async getOverdueTasks(practiceId: string): Promise<Task[]> {
