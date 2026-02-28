@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { usePracticeSelection } from '@/hooks/usePracticeSelection';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +42,8 @@ interface StaffRoleAssignmentTableProps {
 }
 
 export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssignmentTableProps) {
-  const { selectedPracticeId } = usePracticeSelection();
+  const { user } = useAuth();
+  const selectedPracticeId = user?.practiceId ?? null;
   const [users, setUsers] = useState<User[]>([]);
   const [practiceRoles, setPracticeRoles] = useState<PracticeRole[]>([]);
   const [loading, setLoading] = useState(true);

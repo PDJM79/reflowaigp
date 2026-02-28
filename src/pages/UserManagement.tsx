@@ -8,7 +8,6 @@ import { BackButton } from '@/components/ui/back-button';
 import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { toast } from 'sonner';
 import { UserManagementDialog } from '@/components/admin/UserManagementDialog';
@@ -43,7 +42,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function UserManagement() {
   const { user } = useAuth();
-  const { selectedPracticeId } = usePracticeSelection();
   const { hasCapability } = useCapabilities();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -54,7 +52,7 @@ export default function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
-  }, [user, selectedPracticeId]);
+  }, [user]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -69,7 +67,7 @@ export default function UserManagement() {
   }, [searchQuery, users]);
 
   const fetchUsers = async () => {
-    if (!user || !selectedPracticeId) return;
+    if (!user?.practiceId) return;
 
     try {
       const { data, error } = await supabase
@@ -90,7 +88,7 @@ export default function UserManagement() {
             )
           )
         `)
-        .eq('practice_id', selectedPracticeId)
+        .eq('practice_id', user.practiceId)
         .order('name');
 
       if (error) throw error;

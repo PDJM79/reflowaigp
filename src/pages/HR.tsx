@@ -23,6 +23,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+const ROLE_DISPLAY_NAMES: Record<string, string> = {
+  practice_manager: 'Practice Manager',
+  nurse_lead: 'Nurse Lead',
+  cd_lead_gp: 'CD Lead GP',
+  estates_lead: 'Estates Lead',
+  ig_lead: 'IG Lead',
+  reception_lead: 'Reception Lead',
+  nurse: 'Nurse',
+  hca: 'HCA',
+  gp: 'GP',
+  reception: 'Receptionist',
+  auditor: 'Auditor',
+  cleaner: 'Cleaner',
+  administrator: 'Administrator',
+  group_manager: 'Group Manager',
+};
+
 export default function HR() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -382,7 +399,7 @@ export default function HR() {
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm sm:text-base">{employee.name}</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{ROLE_DISPLAY_NAMES[employee.role] || employee.role || 'No role assigned'}</p>
                           </div>
                           <div className="text-xs sm:text-sm text-muted-foreground">
                             {employee.start_date && `Started ${new Date(employee.start_date).toLocaleDateString()}`}
