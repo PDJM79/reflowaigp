@@ -177,7 +177,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Ready for Audit Section */}
+        {/* Fit for Audit Section */}
         <ReadyForAudit />
 
         {/* Policies Needing Acknowledgment */}

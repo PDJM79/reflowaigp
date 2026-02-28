@@ -238,7 +238,7 @@ export function ReadyForAudit() {
     return (
       <Card data-testid="card-audit-loading">
         <CardHeader>
-          <CardTitle>Ready for Audit</CardTitle>
+          <CardTitle>Fit for Audit</CardTitle>
           <CardDescription>Loading audit readiness scores...</CardDescription>
         </CardHeader>
       </Card>
@@ -273,7 +273,7 @@ export function ReadyForAudit() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <CardTitle className="text-2xl">Ready for Audit</CardTitle>
+                <CardTitle className="text-2xl">Fit for Audit</CardTitle>
                 <Badge variant="outline" className="text-xs">
                   Regulator: {regulatoryBody}
                 </Badge>

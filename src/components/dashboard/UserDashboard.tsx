@@ -280,7 +280,7 @@ export function UserDashboard() {
               </CardContent>
             </Card>
 
-            {/* Ready for Audit - visible to users with dashboard access */}
+            {/* Fit for Audit - visible to users with dashboard access */}
             {canViewDashboards && (
               <ReadyForAudit />
             )}
