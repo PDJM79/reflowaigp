@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
       for (const user of targetUsers) {
         // Calculate due date based on frequency
-        let dueDate = new Date(now);
+        const dueDate = new Date(now);
         switch (template.frequency) {
           case 'daily':
             dueDate.setDate(now.getDate() + 1);

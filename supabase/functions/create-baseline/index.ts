@@ -52,10 +52,10 @@ serve(async (req) => {
     // If no documents uploaded, baseline is zero for all metrics
     const hasDocuments = documentIds && documentIds.length > 0;
     
-    let driverDetails: Array<{ check_type: string; score: number; total: number; passed: number; impact: number }> = [];
+    const driverDetails: Array<{ check_type: string; score: number; total: number; passed: number; impact: number }> = [];
     let complianceScore = 0;
     let fitForAuditScore = 0;
-    let redFlags: Array<{ type: string; severity: string; description: string; confidence: number }> = [];
+    const redFlags: Array<{ type: string; severity: string; description: string; confidence: number }> = [];
     let sourceDocumentHashes: string[] = [];
 
     if (hasDocuments) {
