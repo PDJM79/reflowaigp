@@ -291,21 +291,9 @@ export default function StepExecution() {
     if (!stepInstance || !user) return;
 
     try {
-      // Get user ID and practice ID from users table
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) {
-        toast.error('User not found');
-        return;
-      }
-
       // Generate unique filename with practice_id prefix
       const timestamp = Date.now();
-      const filename = `${userData.practice_id}/${stepInstance.id}/${timestamp}_photo.jpg`;
+      const filename = `${user.practiceId}/${stepInstance.id}/${timestamp}_photo.jpg`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -326,7 +314,7 @@ export default function StepExecution() {
         .from('evidence')
         .insert({
           step_instance_id: stepInstance.id,
-          user_id: userData.id,
+          user_id: user.id,
           type: 'photo',
           storage_path: filename,
           mime_type: 'image/jpeg'
@@ -354,22 +342,10 @@ export default function StepExecution() {
     if (!stepInstance || !user) return;
 
     try {
-      // Get user ID and practice ID from users table
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) {
-        toast.error('User not found');
-        return;
-      }
-
       // Generate unique filename with practice_id prefix
       const timestamp = Date.now();
       const fileExtension = file.name.split('.').pop() || 'bin';
-      const filename = `${userData.practice_id}/${stepInstance.id}/${timestamp}_${file.name}`;
+      const filename = `${user.practiceId}/${stepInstance.id}/${timestamp}_${file.name}`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -390,7 +366,7 @@ export default function StepExecution() {
         .from('evidence')
         .insert({
           step_instance_id: stepInstance.id,
-          user_id: userData.id,
+          user_id: user.id,
           type: 'note', // Use 'note' for file uploads since we only have photo/note/signature
           storage_path: filename,
           mime_type: file.type

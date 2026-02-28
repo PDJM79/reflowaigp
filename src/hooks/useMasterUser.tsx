@@ -38,7 +38,7 @@ export function MasterUserProvider({ children }: { children: React.ReactNode }) 
 
         if (response.ok) {
           const users = await response.json();
-          const currentUser = users.find((u: any) => u.authUserId === user.id || u.auth_user_id === user.id);
+          const currentUser = users.find((u: any) => u.id === user.id);
           
           if (currentUser) {
             const masterStatus = currentUser.isMasterUser || currentUser.is_master_user || false;

@@ -63,14 +63,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
 
     try {
       setLoading(true);
-      // Get user's practice ID first
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData?.practice_id) {
+      if (!user.practiceId) {
         console.error('User practice not found');
         setLoading(false);
         return;
@@ -79,7 +72,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
       const { data, error } = await supabase
         .from('role_assignments')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('assigned_name');
 
       if (error) throw error;
@@ -101,14 +94,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
     try {
       setSaving(true);
       
-      // Get user's practice ID
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User practice not found');
+      if (!user?.practiceId) throw new Error('User practice not found');
 
       // Insert role assignment
       const { data: assignmentData, error: assignmentError } = await supabase
@@ -116,7 +102,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
         .insert({
           assigned_name: newAssignment.name,
           role: newAssignment.role as UserRole,
-          practice_id: userData.practice_id
+          practice_id: user.practiceId
         })
         .select()
         .single();

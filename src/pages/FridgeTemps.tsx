@@ -30,8 +30,6 @@ export default function FridgeTemps() {
   const isMobile = useIsMobile();
   
   // State
-  const [practiceId, setPracticeId] = useState<string | null>(null);
-  const [practiceName, setPracticeName] = useState<string>('');
   const [fridges, setFridges] = useState<Fridge[]>([]);
   const [todayLogs, setTodayLogs] = useState<TempLogWithFridge[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<DailyComplianceStats[]>([]);
@@ -66,24 +64,15 @@ export default function FridgeTemps() {
 
   const fetchData = useCallback(async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id, practices(name)')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData?.practice_id) return;
-      
-      setPracticeId(userData.practice_id);
-      setPracticeName((userData as any).practices?.name || '');
+      if (!user?.practiceId) return;
 
       const today = new Date().toISOString().split('T')[0];
-      
+
       const [fridgesData, logsData] = await Promise.all([
         supabase
           .from('fridges')
           .select('*')
-          .eq('practice_id', userData.practice_id),
+          .eq('practice_id', user.practiceId),
         supabase
           .from('temp_logs')
           .select('*, fridges(name, min_temp, max_temp)')
@@ -99,7 +88,7 @@ export default function FridgeTemps() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.practiceId]);
 
   useEffect(() => {
     if (!user) {
@@ -115,7 +104,7 @@ export default function FridgeTemps() {
       return;
     }
 
-    if (!practiceId) {
+    if (!user?.practiceId) {
       toast.error('Unable to determine practice. Please refresh and try again.');
       return;
     }
@@ -137,7 +126,7 @@ export default function FridgeTemps() {
       const { error } = await supabase
         .from('fridges')
         .insert({
-          practice_id: practiceId,
+          practice_id: user!.practiceId,
           name: newFridge.name.trim(),
           location: newFridge.location.trim() || null,
           min_temp: minTemp,
@@ -237,7 +226,7 @@ export default function FridgeTemps() {
   };
 
   const handleExportPDF = async () => {
-    if (!practiceId) return;
+    if (!user?.practiceId) return;
 
     try {
       // Fetch all logs for the last 30 days
@@ -258,7 +247,7 @@ export default function FridgeTemps() {
         : 100;
 
       const exporter = generateFridgeTempReportPDF({
-        practiceName: practiceName || 'Practice',
+        practiceName: user?.practice?.name || 'Practice',
         period: `${format(subDays(new Date(), 30), 'dd MMM yyyy')} - ${format(new Date(), 'dd MMM yyyy')}`,
         fridges: fridges,
         logs: logs,
@@ -462,7 +451,7 @@ export default function FridgeTemps() {
       </div>
 
       {/* Compliance Chart */}
-      {practiceId && (
+      {user?.practiceId && (
         <FridgeComplianceChart stats={weeklyStats} />
       )}
 
@@ -593,9 +582,9 @@ export default function FridgeTemps() {
         </Card>
 
         {/* Historical Log View */}
-        {practiceId && (
+        {user?.practiceId && (
           <HistoricalLogView
-            practiceId={practiceId}
+            practiceId={user.practiceId}
             fridges={fridges}
             onSelectBreachLog={setSelectedBreachLog}
             onStatsChange={setWeeklyStats}

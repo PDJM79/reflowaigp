@@ -60,18 +60,12 @@ export default function TaskTemplates() {
 
   const fetchTemplates = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       const { data, error } = await supabase
         .from('task_templates')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -105,13 +99,7 @@ export default function TaskTemplates() {
 
   const handleDuplicate = async (template: TaskTemplate) => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       const { id, created_at, ...templateData } = template;
 
@@ -127,7 +115,7 @@ export default function TaskTemplates() {
           due_rule: templateData.due_rule,
           evidence_tags: templateData.evidence_tags as any,
           allowed_roles: templateData.allowed_roles as any,
-          practice_id: userData.practice_id,
+          practice_id: user!.practiceId,
         }]);
 
       if (error) throw error;

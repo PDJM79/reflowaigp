@@ -56,13 +56,7 @@ export default function AdminReports() {
 
     setLoading(true);
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
+      if (!user.practiceId) return;
 
       // Fetch process instances in date range
       const { data: processes, error } = await supabase
@@ -72,7 +66,7 @@ export default function AdminReports() {
           process_templates(name),
           step_instances(status, completed_at)
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .gte('created_at', startDate)
         .lte('created_at', endDate)
         .order('created_at');

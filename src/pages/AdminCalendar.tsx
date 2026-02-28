@@ -53,13 +53,7 @@ export default function AdminCalendar() {
       const startDate = startOfMonth(viewDate);
       const endDate = endOfMonth(viewDate);
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
+      if (!user.practiceId) return;
 
       const { data: processData, error } = await supabase
         .from('process_instances')
@@ -68,7 +62,7 @@ export default function AdminCalendar() {
           process_templates!inner(name),
           users!assignee_id(name)
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .gte('due_at', startDate.toISOString())
         .lte('due_at', endDate.toISOString())
         .order('due_at');

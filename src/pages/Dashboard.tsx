@@ -42,25 +42,16 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchTasks = async () => {
-      // Get user data with practice_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
+      setPracticeId(user.practiceId);
 
-      if (userData) {
-        setPracticeId(userData.practice_id);
-        
-        // Fetch tasks assigned to this user
-        const { data: tasksData } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('assigned_to_user_id', userData.id)
-          .order('due_at', { ascending: true });
+      // Fetch tasks assigned to this user
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('assigned_to_user_id', user.id)
+        .order('due_at', { ascending: true });
 
-        setTasks(tasksData || []);
-      }
+      setTasks(tasksData || []);
       setLoading(false);
     };
 

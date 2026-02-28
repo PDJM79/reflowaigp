@@ -68,18 +68,8 @@ export default function MedicalRequests() {
 
   const initializePractice = async () => {
     try {
-      let pid = selectedPracticeId;
-
-      if (!pid) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user?.id)
-          .single();
-
-        if (!userData?.practice_id) return;
-        pid = userData.practice_id;
-      }
+      const pid = selectedPracticeId || user?.practiceId;
+      if (!pid) return;
 
       setPracticeId(pid);
 

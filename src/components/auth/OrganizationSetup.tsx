@@ -229,7 +229,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
       const { data: existingUser } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_user_id', user.id)
+        .eq('id', user.id)
         .single();
 
       let currentUserId: string;
@@ -244,7 +244,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
             practice_id: practice.id,
             is_practice_manager: isPracticeManager // DEPRECATED: kept for backward compatibility
           })
-          .eq('auth_user_id', user.id)
+          .eq('id', user.id)
           .select('id')
           .single();
 

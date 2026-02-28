@@ -60,13 +60,7 @@ export default function Reports() {
 
   const fetchTasks = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       let query = supabase
         .from('tasks')
@@ -74,7 +68,7 @@ export default function Reports() {
           *,
           assignedUser:users!tasks_assigned_to_user_id_fkey(name)
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('due_at', { ascending: true });
 
       if (selectedModule !== 'all') {

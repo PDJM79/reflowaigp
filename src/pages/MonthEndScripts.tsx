@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -14,6 +15,7 @@ import { ClaimRunDialog } from '@/components/scripts/ClaimRunDialog';
 
 export default function MonthEndScripts() {
   const { user } = useAuth();
+  const { hasCapability, hasAnyCapability } = useCapabilities();
   const navigate = useNavigate();
   const [scripts, setScripts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,6 @@ export default function MonthEndScripts() {
   const [removalDialogOpen, setRemovalDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [selectedScript, setSelectedScript] = useState<any>(null);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -29,48 +30,16 @@ export default function MonthEndScripts() {
       return;
     }
     fetchScripts();
-    fetchUserRoles();
   }, [user, navigate]);
-
-  const fetchUserRoles = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select(`
-          user_practice_roles(
-            practice_roles(
-              role_catalog(role_key)
-            )
-          )
-        `)
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (userData?.user_practice_roles) {
-        const roles = userData.user_practice_roles
-          .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
-          .filter(Boolean);
-        setUserRoles(roles);
-      }
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-    }
-  };
 
   const fetchScripts = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       const { data, error } = await supabase
         .from('month_end_scripts')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('month', { ascending: false })
         .order('issue_date', { ascending: false })
         .limit(200);
@@ -88,8 +57,8 @@ export default function MonthEndScripts() {
   const activeScripts = scripts.filter(s => !s.removed && s.month.startsWith(currentMonth));
   const removedScripts = scripts.filter(s => s.removed);
 
-  const canAdd = userRoles.some(r => ['nurse', 'nurse_lead', 'hca', 'practice_manager'].includes(r));
-  const canRemove = userRoles.includes('practice_manager');
+  const canAdd = hasAnyCapability('manage_tasks', 'assign_roles') || user?.isPracticeManager;
+  const canRemove = hasCapability('assign_roles') || user?.isPracticeManager;
 
   const handleRemoveClick = (script: any) => {
     setSelectedScript(script);

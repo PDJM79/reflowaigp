@@ -28,26 +28,16 @@ export function ViewComplaintsDialog({ children }: ViewComplaintsDialogProps) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
 
-  const { data: userData } = useQuery({
-    queryKey: ['current-user', user?.id],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const practiceId = user?.practiceId;
 
   const { data: complaints, isLoading } = useQuery({
-    queryKey: ['complaints-list', userData?.practice_id, statusFilter],
+    queryKey: ['complaints-list', practiceId, statusFilter],
     queryFn: async () => {
+      if (!practiceId) return [];
       let query = (supabase as any)
         .from('complaints')
         .select('*')
-        .eq('practice_id', userData?.practice_id)
+        .eq('practice_id', practiceId)
         .order('received_at', { ascending: false });
 
       if (statusFilter !== 'all') {

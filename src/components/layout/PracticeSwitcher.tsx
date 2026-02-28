@@ -42,21 +42,8 @@ export function PracticeSwitcher() {
             .order('name');
           setPractices(data || []);
         } else {
-          // Regular user: fetch their practice name
-          const { data: userData } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('auth_user_id', user.id)
-            .single();
-
-          if (userData?.practice_id) {
-            const { data: practiceData } = await supabase
-              .from('practices')
-              .select('name')
-              .eq('id', userData.practice_id)
-              .single();
-            setUserPracticeName(practiceData?.name || null);
-          }
+          // Regular user: get practice name from session
+          setUserPracticeName(user.practice?.name || null);
         }
       } catch (error) {
         console.error('Error fetching practice data:', error);

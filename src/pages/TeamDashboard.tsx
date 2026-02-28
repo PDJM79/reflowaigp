@@ -51,13 +51,7 @@ export default function TeamDashboard() {
 
     const fetchTeamData = async () => {
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (!userData) return;
+        if (!user.practiceId) return;
 
         // Fetch all team members
         const { data: members } = await supabase
@@ -72,7 +66,7 @@ export default function TeamDashboard() {
               )
             )
           `)
-          .eq('practice_id', userData.practice_id);
+          .eq('practice_id', user.practiceId);
 
         // Fetch process instances with assignee info
         const { data: processInstances } = await supabase
@@ -91,7 +85,7 @@ export default function TeamDashboard() {
               )
             )
           `)
-          .eq('practice_id', userData.practice_id);
+          .eq('practice_id', user.practiceId);
 
         if (members) {
           // Calculate task statistics for each team member

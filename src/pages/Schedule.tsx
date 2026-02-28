@@ -38,14 +38,7 @@ export default function Schedule() {
     if (!user) return;
 
     const fetchTasks = async () => {
-      // Get user and practice
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
+      if (!user.practiceId) return;
 
       // Fetch tasks for next 12 months
       const startDate = new Date();
@@ -63,7 +56,7 @@ export default function Schedule() {
           assigned_to_user_id,
           assigned_to_role
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .gte('due_at', startDate.toISOString())
         .lte('due_at', endDate.toISOString())
         .order('due_at', { ascending: true });

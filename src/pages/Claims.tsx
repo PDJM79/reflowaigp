@@ -31,20 +31,14 @@ export default function Claims() {
 
   const fetchClaims = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      if (!user?.practiceId) return;
 
-      if (!userData) return;
-
-      setPracticeId(userData.practice_id);
+      setPracticeId(user.practiceId);
 
       const { data, error } = await supabase
         .from('script_claim_runs')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('run_date', { ascending: false })
         .limit(50);
 

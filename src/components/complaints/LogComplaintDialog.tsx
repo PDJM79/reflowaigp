@@ -32,29 +32,19 @@ export function LogComplaintDialog({ children }: LogComplaintDialogProps) {
     category: 'other',
   });
 
-  const { data: userData } = useQuery({
-    queryKey: ['current-user', user?.id],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const practiceId = user?.practiceId;
 
   const { data: practiceUsers } = useQuery({
-    queryKey: ['practice-users', userData?.practice_id],
+    queryKey: ['practice-users', practiceId],
     queryFn: async () => {
+      if (!practiceId) return [];
       const { data } = await (supabase as any)
         .from('users')
         .select('id, full_name')
-        .eq('practice_id', userData?.practice_id);
+        .eq('practice_id', practiceId);
       return data || [];
     },
-    enabled: !!userData?.practice_id,
+    enabled: !!practiceId,
   });
 
   const createComplaint = useMutation({
@@ -83,7 +73,7 @@ export function LogComplaintDialog({ children }: LogComplaintDialogProps) {
       const { error } = await (supabase as any)
         .from('complaints')
         .insert({
-          practice_id: userData?.practice_id,
+          practice_id: practiceId,
           channel: formData.channel,
           severity: formData.severity,
           complainant_name: formData.complainant_name,
