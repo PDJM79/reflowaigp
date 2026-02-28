@@ -6,6 +6,7 @@ import { AlertCircle, Target, CheckCircle2, AlertTriangle, Sparkles, Loader2, In
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScoreData {
   section_key: string;
@@ -52,6 +53,39 @@ const SECTION_LABELS: Record<string, string> = {
   Policies: "Policies/Protocols",
   Incidents: "Risk & Incidents",
 };
+
+// Maps task.module values → section_key used by this component
+const MODULE_TO_SECTION: Record<string, string> = {
+  ipc: "InfectionControlAudit",
+  cleaning: "DailyCleaning",
+  compliance: "FireRisk",
+  complaints: "Complaints",
+  training: "HR_Training",
+  hr: "HR_Appraisals",
+  policies: "Policies",
+  incidents: "Incidents",
+};
+
+function computeScore(tasks: { status: string; due_at: string; completed_at: string | null }[]) {
+  const total = tasks.length;
+  if (total === 0) return { score: 100, C: 100, S: 100 };
+  const closedOnTime = tasks.filter(
+    t => t.status === 'closed' && t.completed_at && new Date(t.completed_at) <= new Date(t.due_at)
+  ).length;
+  const closedLate = tasks.filter(
+    t => t.status === 'closed' && t.completed_at && new Date(t.completed_at) > new Date(t.due_at)
+  ).length;
+  const totalClosed = closedOnTime + closedLate;
+  const score = Math.round((closedOnTime + closedLate * 0.7) / total * 100);
+  const C = Math.round(totalClosed / total * 100);
+  const S = totalClosed > 0 ? Math.round(closedOnTime / totalClosed * 100) : 0;
+  return { score, C, S };
+}
+
+const DEFAULT_TARGETS: TargetData[] = [
+  { section_key: null, target_score: 85 },
+  ...Object.values(MODULE_TO_SECTION).map(key => ({ section_key: key, target_score: 85 })),
+];
 
 interface AIImprovementTipsProps {
   section: string;
@@ -151,7 +185,42 @@ export function ReadyForAudit() {
     queryKey: ['audit-scores', practiceId],
     queryFn: async (): Promise<ScoreData[]> => {
       if (!practiceId) return [];
-      return [];
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const { data: tasks, error } = await supabase
+        .from('tasks')
+        .select('status, due_at, completed_at, module')
+        .eq('practice_id', practiceId)
+        .gte('due_at', thirtyDaysAgo.toISOString())
+        .lte('due_at', now.toISOString());
+
+      if (error || !tasks || tasks.length === 0) return [];
+
+      // Group by module
+      const groups: Record<string, typeof tasks> = {};
+      for (const task of tasks) {
+        const mod = task.module || 'other';
+        if (!groups[mod]) groups[mod] = [];
+        groups[mod].push(task);
+      }
+
+      const result: ScoreData[] = [];
+
+      // Per-module section scores
+      for (const [mod, modTasks] of Object.entries(groups)) {
+        const sectionKey = MODULE_TO_SECTION[mod];
+        if (!sectionKey) continue;
+        const { score, C, S } = computeScore(modTasks);
+        result.push({ section_key: sectionKey, score, contributors_json: { C, S }, gates_json: {} });
+      }
+
+      // Overall score
+      const { score: overallScore, C, S } = computeScore(tasks);
+      result.push({ section_key: 'Overall', score: overallScore, contributors_json: { C, S }, gates_json: {} });
+
+      return result;
     },
     enabled: !!practiceId,
   });
@@ -160,7 +229,7 @@ export function ReadyForAudit() {
     queryKey: ['audit-targets', practiceId],
     queryFn: async (): Promise<TargetData[]> => {
       if (!practiceId) return [];
-      return [];
+      return DEFAULT_TARGETS;
     },
     enabled: !!practiceId,
   });
