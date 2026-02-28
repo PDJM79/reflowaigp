@@ -78,11 +78,12 @@ export default function HR() {
     try {
       if (!user?.practiceId) return;
 
-      // Get employee count
+      // Get employee count (only real HR employees that have a role assigned)
       const { count: empCount } = await supabase
         .from('employees')
         .select('*', { count: 'exact', head: true })
-        .eq('practice_id', user.practiceId);
+        .eq('practice_id', user.practiceId)
+        .not('role', 'is', null);
 
       setEmployeeTotalCount(empCount || 0);
 
@@ -91,7 +92,7 @@ export default function HR() {
       const to = from + employeePageSize - 1;
 
       const [employeesData, appraisalsData, trainingData, leaveData, dbsData] = await Promise.all([
-        supabase.from('employees').select('*').eq('practice_id', user.practiceId).range(from, to),
+        supabase.from('employees').select('*').eq('practice_id', user.practiceId).not('role', 'is', null).range(from, to),
         supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
         supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
         supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
