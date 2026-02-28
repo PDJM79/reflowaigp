@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +12,38 @@ import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export function CleaningDashboard() {
+  const { user } = useAuth();
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+  const [stats, setStats] = useState({ zones: 0, tasks: 0, rooms: 0 });
+
+  useEffect(() => {
+    if (!user?.practiceId) return;
+    const fetchStats = async () => {
+      const [zonesRes, tasksRes, roomsRes] = await Promise.all([
+        supabase
+          .from('cleaning_zones')
+          .select('*', { count: 'exact', head: true })
+          .eq('practice_id', user.practiceId)
+          .eq('is_active', true),
+        supabase
+          .from('cleaning_tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('practice_id', user.practiceId)
+          .eq('is_active', true),
+        supabase
+          .from('rooms')
+          .select('*', { count: 'exact', head: true })
+          .eq('practice_id', user.practiceId)
+          .eq('is_active', true),
+      ]);
+      setStats({
+        zones: zonesRes.count || 0,
+        tasks: tasksRes.count || 0,
+        rooms: roomsRes.count || 0,
+      });
+    };
+    fetchStats();
+  }, [user?.practiceId]);
 
   const handleExport = () => {
     toast("This feature will be available in a future update", {
@@ -45,7 +78,7 @@ export function CleaningDashboard() {
             <CardTitle className="text-sm font-medium">Total Rooms</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{stats.rooms}</div>
           </CardContent>
         </Card>
 
@@ -54,7 +87,7 @@ export function CleaningDashboard() {
             <CardTitle className="text-sm font-medium">Active Zones</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{stats.zones}</div>
           </CardContent>
         </Card>
 
@@ -63,7 +96,7 @@ export function CleaningDashboard() {
             <CardTitle className="text-sm font-medium">Task Templates</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{stats.tasks}</div>
           </CardContent>
         </Card>
       </div>

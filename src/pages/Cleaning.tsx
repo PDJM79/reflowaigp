@@ -3,26 +3,59 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplet, Calendar, ListChecks, Loader2, RefreshCw, Download, Info } from 'lucide-react';
+import { Droplet, Loader2, RefreshCw, CheckCircle2, Circle, Settings } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
-import { CleaningDashboard } from '@/components/cleaning/CleaningDashboard';
+import { ZoneTypeIcon } from '@/components/cleaning/ZoneTypeIcon';
 import { toast } from 'sonner';
+
+interface CleaningZone {
+  id: string;
+  zone_name: string;
+  zone_type: string | null;
+}
+
+interface CleaningTask {
+  id: string;
+  task_name: string;
+  description: string | null;
+  frequency: string;
+  zone_id: string | null;
+}
+
+interface CleaningLog {
+  task_id: string | null;
+  completed_at: string | null;
+  initials: string | null;
+}
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  daily: 'Daily',
+  twice_daily: '2× Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  periodic: 'Periodic',
+};
 
 export default function Cleaning() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [tasks, setTasks] = useState<any[]>([]);
+
+  const [zones, setZones] = useState<CleaningZone[]>([]);
+  const [tasks, setTasks] = useState<CleaningTask[]>([]);
+  const [todayLogs, setTodayLogs] = useState<CleaningLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { scrollableRef, isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
-      await fetchCleaningTasks();
+      await fetchCleaningData();
       triggerHaptic('success');
     },
     enabled: isMobile,
@@ -33,56 +66,87 @@ export default function Cleaning() {
       navigate('/');
       return;
     }
-    fetchCleaningTasks();
+    fetchCleaningData();
   }, [user, navigate]);
 
-  const fetchCleaningTasks = async () => {
+  const fetchCleaningData = async () => {
     if (!user?.practiceId) {
       setLoading(false);
       return;
     }
     try {
-      const response = await fetch(`/api/practices/${user.practiceId}/tasks?module=cleaning`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTasks(data || []);
-      } else {
-        setTasks([]);
-      }
+      const today = new Date().toISOString().split('T')[0];
+
+      const [zonesResult, tasksResult, logsResult] = await Promise.all([
+        supabase
+          .from('cleaning_zones')
+          .select('id, zone_name, zone_type')
+          .eq('practice_id', user.practiceId)
+          .eq('is_active', true)
+          .order('zone_name'),
+
+        supabase
+          .from('cleaning_tasks')
+          .select('id, task_name, description, frequency, zone_id')
+          .eq('practice_id', user.practiceId)
+          .eq('is_active', true),
+
+        supabase
+          .from('cleaning_logs')
+          .select('task_id, completed_at, initials')
+          .eq('practice_id', user.practiceId)
+          .eq('log_date', today),
+      ]);
+
+      if (zonesResult.error) throw zonesResult.error;
+      if (tasksResult.error) throw tasksResult.error;
+
+      setZones(zonesResult.data || []);
+      setTasks(tasksResult.data || []);
+      setTodayLogs(logsResult.data || []);
     } catch (error) {
-      console.error('Error fetching cleaning tasks:', error);
-      setTasks([]);
+      console.error('Error fetching cleaning data:', error);
+      toast.error('Failed to load cleaning data');
     } finally {
       setLoading(false);
     }
   };
 
-  const openTasks = tasks.filter(t => t.status === 'open');
-  const completedTasks = tasks.filter(t => t.status === 'complete');
+  // Today's tasks = daily + twice_daily; group by zone
+  const todayTasks = tasks.filter(t => ['daily', 'twice_daily'].includes(t.frequency));
+  const completedIds = new Set(todayLogs.filter(l => l.completed_at).map(l => l.task_id));
 
-  const handleExportCleaningLogs = async () => {
-    toast.info('Cleaning log export will be available soon.');
-  };
+  const tasksByZone = zones
+    .map(zone => ({
+      zone,
+      tasks: todayTasks.filter(t => t.zone_id === zone.id),
+    }))
+    .filter(g => g.tasks.length > 0);
+
+  // Unassigned daily tasks (no zone)
+  const unassignedTasks = todayTasks.filter(t => !t.zone_id);
+
+  const completedToday = todayTasks.filter(t => completedIds.has(t.id)).length;
 
   return (
     <div ref={scrollableRef} className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
       {isMobile && (isPulling || isRefreshing) && (
-        <div 
+        <div
           className="flex items-center justify-center py-4 transition-opacity"
           style={{ opacity: isPulling ? pullProgress : 1 }}
         >
           {isRefreshing ? (
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           ) : (
-            <RefreshCw 
+            <RefreshCw
               className="h-6 w-6 text-primary transition-transform"
               style={{ transform: `rotate(${pullProgress * 360}deg)` }}
             />
           )}
         </div>
       )}
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -92,36 +156,38 @@ export default function Cleaning() {
               {t('cleaning.title')}
             </h1>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground">Daily cleaning schedules and room checks</p>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Today's cleaning schedule — {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="outline"
-            onClick={handleExportCleaningLogs}
-            size={isMobile ? 'lg' : 'default'}
-            className="min-h-[44px]"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export Logs
-          </Button>
-          <Button 
-            onClick={() => navigate('/tasks?module=cleaning')}
-            size={isMobile ? 'lg' : 'default'}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            <ListChecks className="h-4 w-4 mr-2" />
-            {isMobile ? 'View Tasks' : 'View All Cleaning Tasks'}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size={isMobile ? 'lg' : 'default'}
+          className="min-h-[44px]"
+          onClick={() => navigate('/cleaning/manage')}
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Manage Zones & Tasks
+        </Button>
       </div>
 
+      {/* Stats */}
       <div className="grid gap-3 grid-cols-3 sm:gap-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">Today's Tasks</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Zones</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{openTasks.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{zones.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Due Today</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl sm:text-3xl font-bold">{todayTasks.length}</div>
           </CardContent>
         </Card>
 
@@ -130,64 +196,134 @@ export default function Cleaning() {
             <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{completedTasks.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="touch-manipulation">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{tasks.length}</div>
+            <div className={`text-2xl sm:text-3xl font-bold ${completedToday === todayTasks.length && todayTasks.length > 0 ? 'text-green-600' : ''}`}>
+              {completedToday}/{todayTasks.length}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="py-12 text-center">
-          <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground mb-2 font-medium">Cleaning schedule data will be available soon.</p>
-          <p className="text-sm text-muted-foreground">
-            The cleaning schedule module is being migrated. Task data is shown above.
-          </p>
-        </CardContent>
-      </Card>
-
+      {/* Main content */}
       {loading ? (
-        <div className="text-center py-8">Loading cleaning data...</div>
-      ) : tasks.length === 0 ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : zones.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Droplet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground mb-4">No cleaning tasks yet</p>
+            <p className="font-medium mb-2">No cleaning zones configured</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Add zones and daily tasks to see today's cleaning schedule here.
+            </p>
+            <Button onClick={() => navigate('/cleaning/manage')}>
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Zones & Tasks
+            </Button>
+          </CardContent>
+        </Card>
+      ) : todayTasks.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+            <p className="font-medium mb-2">No daily tasks configured</p>
             <p className="text-sm text-muted-foreground">
-              Use the dashboard above to set up zones, tasks, and rooms
+              {tasks.length > 0
+                ? `${tasks.length} task${tasks.length !== 1 ? 's' : ''} exist but none are set to daily or twice-daily frequency.`
+                : 'Add daily cleaning tasks to zones to see them here.'}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4">
-          {tasks.slice(0, 10).map((task) => (
-            <Card 
-              key={task.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer active:scale-[0.98] touch-manipulation"
-              onClick={() => navigate(`/task/${task.id}`)}
-            >
-              <CardHeader className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="text-base sm:text-lg">{task.title}</CardTitle>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+        <div className="space-y-4">
+          {/* Tasks grouped by zone */}
+          {tasksByZone.map(({ zone, tasks: zoneTasks }) => {
+            const zoneCompleted = zoneTasks.filter(t => completedIds.has(t.id)).length;
+            const allDone = zoneCompleted === zoneTasks.length;
+
+            return (
+              <Card key={zone.id} className={allDone ? 'border-green-200 dark:border-green-800' : ''}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ZoneTypeIcon type={zone.zone_type || 'other'} className="h-5 w-5 text-muted-foreground" />
+                      <CardTitle className="text-base">{zone.zone_name}</CardTitle>
+                      {zone.zone_type && (
+                        <Badge variant="outline" className="text-xs capitalize">{zone.zone_type}</Badge>
+                      )}
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {zoneCompleted}/{zoneTasks.length} done
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-xs sm:text-sm whitespace-nowrap">{new Date(task.dueAt).toLocaleDateString()}</span>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="divide-y">
+                    {zoneTasks.map(task => {
+                      const done = completedIds.has(task.id);
+                      const log = todayLogs.find(l => l.task_id === task.id && l.completed_at);
+                      return (
+                        <div key={task.id} className="flex items-center gap-3 py-2.5">
+                          {done ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${done ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.task_name}
+                            </p>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge variant="secondary" className="text-xs">
+                              {FREQUENCY_LABELS[task.frequency] || task.frequency}
+                            </Badge>
+                            {done && log?.initials && (
+                              <span className="text-xs text-muted-foreground">{log.initials}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Unassigned tasks */}
+          {unassignedTasks.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-muted-foreground">Unassigned Tasks</CardTitle>
               </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y">
+                  {unassignedTasks.map(task => {
+                    const done = completedIds.has(task.id);
+                    return (
+                      <div key={task.id} className="flex items-center gap-3 py-2.5">
+                        {done ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <p className={`flex-1 text-sm font-medium ${done ? 'line-through text-muted-foreground' : ''}`}>
+                          {task.task_name}
+                        </p>
+                        <Badge variant="secondary" className="text-xs">
+                          {FREQUENCY_LABELS[task.frequency] || task.frequency}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
             </Card>
-          ))}
+          )}
         </div>
       )}
     </div>
