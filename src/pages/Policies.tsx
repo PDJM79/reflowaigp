@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 
 export default function Policies() {
   const { user } = useAuth();
+  const { hasCapability } = useCapabilities();
   const navigate = useNavigate();
   const [policies, setPolicies] = useState<any[]>([]);
   const [myAcknowledgments, setMyAcknowledgments] = useState<Set<string>>(new Set());
@@ -25,7 +27,6 @@ export default function Policies() {
   const [ackDialogOpen, setAckDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
   const [selectedPolicyForTracker, setSelectedPolicyForTracker] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [checkingReviews, setCheckingReviews] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
   const [sendingAckReminders, setSendingAckReminders] = useState(false);
@@ -38,51 +39,12 @@ export default function Policies() {
       return;
     }
     fetchPolicies();
-    fetchUserRoles();
   }, [user, navigate]);
-
-  const fetchUserRoles = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select(`
-          user_practice_roles(
-            practice_roles(
-              role_catalog(role_key)
-            )
-          )
-        `)
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (userData?.user_practice_roles) {
-        const roles = userData.user_practice_roles
-          .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
-          .filter(Boolean);
-        setUserRoles(roles);
-      }
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-    }
-  };
 
   const fetchPolicies = async () => {
     try {
       setError(null);
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-        setError('Failed to load user data. Please try refreshing the page.');
-        setLoading(false);
-        return;
-      }
-
-      if (!userData) {
+      if (!user?.practiceId) {
         setError('User data not found. Please contact support.');
         setLoading(false);
         return;
@@ -91,7 +53,7 @@ export default function Policies() {
       const { data, error: policiesError } = await supabase
         .from('policy_documents')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('created_at', { ascending: false });
 
       if (policiesError) {
@@ -100,14 +62,14 @@ export default function Policies() {
         setLoading(false);
         return;
       }
-      
+
       setPolicies(data || []);
 
-      // Fetch user's acknowledgments
+      // Fetch user's acknowledgments using session user.id (DB primary key)
       const { data: acks } = await supabase
         .from('policy_acknowledgments')
         .select('policy_id, version_acknowledged')
-        .eq('user_id', userData.id);
+        .eq('user_id', user.id);
 
       const ackSet = new Set(
         acks?.map(a => `${a.policy_id}_${a.version_acknowledged}`) || []
@@ -131,7 +93,7 @@ export default function Policies() {
     !myAcknowledgments.has(`${p.id}_${p.version || 'unversioned'}`)
   );
 
-  const canUpload = userRoles.includes('practice_manager') || userRoles.includes('ig_lead');
+  const canUpload = hasCapability('manage_policies');
 
   const handleAcknowledgeClick = (policy: any) => {
     setSelectedPolicy(policy);

@@ -38,21 +38,15 @@ export default function Complaints() {
 
   // Fetch complaints with pagination
   const { data: complaintsData, isLoading, refetch } = useQuery({
-    queryKey: ['complaints', user?.id, page, pageSize],
+    queryKey: ['complaints', user?.practiceId, page, pageSize],
     queryFn: async () => {
-      const { data: userData } = await (supabase as any)
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return { complaints: [], totalCount: 0 };
+      if (!user?.practiceId) return { complaints: [], totalCount: 0 };
 
       // Get total count
       const { count } = await (supabase as any)
         .from('complaints')
         .select('*', { count: 'exact', head: true })
-        .eq('practice_id', userData.practice_id);
+        .eq('practice_id', user.practiceId);
 
       // Get paginated data
       const from = (page - 1) * pageSize;
@@ -61,13 +55,13 @@ export default function Complaints() {
       const { data } = await (supabase as any)
         .from('complaints')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('received_date', { ascending: false })
         .range(from, to);
 
       return { complaints: data || [], totalCount: count || 0 };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.practiceId,
   });
 
   const complaints = complaintsData?.complaints || [];

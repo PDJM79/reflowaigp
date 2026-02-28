@@ -62,23 +62,17 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
 
   const fetchTemplatesAndUsers = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       const [templatesData, usersData] = await Promise.all([
         supabase
           .from('task_templates')
           .select('*')
-          .eq('practice_id', userData.practice_id),
+          .eq('practice_id', user.practiceId),
         supabase
           .from('users')
           .select(`
-            id, 
+            id,
             name,
             user_practice_roles(
               practice_roles(
@@ -86,7 +80,7 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
               )
             )
           `)
-          .eq('practice_id', userData.practice_id)
+          .eq('practice_id', user.practiceId)
           .eq('is_active', true),
       ]);
 
@@ -117,16 +111,10 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
     try {
       const validatedData = taskSchema.parse(formData);
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) throw new Error('User not found');
+      if (!user?.practiceId) throw new Error('User not found');
 
       const taskData = {
-        practice_id: userData.practice_id,
+        practice_id: user.practiceId,
         title: validatedData.title,
         description: validatedData.description || '',
         module: validatedData.module,

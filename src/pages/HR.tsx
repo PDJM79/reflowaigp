@@ -41,7 +41,7 @@ export default function HR() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
   const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
-  const [practiceId, setPracticeId] = useState<string>('');
+  const practiceId = user?.practiceId ?? '';
   const [isImportingDBS, setIsImportingDBS] = useState(false);
 
   // Employee pagination
@@ -59,21 +59,13 @@ export default function HR() {
 
   const fetchHRData = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
-
-      setPracticeId(userData.practice_id);
+      if (!user?.practiceId) return;
 
       // Get employee count
       const { count: empCount } = await supabase
         .from('employees')
         .select('*', { count: 'exact', head: true })
-        .eq('practice_id', userData.practice_id);
+        .eq('practice_id', user.practiceId);
 
       setEmployeeTotalCount(empCount || 0);
 
@@ -82,11 +74,11 @@ export default function HR() {
       const to = from + employeePageSize - 1;
 
       const [employeesData, appraisalsData, trainingData, leaveData, dbsData] = await Promise.all([
-        supabase.from('employees').select('*').eq('practice_id', userData.practice_id).range(from, to),
+        supabase.from('employees').select('*').eq('practice_id', user.practiceId).range(from, to),
         supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
         supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
         supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('dbs_checks').select('*').eq('practice_id', userData.practice_id).order('check_date', { ascending: false }),
+        supabase.from('dbs_checks').select('*').eq('practice_id', user.practiceId).order('check_date', { ascending: false }),
       ]);
 
       setEmployees(employeesData.data || []);
@@ -247,29 +239,17 @@ export default function HR() {
             className="min-h-[44px]"
             onClick={async () => {
               try {
-                const { data: userData } = await supabase
-                  .from('users')
-                  .select('practice_id')
-                  .eq('auth_user_id', user?.id)
-                  .single();
-                
-                if (!userData) throw new Error('User data not found');
-                
-                const { data: practice } = await supabase
-                  .from('practices')
-                  .select('name')
-                  .eq('id', userData.practice_id)
-                  .single();
-                
+                if (!user?.practiceId) throw new Error('User data not found');
+
                 const { data: employeesData } = await supabase
                   .from('employees')
                   .select('*')
-                  .eq('practice_id', userData.practice_id);
-                
+                  .eq('practice_id', user.practiceId);
+
                 const { data: trainingTypesData } = await supabase
                   .from('training_types')
                   .select('*')
-                  .eq('practice_id', userData.practice_id);
+                  .eq('practice_id', user.practiceId);
                 
                 const { data: trainingRecordsData } = await supabase
                   .from('training_records')
@@ -277,7 +257,7 @@ export default function HR() {
 
                 if (employeesData && trainingTypesData && trainingRecordsData) {
                   generateTrainingMatrixPDF({
-                    practiceName: practice?.name || 'Unknown Practice',
+                    practiceName: user.practice?.name || 'Unknown Practice',
                     employees: employeesData,
                     trainingTypes: trainingTypesData,
                     trainingRecords: trainingRecordsData

@@ -26,24 +26,9 @@ export function useTaskData() {
 
   const fetchTasks = async () => {
     try {
-      console.log('Fetching tasks for user:', user.id, 'Master user:', isMasterUser, 'Selected practice:', selectedPracticeId);
-      
-      // Get user's practice info
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, practice_id, name, is_master_user')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      console.log('User data:', userData, 'Error:', userError);
-      if (!userData) {
-        console.log('No user data found for auth user:', user.id);
-        return;
-      }
-
-      // Determine which practice to fetch data for
-      let targetPracticeId = userData.practice_id;
-      if (userData.is_master_user && selectedPracticeId) {
+      // Use session user — no extra Supabase lookup needed
+      let targetPracticeId = user.practiceId;
+      if (isMasterUser && selectedPracticeId) {
         targetPracticeId = selectedPracticeId;
       }
 
@@ -169,7 +154,7 @@ export function useTaskData() {
 
         // Check if this task is assigned to ANY of the current user's roles
         // A task is "current user's" if assigned to someone who has a role the current user also has
-        const isCurrentUserTask = assignee?.id === userData.id;
+        const isCurrentUserTask = assignee?.id === user.id;
 
         return {
           id: instance.id,
@@ -184,7 +169,7 @@ export function useTaskData() {
       });
 
       console.log('All tasks:', tasks);
-      console.log('Current user ID:', userData.id);
+      console.log('Current user ID:', user.id);
 
       // Split tasks based on current user
       // User tasks = tasks assigned to the current user

@@ -26,18 +26,12 @@ export default function Incidents() {
 
   const fetchIncidents = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       const { data, error } = await supabase
         .from('incidents')
         .select('*')
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user.practiceId)
         .order('incident_date', { ascending: false })
         .limit(50);
 

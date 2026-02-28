@@ -57,7 +57,7 @@ export default function TasksList() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const currentUserId = user?.id ?? '';
   const [useServerSearch, setUseServerSearch] = useState(false);
   
   // Pagination state
@@ -81,14 +81,14 @@ export default function TasksList() {
       navigate('/');
       return;
     }
-    fetchCurrentUser();
+    fetchTasks();
   }, [user, navigate]);
 
   useEffect(() => {
-    if (currentUserId) {
+    if (user) {
       fetchTasks();
     }
-  }, [currentUserId, selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize, debouncedSearchQuery]);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize, debouncedSearchQuery]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -100,29 +100,10 @@ export default function TasksList() {
     setUseServerSearch(debouncedSearchQuery.length > 0);
   }, [debouncedSearchQuery]);
 
-  const fetchCurrentUser = async () => {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id, practice_id')
-      .eq('auth_user_id', user?.id)
-      .single();
-
-    if (userData) {
-      setCurrentUserId(userData.id);
-    }
-  };
-
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, practice_id')
-        .eq('auth_user_id', user?.id)
-        .single();
-
-      if (!userData) return;
+      if (!user?.practiceId) return;
 
       // Use server-side search RPC when searching
       if (debouncedSearchQuery.length > 0) {
@@ -159,7 +140,7 @@ export default function TasksList() {
       let countQuery = supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('practice_id', userData.practice_id);
+        .eq('practice_id', user!.practiceId);
 
       let dataQuery = supabase
         .from('tasks')
@@ -168,7 +149,7 @@ export default function TasksList() {
           assignedUser:users!tasks_assigned_to_user_id_fkey(name),
           task_templates(title)
         `)
-        .eq('practice_id', userData.practice_id)
+        .eq('practice_id', user!.practiceId)
         .order('due_at', { ascending: true });
 
       if (selectedModule !== 'all') {
@@ -187,8 +168,8 @@ export default function TasksList() {
       }
 
       if (showMyTasks) {
-        countQuery = countQuery.eq('assigned_to_user_id', userData.id);
-        dataQuery = dataQuery.eq('assigned_to_user_id', userData.id);
+        countQuery = countQuery.eq('assigned_to_user_id', user!.id);
+        dataQuery = dataQuery.eq('assigned_to_user_id', user!.id);
       }
 
       const from = (page - 1) * pageSize;
