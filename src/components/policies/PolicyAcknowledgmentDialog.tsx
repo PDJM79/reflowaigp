@@ -68,6 +68,8 @@ export function PolicyAcknowledgmentDialog({ isOpen, onClose, onSuccess, policy 
     toast.info('Document viewing is not yet available through the API');
   };
 
+  if (!policy) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
