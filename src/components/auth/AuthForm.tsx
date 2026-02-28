@@ -100,7 +100,7 @@ export function AuthForm() {
   const pageWrapper = (children: React.ReactNode) => (
     <div
       className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
-      style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+      style={{ backgroundImage: `url('/images/login-backdrop.jpg')` }}
     >
       {backdrop}
       <div className="relative z-10 flex flex-col items-center w-full max-w-md">
@@ -274,7 +274,7 @@ export function AuthForm() {
   return (
     <div
       className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex flex-col items-center justify-center p-4"
-      style={{ backgroundImage: `url('/images/login-backdrop.png')` }}
+      style={{ backgroundImage: `url('/images/login-backdrop.jpg')` }}
     >
       <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-10 flex flex-col items-center w-full max-w-md">
