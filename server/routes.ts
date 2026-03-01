@@ -753,6 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── AI section improvement tips (ReadyForAudit / Areas of Concern) ─────────
   app.post("/api/practices/:practiceId/ai/suggest-improvements", isAuthenticated, requireSamePractice, async (req, res) => {
+    console.log('ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY);
     try {
       const { section, score, target, gap, contributors, country } = req.body;
       if (!section) return res.status(400).json({ error: "section is required" });
