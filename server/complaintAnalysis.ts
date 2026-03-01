@@ -226,15 +226,51 @@ Return a single JSON object (no markdown fences) matching this exact structure:
   }
 
   let analysis: ComplaintAnalysis;
-  const text = block.text.trim();
+  const rawText = block.text.trim();
 
-  try {
-    analysis = JSON.parse(text);
-  } catch {
-    // Strip markdown fences if present
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Could not parse AI response as JSON');
-    analysis = JSON.parse(match[0]);
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  let text = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
+  // Trim any prose before the first { or [ and after the last } or ]
+  const firstBrace = Math.min(
+    text.indexOf('{') === -1 ? Infinity : text.indexOf('{'),
+    text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
+  );
+  const lastBrace = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+  if (firstBrace !== Infinity && lastBrace !== -1) {
+    text = text.slice(firstBrace, lastBrace + 1);
+  }
+
+  const tryParse = (s: string): ComplaintAnalysis | null => {
+    try { return JSON.parse(s); } catch { return null; }
+  };
+
+  // Attempt 1: clean text
+  let parsed = tryParse(text);
+
+  // Attempt 2: remove trailing commas before } or ]
+  if (!parsed) {
+    const fixed = text.replace(/,\s*([}\]])/g, '$1');
+    parsed = tryParse(fixed);
+  }
+
+  // Attempt 3: last resort — return a minimal valid structure with the raw text as summary
+  if (!parsed) {
+    console.error('complaintAnalysis: could not parse Claude response, using fallback. Raw:', rawText.slice(0, 300));
+    analysis = {
+      themes: [],
+      root_causes: [],
+      sla_performance: {
+        ack_compliance_pct: ackPct,
+        final_compliance_pct: finalPct,
+        status: ackPct >= 80 && finalPct >= 80 ? 'green' : ackPct >= 60 && finalPct >= 60 ? 'amber' : 'red',
+        summary: rawText,
+      },
+      recommendations: [],
+      risk_areas: [],
+    };
+  } else {
+    analysis = parsed;
   }
 
   // Override SLA pcts with our own calculated values for accuracy
