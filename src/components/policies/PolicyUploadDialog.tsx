@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Upload, FileText } from 'lucide-react';
@@ -20,9 +21,9 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     title: '',
+    description: '',
     version: '',
-    owner_role: '',
-    effective_from: '',
+    status: 'active',
     review_due: '',
   });
 
@@ -49,10 +50,6 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      toast.error('Please select a file to upload');
-      return;
-    }
 
     if (!user?.practiceId) {
       toast.error('Practice not found');
@@ -68,15 +65,11 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
         credentials: 'include',
         body: JSON.stringify({
           title: formData.title,
-          version: formData.version || null,
-          ownerRole: formData.owner_role || null,
-          effectiveFrom: formData.effective_from || null,
-          reviewDue: formData.review_due || null,
-          fileSize: file.size,
-          fileMimeType: file.type,
-          uploadedBy: user.id,
-          status: 'active',
-          source: 'manual_upload',
+          version: formData.version || '1.0',
+          ownerId: user.id,
+          status: formData.status || 'active',
+          nextReviewDate: formData.review_due ? new Date(formData.review_due).toISOString() : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          content: formData.description || null,
         }),
       });
 
@@ -89,13 +82,7 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
       onSuccess();
       onClose();
       setFile(null);
-      setFormData({
-        title: '',
-        version: '',
-        owner_role: '',
-        effective_from: '',
-        review_due: '',
-      });
+      setFormData({ title: '', description: '', version: '', status: 'active', review_due: '' });
     } catch (error: any) {
       console.error('Error uploading policy:', error);
       toast.error(error.message || 'Failed to upload policy');
@@ -146,6 +133,17 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of the policy..."
+              rows={3}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="version">Version</Label>
@@ -153,50 +151,30 @@ export function PolicyUploadDialog({ isOpen, onClose, onSuccess }: PolicyUploadD
                 id="version"
                 value={formData.version}
                 onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                placeholder="e.g., v1.0"
+                placeholder="e.g., 1.0"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="owner_role">Owner Role</Label>
-              <Select
-                value={formData.owner_role}
-                onValueChange={(value) => setFormData({ ...formData, owner_role: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="practice_manager">Practice Manager</SelectItem>
-                  <SelectItem value="ig_lead">IG Lead</SelectItem>
-                  <SelectItem value="nurse_lead">Nurse Lead</SelectItem>
-                  <SelectItem value="cd_lead_gp">CD Lead GP</SelectItem>
-                  <SelectItem value="estates_lead">Estates Lead</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="effective_from">Effective From</Label>
-              <Input
-                id="effective_from"
-                type="date"
-                value={formData.effective_from}
-                onChange={(e) => setFormData({ ...formData, effective_from: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="review_due">Review Due</Label>
-              <Input
-                id="review_due"
-                type="date"
-                value={formData.review_due}
-                onChange={(e) => setFormData({ ...formData, review_due: e.target.value })}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="review_due">Review Due</Label>
+            <Input
+              id="review_due"
+              type="date"
+              value={formData.review_due}
+              onChange={(e) => setFormData({ ...formData, review_due: e.target.value })}
+            />
           </div>
 
           <DialogFooter>

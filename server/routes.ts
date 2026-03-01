@@ -7,7 +7,7 @@ import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
-  insertProcessTemplateSchema
+  insertProcessTemplateSchema, insertFridgeUnitSchema, insertFridgeReadingSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -322,7 +322,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/practices/:practiceId/incidents", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
+      const practiceId = req.params.practiceId as string;
+      const body = req.body;
+      // Derive legacy required columns that exist in the live DB
+      const severity = body.severity || 'low';
+      const rag = (severity === 'major' || severity === 'critical') ? 'red'
+                : (severity === 'moderate') ? 'amber' : 'green';
+      const dateOccurred = body.dateOccurred ? new Date(body.dateOccurred) : new Date();
+      const dataWithPractice = {
+        ...stripPracticeId(body),
+        practiceId,
+        rag,
+        reportedBy: body.reportedById || (req.session as any).userId || '',
+        incidentDate: dateOccurred,
+        dateOccurred,
+      };
       const validated = insertIncidentSchema.parse(dataWithPractice);
       const incident = await storage.createIncident(validated);
       res.status(201).json(incident);
@@ -544,6 +558,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/fridge-units", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const units = await storage.getFridgeUnitsByPractice(req.params.practiceId as string);
+      res.json(units);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch fridge units" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/fridge-units", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId as string };
+      const validated = insertFridgeUnitSchema.parse(dataWithPractice);
+      const unit = await storage.createFridgeUnit(validated);
+      res.status(201).json(unit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create fridge unit" });
+    }
+  });
+
+  app.patch("/api/practices/:practiceId/fridge-units/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const unit = await storage.updateFridgeUnit(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!unit) return res.status(404).json({ error: "Fridge unit not found" });
+      res.json(unit);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update fridge unit" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/fridge-readings", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const fridgeId = typeof req.query.fridgeId === 'string' ? req.query.fridgeId : undefined;
+      const readings = await storage.getFridgeReadingsByPractice(req.params.practiceId as string, fridgeId);
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch fridge readings" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/fridge-readings", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const body = req.body;
+      const fridge = await storage.getFridgeUnitsByPractice(practiceId).then(units => units.find(u => u.id === body.fridgeId));
+      const temp = parseFloat(body.temperature);
+      const isOutOfRange = fridge
+        ? (temp < parseFloat(fridge.minTemp as string) || temp > parseFloat(fridge.maxTemp as string))
+        : false;
+      const dataWithPractice = {
+        ...stripPracticeId(body),
+        practiceId,
+        isOutOfRange,
+        recordedBy: body.recordedBy || (req.session as any).userId || undefined,
+      };
+      const validated = insertFridgeReadingSchema.parse(dataWithPractice);
+      const reading = await storage.createFridgeReading(validated);
+      res.status(201).json({ ...reading, isOutOfRange });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create fridge reading" });
     }
   });
 

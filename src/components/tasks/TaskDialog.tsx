@@ -113,32 +113,40 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
 
       if (!user?.practiceId) throw new Error('User not found');
 
-      const taskData = {
-        practice_id: user.practiceId,
-        title: validatedData.title,
-        description: validatedData.description || '',
-        module: validatedData.module,
-        due_at: new Date(validatedData.due_at).toISOString(),
-        priority: validatedData.priority,
-        template_id: formData.template_id || null,
-        assigned_to_user_id: formData.assigned_to_user_id || null,
-        status: 'open',
-      };
-
       if (task?.id) {
-        const { error } = await supabase
-          .from('tasks')
-          .update(taskData)
-          .eq('id', task.id);
-
-        if (error) throw error;
+        const res = await fetch(`/api/practices/${user.practiceId}/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: validatedData.title,
+            description: validatedData.description || '',
+            module: validatedData.module,
+            dueAt: new Date(validatedData.due_at).toISOString(),
+            priority: validatedData.priority,
+            templateId: formData.template_id || null,
+            assigneeId: formData.assigned_to_user_id || null,
+          }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to update task'); }
         toast.success('Task updated successfully');
       } else {
-        const { error } = await supabase
-          .from('tasks')
-          .insert([taskData]);
-
-        if (error) throw error;
+        const res = await fetch(`/api/practices/${user.practiceId}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: validatedData.title,
+            description: validatedData.description || '',
+            module: validatedData.module,
+            dueAt: new Date(validatedData.due_at).toISOString(),
+            priority: validatedData.priority,
+            status: 'open',
+            templateId: formData.template_id || null,
+            assigneeId: formData.assigned_to_user_id || null,
+          }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to create task'); }
         toast.success('Task created successfully');
       }
 

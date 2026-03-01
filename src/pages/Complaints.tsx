@@ -10,6 +10,7 @@ import { MessageSquare, Plus, Clock, CheckCircle, AlertTriangle, Send, FileText,
 import { ComplaintSLADialog } from '@/components/complaints/ComplaintSLADialog';
 import { ComplaintThemeAnalysis } from '@/components/complaints/ComplaintThemeAnalysis';
 import { ComplaintSLATracker } from '@/components/complaints/ComplaintSLATracker';
+import { LogComplaintDialog } from '@/components/complaints/LogComplaintDialog';
 import { useQuery } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -25,7 +26,8 @@ export default function Complaints() {
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
   const [dialogAction, setDialogAction] = useState<'acknowledgment' | 'final_response'>('acknowledgment');
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -56,7 +58,7 @@ export default function Complaints() {
         .from('complaints')
         .select('*')
         .eq('practice_id', user.practiceId)
-        .order('received_date', { ascending: false })
+        .order('received_at', { ascending: false })
         .range(from, to);
 
       return { complaints: data || [], totalCount: count || 0 };
@@ -75,9 +77,9 @@ export default function Complaints() {
     enabled: isMobile,
   });
 
-  const needsAck = complaints.filter((c: any) => !c.acknowledgment_sent_at);
-  const needsFinal = complaints.filter((c: any) => c.acknowledgment_sent_at && !c.final_response_sent_at);
-  const overdueComplaints = complaints.filter((c: any) => c.sla_status === 'overdue');
+  const needsAck = complaints.filter((c: any) => c.status !== 'closed' && !c.ack_sent_at);
+  const needsFinal = complaints.filter((c: any) => c.ack_sent_at && !c.final_sent_at && c.status !== 'closed');
+  const overdueComplaints = complaints.filter((c: any) => c.final_due && new Date(c.final_due) < new Date() && c.status !== 'closed');
   const atRiskComplaints = complaints.filter((c: any) => c.sla_status === 'at_risk');
 
   // Pagination calculations
@@ -142,7 +144,7 @@ export default function Complaints() {
           </div>
           <p className="text-muted-foreground">Track and manage patient complaints with SLA monitoring</p>
         </div>
-        <Button>
+        <Button onClick={() => setLogDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Log Complaint
         </Button>
@@ -253,9 +255,9 @@ export default function Complaints() {
                       <p className="text-sm text-muted-foreground line-clamp-2">{complaint.description}</p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      {!complaint.acknowledgment_sent_at && (
-                        <Button 
-                          size="sm" 
+                      {!complaint.ack_sent_at && (
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleSendAcknowledgment(complaint)}
                         >
@@ -263,8 +265,8 @@ export default function Complaints() {
                           Send ACK
                         </Button>
                       )}
-                      {complaint.acknowledgment_sent_at && !complaint.final_response_sent_at && (
-                        <Button 
+                      {complaint.ack_sent_at && !complaint.final_sent_at && (
+                        <Button
                           size="sm"
                           onClick={() => handleSendFinalResponse(complaint)}
                         >
@@ -277,26 +279,26 @@ export default function Complaints() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      Received: {new Date(complaint.received_date).toLocaleDateString()}
+                      Received: {new Date(complaint.received_at).toLocaleDateString()}
                     </span>
-                    {complaint.acknowledgment_sent_at ? (
+                    {complaint.ack_sent_at ? (
                       <span className="flex items-center gap-1 text-success">
                         <CheckCircle className="h-3 w-3" />
-                        ACK: {new Date(complaint.acknowledgment_sent_at).toLocaleDateString()}
+                        ACK: {new Date(complaint.ack_sent_at).toLocaleDateString()}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
-                        ACK Due: {new Date(complaint.acknowledgment_due_date).toLocaleDateString()}
+                        ACK Due: {new Date(complaint.ack_due).toLocaleDateString()}
                       </span>
                     )}
-                    {complaint.final_response_sent_at ? (
+                    {complaint.final_sent_at ? (
                       <span className="flex items-center gap-1 text-success">
                         <CheckCircle className="h-3 w-3" />
-                        Final: {new Date(complaint.final_response_sent_at).toLocaleDateString()}
+                        Final: {new Date(complaint.final_sent_at).toLocaleDateString()}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
-                        Final Due: {new Date(complaint.final_response_due_date).toLocaleDateString()}
+                        Final Due: {new Date(complaint.final_due).toLocaleDateString()}
                       </span>
                     )}
                     {complaint.working_days_to_complete && (
@@ -394,6 +396,12 @@ export default function Complaints() {
           actionType={dialogAction}
         />
       )}
+
+      <LogComplaintDialog
+        open={logDialogOpen}
+        onOpenChange={setLogDialogOpen}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

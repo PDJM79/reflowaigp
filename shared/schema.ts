@@ -305,6 +305,9 @@ export const incidents = pgTable("incidents", {
   status: text("status").default('open'),
   closedAt: timestamp("closed_at"),
   closedById: uuid("closed_by_id").references(() => users.id),
+  rag: text("rag").notNull().default('green'),
+  reportedBy: text("reported_by"),
+  incidentDate: timestamp("incident_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -324,6 +327,12 @@ export const complaints = pgTable("complaints", {
   redactions: jsonb("redactions"),
   files: text("files").array(),
   emisHash: text("emis_hash"),
+  complainantName: text("complainant_name"),
+  category: text("category"),
+  severity: text("severity"),
+  slaStatus: text("sla_status"),
+  slaTimescale: text("sla_timescale"),
+  closedAt: timestamp("closed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -693,6 +702,13 @@ export type InsertComplaint = z.infer<typeof insertComplaintSchema>;
 export type InsertPolicyDocument = z.infer<typeof insertPolicyDocumentSchema>;
 export type InsertTrainingRecord = z.infer<typeof insertTrainingRecordSchema>;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export const insertFridgeUnitSchema = createInsertSchema(fridgeUnits).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFridgeReadingSchema = createInsertSchema(fridgeReadings).omit({ id: true, createdAt: true });
+export type InsertFridgeUnit = z.infer<typeof insertFridgeUnitSchema>;
+export type InsertFridgeReading = z.infer<typeof insertFridgeReadingSchema>;
+export type FridgeUnit = typeof fridgeUnits.$inferSelect;
+export type FridgeReading = typeof fridgeReadings.$inferSelect;
 
 export type Practice = typeof practices.$inferSelect;
 export type User = typeof users.$inferSelect;

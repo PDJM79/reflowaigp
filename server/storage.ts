@@ -7,7 +7,8 @@ import type {
   InsertPractice, InsertUser, InsertEmployee, InsertProcessTemplate,
   InsertProcessInstance, InsertTask, InsertIncident, InsertComplaint,
   InsertPolicyDocument, InsertTrainingRecord, InsertNotification,
-  AuthUser, UpsertAuthUser
+  AuthUser, UpsertAuthUser,
+  FridgeUnit, FridgeReading, InsertFridgeUnit, InsertFridgeReading
 } from "@shared/schema";
 
 export interface IStorage {
@@ -76,6 +77,12 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string, practiceId: string): Promise<void>;
   markAllNotificationsRead(userId: string, practiceId: string): Promise<void>;
+
+  getFridgeUnitsByPractice(practiceId: string): Promise<FridgeUnit[]>;
+  createFridgeUnit(unit: InsertFridgeUnit): Promise<FridgeUnit>;
+  updateFridgeUnit(id: string, practiceId: string, data: Partial<InsertFridgeUnit>): Promise<FridgeUnit | undefined>;
+  getFridgeReadingsByPractice(practiceId: string, fridgeId?: string): Promise<FridgeReading[]>;
+  createFridgeReading(reading: InsertFridgeReading): Promise<FridgeReading>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -277,6 +284,37 @@ export class DatabaseStorage implements IStorage {
       and(eq(schema.tasks.id, id), eq(schema.tasks.practiceId, practiceId))
     ).returning();
     return updated;
+  }
+
+  async getFridgeUnitsByPractice(practiceId: string): Promise<FridgeUnit[]> {
+    return db.select().from(schema.fridgeUnits)
+      .where(and(eq(schema.fridgeUnits.practiceId, practiceId), eq(schema.fridgeUnits.isActive, true)))
+      .orderBy(schema.fridgeUnits.name);
+  }
+
+  async createFridgeUnit(unit: InsertFridgeUnit): Promise<FridgeUnit> {
+    const [created] = await db.insert(schema.fridgeUnits).values(unit).returning();
+    return created;
+  }
+
+  async updateFridgeUnit(id: string, practiceId: string, data: Partial<InsertFridgeUnit>): Promise<FridgeUnit | undefined> {
+    const [updated] = await db.update(schema.fridgeUnits)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.fridgeUnits.id, id), eq(schema.fridgeUnits.practiceId, practiceId)))
+      .returning();
+    return updated;
+  }
+
+  async getFridgeReadingsByPractice(practiceId: string, fridgeId?: string): Promise<FridgeReading[]> {
+    const condition = fridgeId
+      ? and(eq(schema.fridgeReadings.practiceId, practiceId), eq(schema.fridgeReadings.fridgeId, fridgeId))
+      : eq(schema.fridgeReadings.practiceId, practiceId);
+    return db.select().from(schema.fridgeReadings).where(condition).orderBy(desc(schema.fridgeReadings.readingDate)).limit(200);
+  }
+
+  async createFridgeReading(reading: InsertFridgeReading): Promise<FridgeReading> {
+    const [created] = await db.insert(schema.fridgeReadings).values(reading).returning();
+    return created;
   }
 
   async getIncident(id: string, practiceId: string): Promise<Incident | undefined> {

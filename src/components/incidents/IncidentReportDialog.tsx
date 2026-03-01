@@ -56,16 +56,15 @@ export function IncidentReportDialog({ open, onOpenChange }: IncidentReportDialo
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          incidentDate: formData.incident_date,
+          dateOccurred: formData.incident_date,
           location: formData.location,
           category: formData.category,
           severity: formData.severity,
           description: formData.description,
-          immediateActionTaken: formData.immediate_action_taken,
-          peopleInvolved: formData.people_involved.split(',').map(p => p.trim()).filter(Boolean),
-          witnesses: formData.witnesses.split(',').map(w => w.trim()).filter(Boolean),
-          reportedBy: user.id,
-          status: 'reported',
+          immediateActions: formData.immediate_action_taken,
+          personsInvolved: formData.people_involved.split(',').map((p: string) => p.trim()).filter(Boolean),
+          reportedById: user.id,
+          status: 'open',
         }),
       });
 

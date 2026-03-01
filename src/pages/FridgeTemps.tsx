@@ -68,20 +68,34 @@ export default function FridgeTemps() {
 
       const today = new Date().toISOString().split('T')[0];
 
-      const [fridgesData, logsData] = await Promise.all([
-        supabase
-          .from('fridges')
-          .select('*')
-          .eq('practice_id', user.practiceId),
-        supabase
-          .from('temp_logs')
-          .select('*, fridges(name, min_temp, max_temp)')
-          .eq('log_date', today)
-          .order('created_at', { ascending: false })
+      const [fridgesRes, logsRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/fridge-units`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/fridge-readings`, { credentials: 'include' }),
       ]);
 
-      setFridges(fridgesData.data || []);
-      setTodayLogs((logsData.data as TempLogWithFridge[]) || []);
+      const fridgesJson = fridgesRes.ok ? await fridgesRes.json() : [];
+      const logsJson = logsRes.ok ? await logsRes.json() : [];
+
+      // Normalize field names (Drizzle returns camelCase)
+      const normalizedFridges = fridgesJson.map((f: any) => ({
+        ...f,
+        min_temp: parseFloat(f.minTemp || f.min_temp || '2'),
+        max_temp: parseFloat(f.maxTemp || f.max_temp || '8'),
+      }));
+
+      // Filter today's readings
+      const todayReadings = logsJson.filter((r: any) => {
+        const readingDate = new Date(r.readingDate || r.reading_date);
+        return readingDate.toISOString().split('T')[0] === today;
+      }).map((r: any) => ({
+        ...r,
+        breach_flag: r.isOutOfRange || r.is_out_of_range || false,
+        reading: parseFloat(r.temperature),
+        log_date: today,
+      }));
+
+      setFridges(normalizedFridges);
+      setTodayLogs(todayReadings);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load temperature data');
@@ -123,52 +137,40 @@ export default function FridgeTemps() {
     }
 
     try {
-      const { error } = await supabase
-        .from('fridges')
-        .insert({
-          practice_id: user!.practiceId,
+      const res = await fetch(`/api/practices/${user.practiceId}/fridge-units`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           name: newFridge.name.trim(),
           location: newFridge.location.trim() || null,
-          min_temp: minTemp,
-          max_temp: maxTemp
-        });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
+          minTemp,
+          maxTemp,
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to add fridge'); }
       toast.success('Fridge added successfully');
       setIsAddDialogOpen(false);
       setNewFridge({ name: '', location: '', min_temp: '2', max_temp: '8' });
       fetchData();
     } catch (error: any) {
-      console.error('Error adding fridge:', error);
-      if (error?.code === '42501' || error?.message?.includes('policy')) {
-        toast.error('You don\'t have permission to add fridges. Contact your practice manager.');
-      } else {
-        toast.error(error?.message || 'Failed to add fridge');
-      }
+      toast.error(error.message || 'Failed to add fridge');
     }
   };
 
   const handleDeleteFridge = async (fridgeId: string, fridgeName: string) => {
-    if (!confirm(`Are you sure you want to delete "${fridgeName}"? This will also delete all associated temperature logs.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to delete "${fridgeName}"?`)) return;
     try {
-      const { error } = await supabase
-        .from('fridges')
-        .delete()
-        .eq('id', fridgeId);
-
-      if (error) throw error;
-
+      const res = await fetch(`/api/practices/${user!.practiceId}/fridge-units/${fridgeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: false }),
+      });
+      if (!res.ok) throw new Error('Failed to delete fridge');
       toast.success('Fridge deleted successfully');
       fetchData();
     } catch (error) {
-      console.error('Error deleting fridge:', error);
       toast.error('Failed to delete fridge');
     }
   };
@@ -190,38 +192,32 @@ export default function FridgeTemps() {
     }
 
     try {
-      const selectedFridge = fridges.find(f => f.id === newLog.fridge_id);
-      const breachFlag = selectedFridge 
-        ? (reading < selectedFridge.min_temp || reading > selectedFridge.max_temp) 
-        : false;
+      const res = await fetch(`/api/practices/${user!.practiceId}/fridge-readings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          fridgeId: newLog.fridge_id,
+          temperature: reading.toString(),
+          readingDate: new Date().toISOString(),
+          recordedBy: user?.id,
+        }),
+      });
 
-      const { error } = await supabase
-        .from('temp_logs')
-        .insert({
-          fridge_id: newLog.fridge_id,
-          reading: reading,
-          log_date: new Date().toISOString().split('T')[0],
-          log_time: newLog.log_time,
-          breach_flag: breachFlag,
-          recorded_by: user?.id || ''
-        });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to log temperature'); }
+      const data = await res.json();
+      const isOutOfRange = data.isOutOfRange;
 
-      if (error) throw error;
-
-      if (breachFlag) {
-        toast.error('Temperature logged - BREACH DETECTED! Please record remedial action.', {
-          duration: 5000
-        });
+      if (isOutOfRange) {
+        toast.error('Temperature logged - BREACH DETECTED! Please record remedial action.', { duration: 5000 });
       } else {
         toast.success('Temperature logged successfully');
       }
-      
       setIsLogDialogOpen(false);
       setNewLog({ fridge_id: '', reading: '', log_time: 'AM' });
       fetchData();
-    } catch (error) {
-      console.error('Error logging temperature:', error);
-      toast.error('Failed to log temperature');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to log temperature');
     }
   };
 
