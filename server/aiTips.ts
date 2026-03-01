@@ -131,7 +131,7 @@ TRAINING:
   const client = new Anthropic({ apiKey });
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 500,
     system:
       "You are a GP practice compliance advisor for Health Inspectorate Wales. Based on the following compliance data, provide 3-5 specific, actionable improvement tips to improve the practice's audit readiness score. Be concise and practical. Focus on quick wins first. Return ONLY a JSON array of strings — no markdown, no explanation, just the array. Example: [\"Address the 3 overdue fire safety tasks before next inspection.\", \"Book mandatory DBS renewals for 2 staff this month.\"]",

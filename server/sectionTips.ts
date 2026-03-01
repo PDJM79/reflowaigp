@@ -65,7 +65,7 @@ Provide 3-4 specific, practical steps this GP surgery can take to close the ${in
   const client = new Anthropic({ apiKey });
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 350,
     system: `You are an audit readiness advisor for UK GP surgeries regulated by ${regulator}. Give concise, numbered action points that can be acted on this week. Plain text only — no markdown, no headers.`,
     messages: [{ role: 'user', content: prompt }],

@@ -253,7 +253,7 @@ Provide 4-6 specific, actionable recommendations referencing actual staff/course
   const client = new Anthropic({ apiKey });
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 700,
     system:
       "You are an NHS Wales mandatory training compliance advisor for a GP surgery. Provide a concise compliance narrative and specific, actionable recommendations. Reference actual staff names and courses from the data. Return only the JSON object requested — no markdown, no preamble.",
