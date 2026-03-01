@@ -212,7 +212,7 @@ Return a single JSON object (no markdown fences) matching this exact structure:
   const client = new Anthropic({ apiKey });
 
   const message = await client.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-3-5-haiku-20241022',
     max_tokens: 900,
     system:
       "You are a GP practice complaints analyst for a Welsh GP surgery regulated by Health Inspectorate Wales. Analyse the patient complaints provided and return structured JSON only — no explanations, no markdown. Use patient initials only (never full names). Set sla_performance.status to 'green' if both compliance rates ≥80%, 'amber' if either is 60-79%, 'red' if either is below 60%. Identify up to 5 themes, up to 4 root causes, 3-5 recommendations ordered by priority, and any risk_areas that could escalate to the Public Services Ombudsman Wales or HIW.",
