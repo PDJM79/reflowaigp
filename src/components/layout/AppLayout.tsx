@@ -149,12 +149,14 @@ export function AppLayout() {
 
   // Check if user has access to a nav item based on role + capabilities
   const hasNavAccess = (item: NavItem): boolean => {
-    // Role-based path allowlist (checked first — hard gate)
     const role = user?.role ?? '';
     const allowedPaths = ROLE_ALLOWED_PATHS[role];
-    if (allowedPaths && !allowedPaths.includes(item.path)) return false;
+    // For roles with a strict path allowlist, path presence is the only gate.
+    // Capability check is intentionally skipped — the allowlist already encodes
+    // exactly what these roles may see, and capability records may not be seeded.
+    if (allowedPaths) return allowedPaths.includes(item.path);
 
-    // Capability gate
+    // For unrestricted roles, apply the capability gate
     if (item.capabilities === 'all') return true;
     if (!item.capabilities) return true;
     const caps = Array.isArray(item.capabilities) ? item.capabilities : [item.capabilities];
@@ -173,53 +175,69 @@ export function AppLayout() {
   if (authLoading || !user) {
     return null;
   }
-  const renderNavItems = () => (
-    <div className="space-y-2">
-      {visibleNavGroups.map((group) => {
-        const isExpanded = expandedGroups.includes(group.title);
-        
-        return (
-          <Collapsible 
-            key={group.title}
-            open={isExpanded}
-            onOpenChange={() => toggleGroup(group.title)}
-          >
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-between font-semibold text-muted-foreground hover:text-foreground"
-              >
-                <span className="text-xs uppercase tracking-wider">{group.title}</span>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pl-2">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                
-                return (
-                  <Link key={item.path} to={item.path} onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant={active ? 'secondary' : 'ghost'}
-                      className={`w-full justify-start ${!sidebarOpen && !isMobile && 'px-2'}`}
-                    >
-                      <Icon className={`h-4 w-4 ${(sidebarOpen || isMobile) ? 'mr-2' : ''}`} />
-                      {(sidebarOpen || isMobile) && <span className="text-sm">{item.label}</span>}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </CollapsibleContent>
-          </Collapsible>
-        );
-      })}
-    </div>
-  );
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const active = isActive(item.path);
+    return (
+      <Link key={item.path} to={item.path} onClick={() => setMobileMenuOpen(false)}>
+        <Button
+          variant={active ? 'secondary' : 'ghost'}
+          className={`w-full justify-start ${!sidebarOpen && !isMobile ? 'px-2' : ''}`}
+        >
+          <Icon className={`h-4 w-4 ${(sidebarOpen || isMobile) ? 'mr-2' : ''}`} />
+          {(sidebarOpen || isMobile) && <span className="text-sm">{item.label}</span>}
+        </Button>
+      </Link>
+    );
+  };
+
+  const renderNavItems = () => {
+    const isCleanerRole = user?.role === 'reception' || user?.role === 'cleaner';
+
+    // Cleaner/reception: flat list, no collapsible groups — only 2 items and
+    // they span different groups so the grouped view is confusing.
+    if (isCleanerRole) {
+      const flatItems = visibleNavGroups.flatMap(g => g.items);
+      return (
+        <div className="space-y-1">
+          {flatItems.map(item => renderNavItem(item))}
+        </div>
+      );
+    }
+
+    // All other roles: collapsible groups
+    return (
+      <div className="space-y-2">
+        {visibleNavGroups.map((group) => {
+          const isExpanded = expandedGroups.includes(group.title);
+          return (
+            <Collapsible
+              key={group.title}
+              open={isExpanded}
+              onOpenChange={() => toggleGroup(group.title)}
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <span className="text-xs uppercase tracking-wider">{group.title}</span>
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pl-2">
+                {group.items.map(item => renderNavItem(item))}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderFooterButtons = () => (
     <div className="space-y-1">

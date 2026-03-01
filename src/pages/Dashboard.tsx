@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   CheckCircle2, AlertTriangle, Clock, Calendar,
   ListTodo, Thermometer, Shield, FileText, Users,
-  TrendingUp, XCircle, GitBranch,
+  TrendingUp, XCircle, GitBranch, Droplet,
 } from 'lucide-react';
 import { format, isToday, isPast, isThisWeek, isThisMonth } from 'date-fns';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
@@ -34,6 +35,111 @@ const MANAGER_ROLES = new Set([
   'practice_manager', 'administrator', 'nurse_lead',
   'cd_lead_gp', 'ig_lead', 'estates_lead', 'reception_lead', 'auditor',
 ]);
+
+// ── Cleaner / Reception home page ─────────────────────────────────────────
+function CleanerHome({ practiceId, name }: { practiceId: string; name: string }) {
+  const [stats, setStats] = useState({ total: 0, completed: 0, zones: 0, loading: true });
+
+  useEffect(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    Promise.all([
+      fetch(`/api/practices/${practiceId}/cleaning-tasks`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : []),
+      fetch(`/api/practices/${practiceId}/cleaning-logs?date=${today}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : []),
+      fetch(`/api/practices/${practiceId}/cleaning-zones`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : []),
+    ]).then(([tasks, logs, zones]) => {
+      setStats({
+        total: (tasks as { is_active?: boolean }[]).filter(t => t.is_active !== false).length,
+        completed: (logs as unknown[]).length,
+        zones: (zones as { is_active?: boolean }[]).filter(z => z.is_active !== false).length,
+        loading: false,
+      });
+    }).catch(() => setStats(s => ({ ...s, loading: false })));
+  }, [practiceId]);
+
+  const firstName = name.split(' ')[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const percent = stats.total > 0
+    ? Math.min(100, Math.round((stats.completed / stats.total) * 100))
+    : 0;
+  const allDone = !stats.loading && stats.total > 0 && stats.completed >= stats.total;
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-5">
+
+        {/* Greeting */}
+        <div>
+          <p className="text-muted-foreground text-sm font-medium">{greeting},</p>
+          <h1 className="text-3xl font-bold mt-0.5">{firstName}!</h1>
+        </div>
+
+        {/* Summary card */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-br from-teal-600 to-teal-800 p-5 text-white">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-white/20 rounded-full p-2">
+                <Droplet className="h-5 w-5" />
+              </div>
+              <p className="font-medium text-teal-100 text-sm">Today's cleaning schedule</p>
+            </div>
+
+            {stats.loading ? (
+              <div className="space-y-2">
+                <div className="h-7 bg-white/20 rounded animate-pulse w-3/4" />
+                <div className="h-4 bg-white/20 rounded animate-pulse w-1/2" />
+              </div>
+            ) : stats.total === 0 ? (
+              <p className="text-lg font-semibold">No tasks configured yet</p>
+            ) : (
+              <>
+                <p className="text-2xl font-bold leading-tight">
+                  {stats.total} task{stats.total !== 1 ? 's' : ''}
+                </p>
+                <p className="text-teal-200 text-sm mt-0.5">
+                  across {stats.zones} zone{stats.zones !== 1 ? 's' : ''}
+                </p>
+              </>
+            )}
+
+            <Link to="/cleaning">
+              <Button
+                className="mt-4 w-full bg-white text-teal-700 hover:bg-teal-50 font-semibold"
+                size="lg"
+              >
+                {allDone ? 'View Cleaning Log' : 'Start Cleaning'}
+              </Button>
+            </Link>
+          </div>
+        </Card>
+
+        {/* Progress */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Progress today</span>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {stats.loading ? '—' : `${stats.completed} of ${stats.total}`}
+              </span>
+            </div>
+            <Progress value={stats.loading ? 0 : percent} className="h-3" />
+            <p className="text-xs text-muted-foreground">
+              {stats.loading
+                ? 'Loading…'
+                : allDone
+                  ? '✓ All tasks complete for today'
+                  : `${percent}% complete`}
+            </p>
+          </CardContent>
+        </Card>
+
+      </div>
+    </div>
+  );
+}
 
 // Animated SVG progress ring
 function ProgressRing({ percent, size = 110 }: { percent: number; size?: number }) {
@@ -83,9 +189,11 @@ export default function Dashboard() {
       });
   }, [user]);
 
-  // Redirect cleaners/reception
+  // Cleaner / reception: show a dedicated welcome page instead of the
+  // task-manager dashboard. Rendered early (before loading check) so
+  // the cleaning data fetch runs independently.
   if (user && (user.role === 'reception' || user.role === 'cleaner')) {
-    return <Navigate to="/cleaning" replace />;
+    return <CleanerHome practiceId={user.practiceId} name={user.name} />;
   }
 
   if (loading || capabilitiesLoading) {

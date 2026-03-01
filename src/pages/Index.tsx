@@ -55,9 +55,9 @@ const Index = () => {
     return <OrganizationSetup onComplete={() => window.location.reload()} />;
   }
 
-  // Cleaners go straight to their daily cleaning page
+  // Cleaners / reception go to their home page (shows cleaning summary + Start button)
   if (user.role === 'reception' || user.role === 'cleaner') {
-    return <Navigate to="/cleaning" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // User is authenticated and setup is complete - redirect to home with sidebar
