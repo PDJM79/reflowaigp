@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import { getAITips } from "./aiTips";
 import { getComplaintAnalysis } from "./complaintAnalysis";
+import { getTrainingAnalysis } from "./trainingAnalysis";
 import { auditLogger } from "./auditLogger";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
@@ -746,6 +747,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
       console.error('cleaning log error:', error);
       res.status(500).json({ error: "Failed to create cleaning log" });
+    }
+  });
+
+  // ── AI training analysis ───────────────────────────────────────────────────
+  app.post("/api/practices/:practiceId/training-analysis", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const force = Boolean(req.body?.force);
+      const result = await getTrainingAnalysis(req.params.practiceId as string, force);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Training analysis error:", error);
+      const msg: string = (error as Error).message ?? "";
+      if (msg.includes("ANTHROPIC_API_KEY")) {
+        return res.status(503).json({ error: "AI analysis service not configured. Add ANTHROPIC_API_KEY to environment variables." });
+      }
+      res.status(500).json({ error: "Failed to analyse training records. Please try again later." });
     }
   });
 

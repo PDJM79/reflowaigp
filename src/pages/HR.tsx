@@ -17,6 +17,7 @@ import { TrainingExpiryAlerts } from '@/components/hr/TrainingExpiryAlerts';
 import { AppraisalDialog } from '@/components/hr/AppraisalDialog';
 import { Feedback360Dialog } from '@/components/hr/Feedback360Dialog';
 import { TrainingCatalogueDialog } from '@/components/hr/TrainingCatalogueDialog';
+import { TrainingAnalysis } from '@/components/hr/TrainingAnalysis';
 import { generateTrainingMatrixPDF, generateDBSRegisterPDF } from '@/lib/pdfExportV2';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -601,6 +602,8 @@ export default function HR() {
           </TabsContent>
 
           <TabsContent value="training">
+            <div className="space-y-4">
+            <TrainingAnalysis />
             <Card>
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg">Training Records</CardTitle>
@@ -634,6 +637,7 @@ export default function HR() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="leave">
