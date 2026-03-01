@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import { getAITips } from "./aiTips";
+import { getComplaintAnalysis } from "./complaintAnalysis";
 import { auditLogger } from "./auditLogger";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
@@ -745,6 +746,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
       console.error('cleaning log error:', error);
       res.status(500).json({ error: "Failed to create cleaning log" });
+    }
+  });
+
+  // ── AI complaint analysis ──────────────────────────────────────────────────
+  app.post("/api/practices/:practiceId/complaint-analysis", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const force = Boolean(req.body?.force);
+      const result = await getComplaintAnalysis(req.params.practiceId as string, force);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Complaint analysis error:", error);
+      const msg: string = (error as Error).message ?? "";
+      if (msg.includes("ANTHROPIC_API_KEY")) {
+        return res.status(503).json({ error: "AI analysis service not configured. Add ANTHROPIC_API_KEY to environment variables." });
+      }
+      res.status(500).json({ error: "Failed to analyse complaints. Please try again later." });
     }
   });
 
