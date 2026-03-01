@@ -1,128 +1,138 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, Lightbulb, Info } from 'lucide-react';
+import { Sparkles, Loader2, Lightbulb, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export function AITaskSuggestions() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [stubMessage, setStubMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [tips, setTips] = useState<string[]>([]);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerateSuggestions = async () => {
+  const fetchTips = async (force = false) => {
     if (!user?.practiceId) return;
 
-    setIsGenerating(true);
-    setStubMessage('');
-    try {
-      const response = await fetch(`/api/practices/${user.practiceId}/ai/suggest-tasks`, {
-        credentials: 'include',
-      });
+    setLoading(true);
+    setError(null);
 
-      if (response.status === 404) {
-        setStubMessage('AI task suggestions are not yet available. This feature will be enabled in a future update.');
-        toast({
-          title: 'Feature Coming Soon',
-          description: 'AI task suggestions will be available in a future update.',
-        });
-        return;
-      }
+    try {
+      const response = await fetch(`/api/practices/${user.practiceId}/ai-tips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ force }),
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to generate suggestions');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error ?? `Request failed (${response.status})`);
       }
 
-      const data = await response.json();
-      setSuggestions(data.suggestions || []);
-      
-      toast({
-        title: 'Suggestions Generated',
-        description: `${(data.suggestions || []).length} AI-powered task suggestions ready.`,
-      });
-    } catch (error: any) {
-      console.error('Error generating suggestions:', error);
-      setStubMessage('AI task suggestions are not yet available. This feature will be enabled in a future update.');
-      toast({
-        title: 'Feature Coming Soon',
-        description: 'AI task suggestions will be available in a future update.',
-      });
+      const data: { tips: string[]; cachedAt: string | null } = await response.json();
+      setTips(data.tips ?? []);
+      setCachedAt(data.cachedAt);
+
+      if (!force && data.cachedAt) {
+        toast({ title: 'Loaded from cache', description: 'Showing tips from a previous analysis.' });
+      } else {
+        toast({ title: 'Analysis complete', description: `${(data.tips ?? []).length} improvement tips generated.` });
+      }
+    } catch (err: any) {
+      const msg: string = err.message ?? 'Unknown error';
+      setError(msg);
+      toast({ title: 'Could not generate tips', description: msg, variant: 'destructive' });
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
+  const hasTips = tips.length > 0;
+
   return (
     <Card data-testid="card-ai-task-suggestions">
-      <CardHeader className="flex flex-row items-center justify-between gap-1">
-        <CardTitle className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-primary" />
-          AI Task Suggestions
-        </CardTitle>
-        <Button 
-          onClick={handleGenerateSuggestions}
-          disabled={isGenerating}
-          size="sm"
-          data-testid="button-get-suggestions"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4 mr-2" />
-              Get Suggestions
-            </>
-          )}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {stubMessage ? (
-          <div className="text-center py-8" data-testid="text-ai-suggestions-stub">
-            <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">{stubMessage}</p>
-          </div>
-        ) : suggestions.length === 0 ? (
-          <div className="text-center py-8" data-testid="text-ai-suggestions-empty">
-            <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">
-              Click "Get Suggestions" to receive AI-powered task recommendations based on your practice's current status.
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lightbulb className="h-5 w-5 text-amber-500" />
+            AI Improvement Tips
+          </CardTitle>
+          {cachedAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last analysed: {format(new Date(cachedAt), 'd MMM yyyy, HH:mm')}
             </p>
-          </div>
+          )}
+        </div>
+
+        {hasTips ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchTips(true)}
+            disabled={loading}
+            data-testid="button-refresh-tips"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span className="ml-1.5">Refresh</span>
+          </Button>
         ) : (
-          <div className="space-y-3">
-            {suggestions.map((suggestion: any, index: number) => (
-              <div key={index} className="p-4 border rounded-lg space-y-2" data-testid={`card-suggestion-${index}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-medium" data-testid={`text-suggestion-title-${index}`}>{suggestion.title}</h4>
-                    <p className="text-sm text-muted-foreground mt-1">{suggestion.reasoning}</p>
-                  </div>
-                  <Badge 
-                    className={
-                      suggestion.priority === 'high'
-                        ? 'bg-destructive ml-2'
-                        : suggestion.priority === 'medium'
-                        ? 'bg-warning ml-2'
-                        : 'bg-success ml-2'
-                    }
-                    data-testid={`badge-suggestion-priority-${index}`}
-                  >
-                    {suggestion.priority}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {suggestion.category}
-                  </Badge>
-                </div>
-              </div>
+          <Button
+            size="sm"
+            onClick={() => fetchTips(false)}
+            disabled={loading}
+            data-testid="button-get-tips"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analysing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Get AI Tips
+              </>
+            )}
+          </Button>
+        )}
+      </CardHeader>
+
+      <CardContent>
+        {error ? (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 text-destructive text-sm" data-testid="text-ai-tips-error">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        ) : hasTips ? (
+          <ol className="space-y-3" data-testid="list-ai-tips">
+            {tips.map((tip, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-muted/40"
+                data-testid={`tip-item-${i}`}
+              >
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <p className="text-sm leading-relaxed">{tip}</p>
+              </li>
             ))}
+          </ol>
+        ) : (
+          <div className="text-center py-8" data-testid="text-ai-tips-empty">
+            <Sparkles className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
+              Click <strong>Get AI Tips</strong> to receive personalised, actionable recommendations
+              based on your practice's current compliance data.
+            </p>
           </div>
         )}
       </CardContent>
