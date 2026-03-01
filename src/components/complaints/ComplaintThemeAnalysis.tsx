@@ -168,7 +168,33 @@ export function ComplaintThemeAnalysis() {
         )}
 
         {/* Results */}
-        {analysis && (
+        {analysis && (() => {
+          // Detect fallback state: parsing failed server-side, raw Claude text stored in summary
+          const isFallback =
+            analysis.themes.length === 0 &&
+            analysis.recommendations.length === 0 &&
+            analysis.sla_performance.summary.length > 200;
+
+          if (isFallback) {
+            // Clean up the raw text: strip code fences and leading/trailing whitespace
+            const readable = analysis.sla_performance.summary
+              .replace(/^```(?:json)?\s*/i, '')
+              .replace(/\s*```\s*$/, '')
+              .trim();
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>Structured view unavailable — showing raw AI response. Hit <strong>Re-analyse</strong> to retry.</span>
+                </div>
+                <pre className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-4 whitespace-pre-wrap break-words max-h-96 overflow-y-auto border">
+                  {readable}
+                </pre>
+              </div>
+            );
+          }
+
+          return (
           <div className="space-y-6">
 
             {/* ── Themes ── */}
@@ -324,7 +350,8 @@ export function ComplaintThemeAnalysis() {
             )}
 
           </div>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );
