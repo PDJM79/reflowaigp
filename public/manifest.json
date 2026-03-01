@@ -1,20 +1,49 @@
 {
-  "name": "GP Practice Management System",
-  "short_name": "GP Practice",
-  "description": "Comprehensive NHS practice management for compliance, HR, training, and regulatory requirements",
+  "name": "FitForAudit",
+  "short_name": "FitForAudit",
+  "description": "NHS GP practice management — compliance, HR, training, and regulatory requirements",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#005EB8",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "categories": ["healthcare", "productivity", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/app-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/app-icon-512.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  "orientation": "any",
-  "categories": ["healthcare", "productivity", "utilities"],
-  "prefer_related_applications": false
+  "shortcuts": [
+    {
+      "name": "My Tasks",
+      "short_name": "Tasks",
+      "description": "View and complete your tasks",
+      "url": "/tasks",
+      "icons": [{ "src": "/icons/app-icon-512.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Daily Cleaning",
+      "short_name": "Cleaning",
+      "description": "Log cleaning tasks",
+      "url": "/cleaning",
+      "icons": [{ "src": "/icons/app-icon-512.png", "sizes": "96x96" }]
+    }
+  ]
 }
