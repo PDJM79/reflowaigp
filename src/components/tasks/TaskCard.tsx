@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, User, AlertCircle, CheckCircle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { triggerHaptic } from '@/lib/haptics';
@@ -39,7 +39,7 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
   const handleCompleteTask = async () => {
     if (task.status === 'complete') return;
     if (!user?.practiceId) return;
-    
+
     setIsCompleting(true);
     triggerHaptic('medium');
 
@@ -108,8 +108,16 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
   const dueDate = new Date(task.due_at);
   const daysUntilDue = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
+  const getBorderClass = () => {
+    if (isOverdue) return 'border-l-4 border-l-destructive';
+    if (daysUntilDue >= 0 && daysUntilDue <= 2) return 'border-l-4 border-l-amber-400';
+    const complianceModules = ['ipc', 'infection_control', 'policies', 'fire_safety', 'fire', 'risk', 'compliance'];
+    if (complianceModules.includes(task.module)) return 'border-l-4 border-l-primary';
+    return 'border-l-4 border-l-border';
+  };
+
   return (
-    <div 
+    <div
       ref={elementRef}
       className="relative overflow-hidden"
       style={{
@@ -118,7 +126,7 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
       }}
     >
       {isMobile && task.status !== 'complete' && (
-        <div 
+        <div
           className="absolute inset-0 bg-success flex items-center px-6 rounded-lg"
           style={{
             opacity: Math.min(Math.abs(swipeDistance) / 120, 1),
@@ -129,13 +137,18 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
         </div>
       )}
 
-      <Card className={`hover:shadow-lg transition-shadow cursor-pointer touch-manipulation active:scale-[0.98] relative z-10 bg-background ${isMyTask ? 'border-primary' : ''}`}>
+      <Card className={`hover:shadow-lg transition-shadow cursor-pointer touch-manipulation active:scale-[0.98] relative z-10 bg-background ${getBorderClass()}`}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg line-clamp-2">{task.title}</CardTitle>
+          <div className="flex-1 min-w-0">
+            {isOverdue && (
+              <Badge className="bg-destructive text-destructive-foreground text-xs mb-1">OVERDUE</Badge>
+            )}
+            <CardTitle className="text-lg line-clamp-2">{task.title}</CardTitle>
+          </div>
           <RAGBadge status={getStatusColor(task.status)} />
         </div>
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-2 mt-2 flex-wrap">
           <Badge variant="outline">{task.module.replace('_', ' ')}</Badge>
           <Badge variant={getPriorityVariant(task.priority)}>
             {task.priority}
@@ -169,8 +182,10 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
 
           {task.assignedUser && (
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span>{task.assignedUser.name}</span>
+              <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                {task.assignedUser.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-sm text-muted-foreground truncate">{task.assignedUser.name}</span>
             </div>
           )}
         </div>

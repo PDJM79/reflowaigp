@@ -31,6 +31,12 @@ type Task = {
   module: string;
 };
 
+type SlimTask = {
+  id: string;
+  due_at: string;
+  status: string;
+};
+
 const MANAGER_ROLES = new Set([
   'practice_manager', 'administrator', 'nurse_lead',
   'cd_lead_gp', 'ig_lead', 'estates_lead', 'reception_lead', 'auditor',
@@ -171,11 +177,13 @@ export default function Dashboard() {
   const { loading: capabilitiesLoading } = useCapabilities();
   const { t } = useTranslation();
   const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [allPracticeTasks, setAllPracticeTasks] = useState<SlimTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
 
   const isManager = MANAGER_ROLES.has(user?.role ?? '');
 
+  // Fetch personal tasks
   useEffect(() => {
     if (!user) return;
     supabase
@@ -188,6 +196,18 @@ export default function Dashboard() {
         setLoading(false);
       });
   }, [user]);
+
+  // Fetch all practice tasks for managers
+  useEffect(() => {
+    if (!user || !isManager || !user.practiceId) return;
+    supabase
+      .from('tasks')
+      .select('id, due_at, status')
+      .eq('practice_id', user.practiceId)
+      .then(({ data }) => {
+        setAllPracticeTasks(data || []);
+      });
+  }, [user, isManager]);
 
   // Cleaner / reception: show a dedicated welcome page instead of the
   // task-manager dashboard. Rendered early (before loading check) so
@@ -215,7 +235,7 @@ export default function Dashboard() {
 
   // ── Derived task stats ─────────────────────────────────────────────
   const now = new Date();
-  const closed = (t: Task) => ['closed', 'submitted'].includes(t.status);
+  const closed = (t: Task) => ['closed', 'submitted', 'complete'].includes(t.status);
 
   const todayTasks   = myTasks.filter(t => isToday(new Date(t.due_at)));
   const todayDone    = todayTasks.filter(closed);
@@ -225,7 +245,12 @@ export default function Dashboard() {
 
   const progressPercent = todayTasks.length > 0
     ? Math.round((todayDone.length / todayTasks.length) * 100)
-    : 100;
+    : 0;
+
+  // ── Practice-wide stats (managers only) ────────────────────────────
+  const allClosed = (t: SlimTask) => ['closed', 'submitted', 'complete'].includes(t.status);
+  const allOverdueCount = allPracticeTasks.filter(t => isPast(new Date(t.due_at)) && !allClosed(t)).length;
+  const allDueTodayCount = allPracticeTasks.filter(t => isToday(new Date(t.due_at))).length;
 
   // ── Stat cards ─────────────────────────────────────────────────────
   const statCards = [
@@ -316,36 +341,79 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl">
 
-      {/* ── Personalised gradient header ── */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-xl p-5 md:p-6 text-white shadow-lg">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1 flex-1 min-w-0">
-            <p className="text-blue-200 text-sm font-medium">{greeting},</p>
-            <h1 className="text-2xl md:text-3xl font-bold truncate">{firstName}!</h1>
-            {user?.practice?.name && (
-              <p className="text-blue-200 text-sm truncate">{user.practice.name}</p>
-            )}
-            <Badge className="mt-2 bg-white/20 text-white border border-white/30 hover:bg-white/30">
-              {roleLabel}
-            </Badge>
+      {/* ── Manager header: clean white layout ── */}
+      {isManager ? (
+        <div className="space-y-4">
+          {/* Greeting row */}
+          <div>
+            <p className="text-muted-foreground text-sm">{greeting},</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{firstName}</h1>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {user?.practice?.name && (
+                <span className="text-sm text-muted-foreground">{user.practice.name}</span>
+              )}
+              <Badge className="bg-teal-100 text-teal-700 border border-teal-200 hover:bg-teal-100">
+                {roleLabel}
+              </Badge>
+            </div>
           </div>
 
-          <div className="flex-shrink-0 flex flex-col items-center gap-1">
-            <div className="relative">
-              <ProgressRing percent={progressPercent} size={110} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-bold leading-none">{progressPercent}%</span>
-                <span className="text-xs text-blue-200 mt-0.5">today</span>
-              </div>
-            </div>
-            <p className="text-xs text-blue-200">
-              {todayDone.length}/{todayTasks.length} tasks done
-            </p>
+          {/* Practice-wide stat cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* ACTION REQUIRED card */}
+            <Card className="bg-red-50 border-red-100">
+              <CardContent className="p-4">
+                <Badge className="bg-red-500 text-white text-xs mb-2">ACTION REQUIRED</Badge>
+                <div className="text-3xl font-bold text-red-600">{allOverdueCount}</div>
+                <p className="text-xs text-red-500 mt-1 leading-tight">Overdue practice tasks</p>
+              </CardContent>
+            </Card>
+
+            {/* Due today card */}
+            <Card className="bg-white border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground font-medium">Due Today</span>
+                </div>
+                <div className="text-3xl font-bold">{allDueTodayCount}</div>
+                <p className="text-xs text-muted-foreground mt-1 leading-tight">practice tasks today</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
+      ) : (
+        /* ── Non-manager: gradient header with progress ring ── */
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-xl p-5 md:p-6 text-white shadow-lg">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-blue-200 text-sm font-medium">{greeting},</p>
+              <h1 className="text-2xl md:text-3xl font-bold truncate">{firstName}!</h1>
+              {user?.practice?.name && (
+                <p className="text-blue-200 text-sm truncate">{user.practice.name}</p>
+              )}
+              <Badge className="mt-2 bg-white/20 text-white border border-white/30 hover:bg-white/30">
+                {roleLabel}
+              </Badge>
+            </div>
 
-      {/* ── Stat cards ── */}
+            <div className="flex-shrink-0 flex flex-col items-center gap-1">
+              <div className="relative">
+                <ProgressRing percent={progressPercent} size={110} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-bold leading-none">{progressPercent}%</span>
+                  <span className="text-xs text-blue-200 mt-0.5">today</span>
+                </div>
+              </div>
+              <p className="text-xs text-blue-200">
+                {todayDone.length}/{todayTasks.length} tasks done
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Personal stat cards (all roles) ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {statCards.map(card => (
           <Card

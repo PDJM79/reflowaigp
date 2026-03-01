@@ -10,7 +10,7 @@ import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Calendar, User, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, AlertCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -60,6 +60,7 @@ export default function TasksList() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'completed' | 'urgent'>('all');
   const currentUserId = user?.id ?? '';
 
   // Derived role flags
@@ -68,7 +69,7 @@ export default function TasksList() {
   // Non-manager, non-cleaner roles always see only their own tasks
   const forceMyTasks = !isManagerRole && !isCleanerRole;
   const [useServerSearch, setUseServerSearch] = useState(false);
-  
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -102,12 +103,15 @@ export default function TasksList() {
     if (user) {
       fetchTasks();
     }
-  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, page, pageSize, debouncedSearchQuery]);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, activeTab, page, pageSize, debouncedSearchQuery]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, debouncedSearchQuery]);
+  }, [selectedModule, selectedStatus, selectedPriority, showMyTasks, activeTab, debouncedSearchQuery]);
+
+  // Reset page when activeTab changes
+  useEffect(() => { setPage(1); }, [activeTab]);
 
   // Enable server search when query is non-empty
   useEffect(() => {
@@ -119,7 +123,10 @@ export default function TasksList() {
       setLoading(true);
       if (!user?.practiceId) return;
 
-      const effectiveMyTasks = forceMyTasks || showMyTasks;
+      // Tab-based filter logic
+      const tabIsUrgent = activeTab === 'urgent';
+      const tabIsCompleted = activeTab === 'completed';
+      const tabIsMine = activeTab === 'mine' || forceMyTasks || showMyTasks;
 
       // Use server-side search RPC when searching
       if (debouncedSearchQuery.length > 0) {
@@ -128,7 +135,7 @@ export default function TasksList() {
           p_module: selectedModule === 'all' ? null : selectedModule,
           p_status: selectedStatus === 'all' ? null : selectedStatus,
           p_priority: selectedPriority === 'all' ? null : selectedPriority,
-          p_only_my_tasks: effectiveMyTasks,
+          p_only_my_tasks: tabIsMine,
           p_limit: pageSize,
           p_offset: (page - 1) * pageSize,
         });
@@ -183,9 +190,28 @@ export default function TasksList() {
         dataQuery = dataQuery.eq('priority', selectedPriority);
       }
 
-      if (effectiveMyTasks) {
+      // Apply tab-based filters
+      if (tabIsMine) {
         countQuery = countQuery.eq('assigned_to_user_id', user!.id);
         dataQuery = dataQuery.eq('assigned_to_user_id', user!.id);
+      }
+
+      if (tabIsCompleted) {
+        countQuery = countQuery.in('status', ['complete', 'closed', 'submitted']);
+        dataQuery = dataQuery.in('status', ['complete', 'closed', 'submitted']);
+      }
+
+      if (tabIsUrgent) {
+        countQuery = countQuery
+          .lt('due_at', new Date().toISOString())
+          .neq('status', 'complete')
+          .neq('status', 'closed')
+          .neq('status', 'submitted');
+        dataQuery = dataQuery
+          .lt('due_at', new Date().toISOString())
+          .neq('status', 'complete')
+          .neq('status', 'closed')
+          .neq('status', 'submitted');
       }
 
       const from = (page - 1) * pageSize;
@@ -206,14 +232,6 @@ export default function TasksList() {
     }
   };
 
-  // Stats from current page
-  const openTasks = tasks.filter(t => t.status === 'open');
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-  const completedTasks = tasks.filter(t => t.status === 'complete' || t.status === 'closed');
-  const overdueTasks = tasks.filter(t => 
-    t.status !== 'complete' && t.status !== 'closed' && new Date(t.due_at) < new Date()
-  );
-
   // Pagination calculations
   const totalPages = Math.ceil(totalCount / pageSize);
   const canGoPrevious = page > 1;
@@ -224,14 +242,14 @@ export default function TasksList() {
   return (
     <div ref={scrollableRef} className="space-y-4 sm:space-y-6 p-3 sm:p-6 overflow-y-auto">
       {isMobile && (isPulling || isRefreshing) && (
-        <div 
+        <div
           className="flex items-center justify-center py-4 transition-opacity"
           style={{ opacity: isPulling ? pullProgress : 1 }}
         >
           {isRefreshing ? (
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           ) : (
-            <RefreshCw 
+            <RefreshCw
               className="h-6 w-6 text-primary transition-transform"
               style={{ transform: `rotate(${pullProgress * 360}deg)` }}
             />
@@ -261,42 +279,26 @@ export default function TasksList() {
         )}
       </div>
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
-        <Card className="touch-manipulation">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">Open Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{openTasks.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="touch-manipulation">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{inProgressTasks.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="touch-manipulation">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{completedTasks.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-destructive touch-manipulation col-span-2 sm:col-span-1">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium text-destructive flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Overdue
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold text-destructive">{overdueTasks.length}</div>
-          </CardContent>
-        </Card>
+      {/* Tab filter pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+        {([
+          { id: 'all' as const,       label: 'All Tasks',  color: 'bg-secondary text-secondary-foreground' },
+          { id: 'mine' as const,      label: 'My Tasks',   color: 'bg-primary text-primary-foreground' },
+          { id: 'completed' as const, label: 'Completed',  color: 'bg-green-500 text-white' },
+          { id: 'urgent' as const,    label: 'Urgent',     color: 'bg-destructive text-destructive-foreground' },
+        ] as const).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? tab.color
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <Card>
@@ -370,18 +372,6 @@ export default function TasksList() {
                 <SelectItem value="high">High</SelectItem>
               </SelectContent>
             </Select>
-
-            {isManagerRole && (
-              <Button
-                variant={showMyTasks ? "default" : "outline"}
-                onClick={() => setShowMyTasks(!showMyTasks)}
-                size={isMobile ? 'lg' : 'default'}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                <User className="h-4 w-4 mr-2" />
-                My Tasks
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -404,8 +394,8 @@ export default function TasksList() {
             {tasks.map((task) => (
               <div key={task.id} className="relative">
                 {task.is_auditable && (
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className="absolute -top-2 -right-2 z-10 bg-background text-xs"
                   >
                     <Shield className="h-3 w-3 mr-1" />
@@ -425,8 +415,8 @@ export default function TasksList() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>Showing {startItem}-{endItem} of {totalCount} tasks</span>
-              <Select 
-                value={pageSize.toString()} 
+              <Select
+                value={pageSize.toString()}
                 onValueChange={(value) => {
                   setPageSize(Number(value));
                   setPage(1);
@@ -491,6 +481,17 @@ export default function TasksList() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Floating action button */}
+      {isManagerRole && (
+        <button
+          onClick={() => { triggerHaptic('light'); setShowDialog(true); }}
+          className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-secondary text-secondary-foreground shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center justify-center md:bottom-8 md:right-8"
+          aria-label="Create new task"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
       )}
 
       {isManagerRole && (
