@@ -8,7 +8,8 @@ import type {
   InsertProcessInstance, InsertTask, InsertIncident, InsertComplaint,
   InsertPolicyDocument, InsertTrainingRecord, InsertNotification,
   AuthUser, UpsertAuthUser,
-  FridgeUnit, FridgeReading, InsertFridgeUnit, InsertFridgeReading
+  FridgeUnit, FridgeReading, InsertFridgeUnit, InsertFridgeReading,
+  CleaningZone, CleaningTask, CleaningLog, InsertCleaningZone, InsertCleaningTask, InsertCleaningLog
 } from "@shared/schema";
 
 export interface IStorage {
@@ -83,6 +84,17 @@ export interface IStorage {
   updateFridgeUnit(id: string, practiceId: string, data: Partial<InsertFridgeUnit>): Promise<FridgeUnit | undefined>;
   getFridgeReadingsByPractice(practiceId: string, fridgeId?: string): Promise<FridgeReading[]>;
   createFridgeReading(reading: InsertFridgeReading): Promise<FridgeReading>;
+
+  getCleaningZonesByPractice(practiceId: string): Promise<CleaningZone[]>;
+  createCleaningZone(zone: InsertCleaningZone): Promise<CleaningZone>;
+  updateCleaningZone(id: string, practiceId: string, data: Partial<InsertCleaningZone>): Promise<CleaningZone | undefined>;
+  deleteCleaningZone(id: string, practiceId: string): Promise<void>;
+  getCleaningTasksByPractice(practiceId: string, zoneId?: string): Promise<CleaningTask[]>;
+  createCleaningTask(task: InsertCleaningTask): Promise<CleaningTask>;
+  updateCleaningTask(id: string, practiceId: string, data: Partial<InsertCleaningTask>): Promise<CleaningTask | undefined>;
+  deleteCleaningTask(id: string, practiceId: string): Promise<void>;
+  getCleaningLogsByPractice(practiceId: string, date?: string): Promise<CleaningLog[]>;
+  createCleaningLog(log: InsertCleaningLog): Promise<CleaningLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -450,11 +462,79 @@ export class DatabaseStorage implements IStorage {
   async markAllNotificationsRead(userId: string, practiceId: string): Promise<void> {
     await db.update(schema.notifications).set({ readAt: new Date() }).where(
       and(
-        eq(schema.notifications.userId, userId), 
+        eq(schema.notifications.userId, userId),
         eq(schema.notifications.practiceId, practiceId),
         isNull(schema.notifications.readAt)
       )
     );
+  }
+
+  async getCleaningZonesByPractice(practiceId: string): Promise<CleaningZone[]> {
+    return db.select().from(schema.cleaningZones)
+      .where(eq(schema.cleaningZones.practiceId, practiceId))
+      .orderBy(schema.cleaningZones.zoneName);
+  }
+
+  async createCleaningZone(zone: InsertCleaningZone): Promise<CleaningZone> {
+    const [created] = await db.insert(schema.cleaningZones).values(zone).returning();
+    return created;
+  }
+
+  async updateCleaningZone(id: string, practiceId: string, data: Partial<InsertCleaningZone>): Promise<CleaningZone | undefined> {
+    const [updated] = await db.update(schema.cleaningZones).set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.cleaningZones.id, id), eq(schema.cleaningZones.practiceId, practiceId))).returning();
+    return updated;
+  }
+
+  async deleteCleaningZone(id: string, practiceId: string): Promise<void> {
+    await db.update(schema.cleaningZones).set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(schema.cleaningZones.id, id), eq(schema.cleaningZones.practiceId, practiceId)));
+  }
+
+  async getCleaningTasksByPractice(practiceId: string, zoneId?: string): Promise<CleaningTask[]> {
+    const condition = zoneId
+      ? and(eq(schema.cleaningTasks.practiceId, practiceId), eq(schema.cleaningTasks.zoneId, zoneId))
+      : eq(schema.cleaningTasks.practiceId, practiceId);
+    return db.select().from(schema.cleaningTasks).where(condition).orderBy(schema.cleaningTasks.taskName);
+  }
+
+  async createCleaningTask(task: InsertCleaningTask): Promise<CleaningTask> {
+    const [created] = await db.insert(schema.cleaningTasks).values(task).returning();
+    return created;
+  }
+
+  async updateCleaningTask(id: string, practiceId: string, data: Partial<InsertCleaningTask>): Promise<CleaningTask | undefined> {
+    const [updated] = await db.update(schema.cleaningTasks).set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.cleaningTasks.id, id), eq(schema.cleaningTasks.practiceId, practiceId))).returning();
+    return updated;
+  }
+
+  async deleteCleaningTask(id: string, practiceId: string): Promise<void> {
+    await db.update(schema.cleaningTasks).set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(schema.cleaningTasks.id, id), eq(schema.cleaningTasks.practiceId, practiceId)));
+  }
+
+  async getCleaningLogsByPractice(practiceId: string, date?: string): Promise<CleaningLog[]> {
+    if (date) {
+      const start = new Date(date + 'T00:00:00.000Z');
+      const end = new Date(date + 'T23:59:59.999Z');
+      return db.select().from(schema.cleaningLogs)
+        .where(and(
+          eq(schema.cleaningLogs.practiceId, practiceId),
+          gte(schema.cleaningLogs.logDate, start),
+          lte(schema.cleaningLogs.logDate, end)
+        ))
+        .orderBy(desc(schema.cleaningLogs.createdAt));
+    }
+    return db.select().from(schema.cleaningLogs)
+      .where(eq(schema.cleaningLogs.practiceId, practiceId))
+      .orderBy(desc(schema.cleaningLogs.createdAt))
+      .limit(200);
+  }
+
+  async createCleaningLog(log: InsertCleaningLog): Promise<CleaningLog> {
+    const [created] = await db.insert(schema.cleaningLogs).values(log).returning();
+    return created;
   }
 }
 

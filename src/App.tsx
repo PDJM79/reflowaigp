@@ -25,6 +25,7 @@ import Schedule from "./pages/Schedule";
 
 // Modules
 import Cleaning from "./pages/Cleaning";
+import CleaningManage from "./pages/CleaningManage";
 import MonthEndScripts from "./pages/MonthEndScripts";
 import FridgeTemps from "./pages/FridgeTemps";
 import Incidents from "./pages/Incidents";
@@ -107,6 +108,7 @@ const App = () => (
                   <Route path="/month-end" element={<MonthEndScripts />} />
                   <Route path="/claims" element={<Claims />} />
                   <Route path="/cleaning" element={<Cleaning />} />
+                  <Route path="/cleaning/manage" element={<CleaningManage />} />
                   <Route path="/incidents" element={<Incidents />} />
                   <Route path="/fire-safety" element={<FireSafety />} />
                   <Route path="/hr" element={<HR />} />

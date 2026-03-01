@@ -367,6 +367,7 @@ export const cleaningTasks = pgTable("cleaning_tasks", {
   frequency: cleanFrequencyEnum("frequency").notNull(),
   periodicRule: text("periodic_rule"),
   isActive: boolean("is_active").default(true),
+  requiresPhoto: boolean("requires_photo").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -374,12 +375,17 @@ export const cleaningTasks = pgTable("cleaning_tasks", {
 export const cleaningLogs = pgTable("cleaning_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
-  roomId: uuid("room_id").references(() => rooms.id).notNull(),
+  roomId: uuid("room_id").references(() => rooms.id),
   taskId: uuid("task_id").references(() => cleaningTasks.id),
+  zoneId: uuid("zone_id").references(() => cleaningZones.id),
   logDate: timestamp("log_date").notNull(),
   completedBy: uuid("completed_by").references(() => users.id),
   completedAt: timestamp("completed_at"),
   initials: text("initials"),
+  notes: text("notes"),
+  photoUrl: text("photo_url"),
+  hasIssue: boolean("has_issue").default(false),
+  issueDescription: text("issue_description"),
   issues: jsonb("issues"),
   retainedUntil: timestamp("retained_until"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -721,3 +727,13 @@ export type Complaint = typeof complaints.$inferSelect;
 export type PolicyDocument = typeof policyDocuments.$inferSelect;
 export type TrainingRecord = typeof trainingRecords.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+
+export const insertCleaningZoneSchema = createInsertSchema(cleaningZones).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCleaningTaskSchema = createInsertSchema(cleaningTasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCleaningLogSchema = createInsertSchema(cleaningLogs).omit({ id: true, createdAt: true });
+export type InsertCleaningZone = z.infer<typeof insertCleaningZoneSchema>;
+export type InsertCleaningTask = z.infer<typeof insertCleaningTaskSchema>;
+export type InsertCleaningLog = z.infer<typeof insertCleaningLogSchema>;
+export type CleaningZone = typeof cleaningZones.$inferSelect;
+export type CleaningTask = typeof cleaningTasks.$inferSelect;
+export type CleaningLog = typeof cleaningLogs.$inferSelect;

@@ -7,7 +7,8 @@ import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
-  insertProcessTemplateSchema, insertFridgeUnitSchema, insertFridgeReadingSchema
+  insertProcessTemplateSchema, insertFridgeUnitSchema, insertFridgeReadingSchema,
+  insertCleaningZoneSchema, insertCleaningTaskSchema, insertCleaningLogSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -627,6 +628,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to create fridge reading" });
+    }
+  });
+
+  // Cleaning Zones
+  app.get("/api/practices/:practiceId/cleaning-zones", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const zones = await storage.getCleaningZonesByPractice(req.params.practiceId as string);
+      res.json(zones);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cleaning zones" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/cleaning-zones", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId as string };
+      const validated = insertCleaningZoneSchema.parse(dataWithPractice);
+      const zone = await storage.createCleaningZone(validated);
+      res.status(201).json(zone);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: "Failed to create cleaning zone" });
+    }
+  });
+
+  app.put("/api/practices/:practiceId/cleaning-zones/:zoneId", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const zone = await storage.updateCleaningZone(req.params.zoneId as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!zone) return res.status(404).json({ error: "Zone not found" });
+      res.json(zone);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update cleaning zone" });
+    }
+  });
+
+  app.delete("/api/practices/:practiceId/cleaning-zones/:zoneId", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      await storage.deleteCleaningZone(req.params.zoneId as string, req.params.practiceId as string);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cleaning zone" });
+    }
+  });
+
+  // Cleaning Tasks
+  app.get("/api/practices/:practiceId/cleaning-tasks", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const zoneId = typeof req.query.zoneId === 'string' ? req.query.zoneId : undefined;
+      const tasks = await storage.getCleaningTasksByPractice(req.params.practiceId as string, zoneId);
+      res.json(tasks);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cleaning tasks" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/cleaning-tasks", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: req.params.practiceId as string };
+      const validated = insertCleaningTaskSchema.parse(dataWithPractice);
+      const task = await storage.createCleaningTask(validated);
+      res.status(201).json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: "Failed to create cleaning task" });
+    }
+  });
+
+  app.put("/api/practices/:practiceId/cleaning-tasks/:taskId", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const task = await storage.updateCleaningTask(req.params.taskId as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      res.json(task);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update cleaning task" });
+    }
+  });
+
+  app.delete("/api/practices/:practiceId/cleaning-tasks/:taskId", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      await storage.deleteCleaningTask(req.params.taskId as string, req.params.practiceId as string);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cleaning task" });
+    }
+  });
+
+  // Cleaning Logs
+  app.get("/api/practices/:practiceId/cleaning-logs", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+      const logs = await storage.getCleaningLogsByPractice(req.params.practiceId as string, date);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cleaning logs" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/cleaning-logs", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const userId = (req.session as any).userId;
+      const body = req.body;
+      const dataWithPractice = {
+        ...stripPracticeId(body),
+        practiceId,
+        completedBy: body.completedBy || userId,
+        completedAt: new Date(),
+        logDate: new Date(),
+      };
+      const validated = insertCleaningLogSchema.parse(dataWithPractice);
+      const log = await storage.createCleaningLog(validated);
+      res.status(201).json(log);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      console.error('cleaning log error:', error);
+      res.status(500).json({ error: "Failed to create cleaning log" });
     }
   });
 
