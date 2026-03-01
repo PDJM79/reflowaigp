@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { getAITips } from "./aiTips";
 import { getComplaintAnalysis } from "./complaintAnalysis";
 import { getTrainingAnalysis } from "./trainingAnalysis";
+import { getSectionTips } from "./sectionTips";
 import { auditLogger } from "./auditLogger";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
@@ -747,6 +748,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
       console.error('cleaning log error:', error);
       res.status(500).json({ error: "Failed to create cleaning log" });
+    }
+  });
+
+  // ── AI section improvement tips (ReadyForAudit / Areas of Concern) ─────────
+  app.post("/api/practices/:practiceId/ai/suggest-improvements", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const { section, score, target, gap, contributors, country } = req.body;
+      if (!section) return res.status(400).json({ error: "section is required" });
+      const result = await getSectionTips(req.params.practiceId as string, {
+        section: String(section),
+        score: Number(score) || 0,
+        target: Number(target) || 85,
+        gap: Number(gap) || 0,
+        contributors: contributors ?? {},
+        country: String(country || 'england'),
+      });
+      res.json(result);
+    } catch (error: any) {
+      console.error("Section tips error:", error);
+      const msg: string = (error as Error).message ?? "";
+      if (msg.includes("ANTHROPIC_API_KEY")) {
+        return res.status(503).json({ error: "AI tips service not configured." });
+      }
+      res.status(500).json({ error: "Failed to generate improvement tips. Please try again." });
     }
   });
 
