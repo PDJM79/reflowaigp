@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
@@ -124,6 +125,11 @@ export default function Dashboard() {
       </CardContent>
     </Card>
   );
+
+  // Cleaners have no home dashboard — send them to Daily Cleaning
+  if (user && (user.role === 'reception' || user.role === 'cleaner')) {
+    return <Navigate to="/cleaning" replace />;
+  }
 
   if (loading || capabilitiesLoading) {
     return (

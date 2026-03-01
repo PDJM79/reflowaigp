@@ -28,6 +28,16 @@ interface NavGroup {
   items: NavItem[];
 }
 
+// Paths each restricted role may access. Roles not listed here see everything
+// (capability filtering still applies on top of this).
+const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
+  gp: ['/', '/tasks', '/schedule', '/policies', '/incidents', '/complaints', '/staff-self-service', '/processes'],
+  nurse: ['/', '/tasks', '/schedule', '/fridge-temps', '/ipc', '/policies', '/staff-self-service'],
+  hca: ['/', '/tasks', '/fridge-temps', '/staff-self-service'],
+  reception: ['/', '/cleaning'],
+  cleaner: ['/', '/cleaning'],
+};
+
 export function AppLayout() {
   const { user, signOut, loading: authLoading } = useAuth();
   const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
@@ -45,6 +55,20 @@ export function AppLayout() {
       navigate('/login');
     }
   }, [user, authLoading, navigate]);
+
+  // Block direct URL access to pages the user's role doesn't allow
+  useEffect(() => {
+    if (!user) return;
+    const role = user.role ?? '';
+    const allowedPaths = ROLE_ALLOWED_PATHS[role];
+    if (!allowedPaths) return; // No restriction for this role
+    // Check if current path starts with any allowed path
+    const allowed = allowedPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+    if (!allowed) {
+      const fallback = allowedPaths[0] ?? '/';
+      navigate(fallback, { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await signOut();
@@ -123,11 +147,16 @@ export function AppLayout() {
     }
   ];
 
-  // Check if user has access to a nav item based on capabilities
+  // Check if user has access to a nav item based on role + capabilities
   const hasNavAccess = (item: NavItem): boolean => {
+    // Role-based path allowlist (checked first — hard gate)
+    const role = user?.role ?? '';
+    const allowedPaths = ROLE_ALLOWED_PATHS[role];
+    if (allowedPaths && !allowedPaths.includes(item.path)) return false;
+
+    // Capability gate
     if (item.capabilities === 'all') return true;
     if (!item.capabilities) return true;
-    
     const caps = Array.isArray(item.capabilities) ? item.capabilities : [item.capabilities];
     return hasAnyCapability(...caps);
   };
@@ -280,45 +309,40 @@ export function AppLayout() {
         <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom">
           <div className="flex justify-around items-center h-16 px-2">
             <Link to="/">
-              <Button
-                variant={isActive('/') ? 'secondary' : 'ghost'}
-                size="icon"
-                className="flex flex-col h-14 w-14 gap-1"
-              >
+              <Button variant={isActive('/') ? 'secondary' : 'ghost'} size="icon" className="flex flex-col h-14 w-14 gap-1">
                 <Home className="h-5 w-5" />
                 <span className="text-xs">Home</span>
               </Button>
             </Link>
-            <Link to="/tasks">
-              <Button
-                variant={isActive('/tasks') ? 'secondary' : 'ghost'}
-                size="icon"
-                className="flex flex-col h-14 w-14 gap-1"
-              >
-                <ListTodo className="h-5 w-5" />
-                <span className="text-xs">Tasks</span>
-              </Button>
-            </Link>
-            <Link to="/incidents">
-              <Button
-                variant={isActive('/incidents') ? 'secondary' : 'ghost'}
-                size="icon"
-                className="flex flex-col h-14 w-14 gap-1"
-              >
-                <AlertTriangle className="h-5 w-5" />
-                <span className="text-xs">Incidents</span>
-              </Button>
-            </Link>
-            <Link to="/staff-self-service">
-              <Button
-                variant={isActive('/staff-self-service') ? 'secondary' : 'ghost'}
-                size="icon"
-                className="flex flex-col h-14 w-14 gap-1"
-              >
-                <Users className="h-5 w-5" />
-                <span className="text-xs">Profile</span>
-              </Button>
-            </Link>
+            {(user?.role === 'reception' || user?.role === 'cleaner') ? (
+              <Link to="/cleaning">
+                <Button variant={isActive('/cleaning') ? 'secondary' : 'ghost'} size="icon" className="flex flex-col h-14 w-14 gap-1">
+                  <Droplet className="h-5 w-5" />
+                  <span className="text-xs">Cleaning</span>
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/tasks">
+                  <Button variant={isActive('/tasks') ? 'secondary' : 'ghost'} size="icon" className="flex flex-col h-14 w-14 gap-1">
+                    <ListTodo className="h-5 w-5" />
+                    <span className="text-xs">Tasks</span>
+                  </Button>
+                </Link>
+                <Link to="/incidents">
+                  <Button variant={isActive('/incidents') ? 'secondary' : 'ghost'} size="icon" className="flex flex-col h-14 w-14 gap-1">
+                    <AlertTriangle className="h-5 w-5" />
+                    <span className="text-xs">Incidents</span>
+                  </Button>
+                </Link>
+                <Link to="/staff-self-service">
+                  <Button variant={isActive('/staff-self-service') ? 'secondary' : 'ghost'} size="icon" className="flex flex-col h-14 w-14 gap-1">
+                    <Users className="h-5 w-5" />
+                    <span className="text-xs">Profile</span>
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       )}

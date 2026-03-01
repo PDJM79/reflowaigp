@@ -44,6 +44,9 @@ interface Task {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+// Roles that see all tasks; everyone else is filtered to their own assignments
+const MANAGER_ROLES = new Set(['practice_manager', 'administrator', 'nurse_lead', 'cd_lead_gp', 'ig_lead', 'estates_lead', 'reception_lead', 'auditor']);
+
 export default function TasksList() {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -58,6 +61,12 @@ export default function TasksList() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const currentUserId = user?.id ?? '';
+
+  // Derived role flags
+  const isManagerRole = MANAGER_ROLES.has(user?.role ?? '');
+  const isCleanerRole = user?.role === 'reception' || user?.role === 'cleaner';
+  // Non-manager, non-cleaner roles always see only their own tasks
+  const forceMyTasks = !isManagerRole && !isCleanerRole;
   const [useServerSearch, setUseServerSearch] = useState(false);
   
   // Pagination state
@@ -79,6 +88,11 @@ export default function TasksList() {
   useEffect(() => {
     if (!user) {
       navigate('/');
+      return;
+    }
+    // Cleaners have no general tasks — send them to cleaning
+    if (isCleanerRole) {
+      navigate('/cleaning');
       return;
     }
     fetchTasks();
@@ -105,6 +119,8 @@ export default function TasksList() {
       setLoading(true);
       if (!user?.practiceId) return;
 
+      const effectiveMyTasks = forceMyTasks || showMyTasks;
+
       // Use server-side search RPC when searching
       if (debouncedSearchQuery.length > 0) {
         const { data, error } = await supabase.rpc('search_tasks_secure', {
@@ -112,7 +128,7 @@ export default function TasksList() {
           p_module: selectedModule === 'all' ? null : selectedModule,
           p_status: selectedStatus === 'all' ? null : selectedStatus,
           p_priority: selectedPriority === 'all' ? null : selectedPriority,
-          p_only_my_tasks: showMyTasks,
+          p_only_my_tasks: effectiveMyTasks,
           p_limit: pageSize,
           p_offset: (page - 1) * pageSize,
         });
@@ -167,7 +183,7 @@ export default function TasksList() {
         dataQuery = dataQuery.eq('priority', selectedPriority);
       }
 
-      if (showMyTasks) {
+      if (effectiveMyTasks) {
         countQuery = countQuery.eq('assigned_to_user_id', user!.id);
         dataQuery = dataQuery.eq('assigned_to_user_id', user!.id);
       }
@@ -230,17 +246,19 @@ export default function TasksList() {
           </div>
           <p className="text-sm sm:text-base text-muted-foreground">{t('tasks.description')}</p>
         </div>
-        <Button 
-          onClick={() => {
-            triggerHaptic('light');
-            setShowDialog(true);
-          }}
-          size={isMobile ? 'lg' : 'default'}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t('tasks.create')}
-        </Button>
+        {isManagerRole && (
+          <Button
+            onClick={() => {
+              triggerHaptic('light');
+              setShowDialog(true);
+            }}
+            size={isMobile ? 'lg' : 'default'}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t('tasks.create')}
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
@@ -353,15 +371,17 @@ export default function TasksList() {
               </SelectContent>
             </Select>
 
-            <Button
-              variant={showMyTasks ? "default" : "outline"}
-              onClick={() => setShowMyTasks(!showMyTasks)}
-              size={isMobile ? 'lg' : 'default'}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
-              <User className="h-4 w-4 mr-2" />
-              My Tasks
-            </Button>
+            {isManagerRole && (
+              <Button
+                variant={showMyTasks ? "default" : "outline"}
+                onClick={() => setShowMyTasks(!showMyTasks)}
+                size={isMobile ? 'lg' : 'default'}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                <User className="h-4 w-4 mr-2" />
+                My Tasks
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -473,14 +493,16 @@ export default function TasksList() {
         </>
       )}
 
-      <TaskDialog
-        isOpen={showDialog}
-        onClose={() => setShowDialog(false)}
-        onSuccess={() => {
-          setShowDialog(false);
-          fetchTasks();
-        }}
-      />
+      {isManagerRole && (
+        <TaskDialog
+          isOpen={showDialog}
+          onClose={() => setShowDialog(false)}
+          onSuccess={() => {
+            setShowDialog(false);
+            fetchTasks();
+          }}
+        />
+      )}
     </div>
   );
 }
