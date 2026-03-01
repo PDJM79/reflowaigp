@@ -1,0 +1,63 @@
+name: Reset Minfor Surgery Demo Data
+
+on:
+  # Runs every day at 02:00 UTC
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — connects and verifies but does not execute the reset'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  reset-demo:
+    name: Reset demo data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verify database connectivity
+        env:
+          PGPASSWORD: ''   # psql reads the password from the URI; PGPASSWORD not needed
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Checking database connection..."
+          psql "$SUPABASE_DB_URL" \
+            --no-password \
+            --tuples-only \
+            -c "SELECT 'connected' AS status, current_database() AS db, NOW() AS ts;"
+
+      - name: Run demo reset SQL
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Executing supabase/seed/reset_minfor_demo.sql ..."
+          psql "$SUPABASE_DB_URL" \
+            --no-password \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/seed/reset_minfor_demo.sql
+          echo "Reset complete."
+
+      - name: Dry run — skip SQL execution
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN selected — SQL file not executed."
+          echo "Would have run: supabase/seed/reset_minfor_demo.sql"
+          echo "Target practice: a1b2c3d4-e5f6-7890-abcd-ef1234567890 (Minfor Surgery)"
