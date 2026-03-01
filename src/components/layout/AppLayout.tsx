@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import type { Capability } from '@/types/roles';
+import { AVAILABLE_ROLES } from '@/types/auth';
 
 interface NavItem {
   icon: React.ElementType;
@@ -175,6 +176,34 @@ export function AppLayout() {
   if (authLoading || !user) {
     return null;
   }
+
+  const roleLabel = AVAILABLE_ROLES.find(r => r.value === user.role)?.label ?? user.role;
+
+  const renderSidebarHeader = (open: boolean) => (
+    <div className="p-4 border-b">
+      <div className="flex items-center justify-between gap-2">
+        {open && (
+          <span className="font-bold text-base leading-tight tracking-tight">
+            FitForAudit GP
+          </span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex-shrink-0 ml-auto"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
+      </div>
+      {open && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <p className="text-sm font-medium leading-tight truncate">{user.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{roleLabel}</p>
+        </div>
+      )}
+    </div>
+  );
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
     const active = isActive(item.path);
@@ -267,18 +296,7 @@ export function AppLayout() {
       {!isMobile && (
         <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 border-r bg-card`}>
           <div className="flex flex-col h-full">
-            <div className="p-4 border-b flex items-center justify-between">
-              {sidebarOpen && (
-                <h1 className="font-bold text-lg truncate">{t('app.title')}</h1>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </Button>
-            </div>
+            {renderSidebarHeader(sidebarOpen)}
             <nav className="flex-1 p-2 overflow-y-auto">
               {renderNavItems()}
             </nav>
@@ -304,7 +322,13 @@ export function AppLayout() {
           <SheetContent side="left" className="w-64 p-0">
             <div className="flex flex-col h-full">
               <div className="p-4 border-b">
-                <h1 className="font-bold text-lg">{t('app.title')}</h1>
+                <span className="font-bold text-base leading-tight tracking-tight block">
+                  FitForAudit GP
+                </span>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-sm font-medium leading-tight truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{roleLabel}</p>
+                </div>
               </div>
               <nav className="flex-1 p-2 overflow-y-auto">
                 {renderNavItems()}
