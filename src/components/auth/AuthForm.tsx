@@ -82,8 +82,10 @@ export function AuthForm() {
       toast.error('Please enter your name');
       return;
     }
-    // practiceId is auto-populated if a practice exists (from the sign-in fetch);
-    // for brand-new setups it will be empty and the server handles linking.
+    if (practices.length > 1 && !practiceId) {
+      toast.error('Please select your practice');
+      return;
+    }
     await signUp(email, password, name, practiceId);
   };
 
@@ -159,7 +161,8 @@ export function AuthForm() {
             </div>
           </div>
           <form onSubmit={handleSignUp} className="space-y-4">
-            {/* Practice is resolved automatically — no dropdown needed here */}
+            {/* Show practice selector only when multiple practices exist */}
+            {practices.length > 1 && <PracticeSelect id="signup-practice" />}
             <div className="space-y-2">
               <Label htmlFor="signup-name">Full Name</Label>
               <Input
