@@ -92,10 +92,6 @@ export function AuthForm() {
       toast.error('Please enter your name');
       return;
     }
-    if (practices.length > 1 && !lockedPracticeId.current && !practiceId) {
-      toast.error('Please select your practice');
-      return;
-    }
     await signUp(email, password, name, practiceId);
   };
 
@@ -171,8 +167,6 @@ export function AuthForm() {
             </div>
           </div>
           <form onSubmit={handleSignUp} className="space-y-4">
-            {/* Show practice selector only when multiple practices exist and not locked by URL param */}
-            {practices.length > 1 && !lockedPracticeId.current && <PracticeSelect id="signup-practice" />}
             <div className="space-y-2">
               <Label htmlFor="signup-name">Full Name</Label>
               <Input
