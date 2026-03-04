@@ -115,10 +115,23 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { email, password, name, practiceId } = req.body;
+      const { email, password, name } = req.body;
+      let { practiceId } = req.body;
 
-      if (!email || !password || !name || !practiceId) {
-        return res.status(400).json({ error: "Email, password, name, and practice are required" });
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: "Email, password, and name are required" });
+      }
+
+      // Auto-resolve practiceId when not supplied (first sign-up after onboarding wizard)
+      if (!practiceId) {
+        const all = await storage.getPractices();
+        if (all.length === 1) {
+          practiceId = all[0].id;
+        } else if (all.length === 0) {
+          return res.status(400).json({ error: "No practice found. Please complete the practice setup wizard first." });
+        } else {
+          return res.status(400).json({ error: "Multiple practices exist — please select yours from the sign-in page." });
+        }
       }
 
       const passwordError = validatePasswordStrength(password);
