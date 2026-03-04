@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, CheckCircle, Shield, BarChart3, FileCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,6 +16,7 @@ interface Practice {
 
 export function AuthForm() {
   const { signIn, signUp, loading } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -344,16 +346,14 @@ export function AuthForm() {
                 >
                   Forgot password?
                 </Button>
-                {practices.length <= 1 && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="p-0 h-auto text-muted-foreground hover:text-primary"
-                    onClick={() => setShowSignUp(true)}
-                  >
-                    Create account
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="p-0 h-auto text-muted-foreground hover:text-primary"
+                  onClick={() => navigate('/onboarding')}
+                >
+                  New practice? Sign up
+                </Button>
               </div>
             </form>
 
