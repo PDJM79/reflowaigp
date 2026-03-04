@@ -78,14 +78,12 @@ export function AuthForm() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!practiceId) {
-      toast.error('Please select your practice');
-      return;
-    }
     if (!name.trim()) {
       toast.error('Please enter your name');
       return;
     }
+    // practiceId is auto-populated if a practice exists (from the sign-in fetch);
+    // for brand-new setups it will be empty and the server handles linking.
     await signUp(email, password, name, practiceId);
   };
 
@@ -161,7 +159,7 @@ export function AuthForm() {
             </div>
           </div>
           <form onSubmit={handleSignUp} className="space-y-4">
-            <PracticeSelect id="signup-practice" />
+            {/* Practice is resolved automatically — no dropdown needed here */}
             <div className="space-y-2">
               <Label htmlFor="signup-name">Full Name</Label>
               <Input
