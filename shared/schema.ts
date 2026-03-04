@@ -53,6 +53,13 @@ export const practices = pgTable("practices", {
   isActive: boolean("is_active").default(true),
   onboardingStage: text("onboarding_stage").default('pending'),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // Added by migration 20260304180000
+  address: text("address"),
+  postcode: varchar("postcode", { length: 10 }),
+  regulator: varchar("regulator", { length: 10 }).default('cqc'),
+  registrationNumber: varchar("registration_number", { length: 50 }),
+  contactEmail: text("contact_email"),
+  contactName: text("contact_name"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -756,6 +763,8 @@ export const onboardingSessions = pgTable("onboarding_sessions", {
   aiRecommendations:  jsonb("ai_recommendations"),
   currentStep:        integer("current_step").notNull().default(1),
   completedAt:        timestamp("completed_at"),
+  // Added by migration 20260304180000: practice created by this session (set on complete)
+  practiceId:         uuid("practice_id").references(() => practices.id, { onDelete: "set null" }),
   createdAt:          timestamp("created_at").defaultNow(),
   updatedAt:          timestamp("updated_at").defaultNow(),
   deletedAt:          timestamp("deleted_at"),
@@ -790,6 +799,9 @@ export const practiceModules = pgTable("practice_modules", {
   moduleName:  text("module_name").notNull(),
   isEnabled:   boolean("is_enabled").notNull().default(true),
   config:      jsonb("config"),
+  // Added by migration 20260304180000
+  disabledAt:  timestamp("disabled_at"),
+  enabledAt:   timestamp("enabled_at"),
   createdAt:   timestamp("created_at").defaultNow(),
   updatedAt:   timestamp("updated_at").defaultNow(),
 });

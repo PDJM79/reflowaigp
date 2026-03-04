@@ -9,14 +9,20 @@ import { getSectionTips } from "./sectionTips";
 import { registerOnboardingRoutes } from "./onboarding";
 import { getCqcCircuitStatus } from "./services/cqc-service";
 import { auditLogger } from "./auditLogger";
+import { db } from "./db";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
   insertProcessTemplateSchema, insertFridgeUnitSchema, insertFridgeReadingSchema,
-  insertCleaningZoneSchema, insertCleaningTaskSchema, insertCleaningLogSchema
+  insertCleaningZoneSchema, insertCleaningTaskSchema, insertCleaningLogSchema,
+  practices, practiceModules, policyDocuments, tasks as tasksTable,
+  cleaningZones, cleaningTasks, onboardingSessions,
 } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { newRequestId, clonePracticeSchema, toggleModuleSchema } from "./onboarding-helpers";
+import { ALL_MODULE_IDS } from "./onboarding-complete";
 
 // Ensures the authenticated user can only access their own practice's data
 const requireSamePractice: RequestHandler = (req, res, next) => {
@@ -834,6 +840,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "AI tips service not configured. Add ANTHROPIC_API_KEY to environment variables." });
       }
       res.status(500).json({ error: "Failed to generate AI tips. Please try again later." });
+    }
+  });
+
+  // ── Practice modules: list ─────────────────────────────────────────────────
+  app.get("/api/practices/:practiceId/modules", isAuthenticated, requireSamePractice, async (req, res) => {
+    const rid = newRequestId();
+    try {
+      const modules = await db.select().from(practiceModules)
+        .where(eq(practiceModules.practiceId, req.params.practiceId as string));
+      res.json({ requestId: rid, modules });
+    } catch (err) {
+      console.error("GET /modules error:", err);
+      res.status(500).json({ requestId: rid, error: "Failed to fetch modules" });
+    }
+  });
+
+  // ── Practice modules: toggle ───────────────────────────────────────────────
+  app.patch("/api/practices/:practiceId/modules/:moduleName", isAuthenticated, requireSamePractice, async (req, res) => {
+    const rid = newRequestId();
+    const parse = toggleModuleSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: "Invalid request", details: parse.error.flatten() });
+
+    const { practiceId, moduleName } = req.params as { practiceId: string; moduleName: string };
+    const { isEnabled } = parse.data;
+    try {
+      const [updated] = await db.update(practiceModules)
+        .set({
+          isEnabled,
+          disabledAt: isEnabled ? null : new Date(),
+          enabledAt:  isEnabled ? new Date() : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(practiceModules.practiceId, practiceId))
+        .returning();
+      if (!updated) return res.status(404).json({ requestId: rid, error: "Module not found" });
+
+      // Audit log
+      await storage.createAuditLog({
+        practiceId, userId: req.session.userId ?? null,
+        entityType: "practice_module", entityId: updated.id,
+        action: isEnabled ? "module_enabled" : "module_disabled",
+        afterData: { moduleName, isEnabled },
+      } as any);
+
+      res.json({ requestId: rid, module: updated });
+    } catch (err) {
+      console.error("PATCH /modules error:", err);
+      res.status(500).json({ requestId: rid, error: "Failed to update module" });
+    }
+  });
+
+  // ── Practice clone ─────────────────────────────────────────────────────────
+  app.post("/api/practices/:sourcePracticeId/clone", isAuthenticated, async (req, res) => {
+    const rid = newRequestId();
+    // Manually verify ownership of source practice
+    if (req.session.practiceId !== (req.params.sourcePracticeId as string)) {
+      return res.status(403).json({ requestId: rid, error: "Forbidden" });
+    }
+    const parse = clonePracticeSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: "Invalid request", details: parse.error.flatten() });
+
+    const sourcePracticeId = req.params.sourcePracticeId as string;
+    const { newPracticeName, registrationNumber, regulator } = parse.data;
+    const country = regulator === 'hiw' ? 'wales' : 'england';
+
+    try {
+      const practiceId = await db.transaction(async (tx) => {
+        // 1. Create new practice
+        const [newPractice] = await tx.insert(practices).values({
+          name: newPracticeName, country: country as any, regulator: regulator as any,
+          registrationNumber, isActive: true, onboardingStage: 'cloned',
+        }).returning();
+
+        // 2. Copy practice_modules from source
+        const srcModules = await tx.select().from(practiceModules)
+          .where(eq(practiceModules.practiceId, sourcePracticeId));
+        if (srcModules.length > 0) {
+          await tx.insert(practiceModules).values(
+            srcModules.map(m => ({ practiceId: newPractice.id, moduleName: m.moduleName, isEnabled: m.isEnabled }))
+          );
+        } else {
+          await tx.insert(practiceModules).values(
+            ALL_MODULE_IDS.map(m => ({ practiceId: newPractice.id, moduleName: m, isEnabled: true }))
+          );
+        }
+
+        // 3. Copy compliance tasks (structure only — not completions)
+        const srcTasks = await tx.select().from(tasksTable)
+          .where(eq(tasksTable.practiceId, sourcePracticeId));
+        if (srcTasks.length > 0) {
+          const tomorrow = new Date(Date.now() + 86_400_000);
+          await tx.insert(tasksTable).values(
+            srcTasks.map(t => ({
+              practiceId: newPractice.id, title: t.title, description: t.description,
+              module: t.module, priority: t.priority, status: 'pending', dueAt: tomorrow,
+            }))
+          );
+        }
+
+        // 4. Copy cleaning zones + tasks structure
+        const srcZones = await tx.select().from(cleaningZones)
+          .where(eq(cleaningZones.practiceId, sourcePracticeId));
+        const zoneIdMap: Record<string, string> = {};
+        for (const zone of srcZones) {
+          const [newZone] = await tx.insert(cleaningZones).values({
+            practiceId: newPractice.id, zoneName: zone.zoneName, zoneType: zone.zoneType, isActive: true,
+          }).returning();
+          zoneIdMap[zone.id] = newZone.id;
+        }
+        if (srcZones.length > 0) {
+          const srcCtasks = await tx.select().from(cleaningTasks)
+            .where(eq(cleaningTasks.practiceId, sourcePracticeId));
+          if (srcCtasks.length > 0) {
+            await tx.insert(cleaningTasks).values(
+              srcCtasks.map(t => ({
+                practiceId: newPractice.id, zoneId: zoneIdMap[t.zoneId ?? ''] ?? null,
+                taskName: t.taskName, frequency: t.frequency, requiresPhoto: t.requiresPhoto, isActive: true,
+              }))
+            );
+          }
+        }
+
+        // 5. Copy policy stubs (not content — each site reviews their own)
+        const srcPolicies = await tx.select().from(policyDocuments)
+          .where(eq(policyDocuments.practiceId, sourcePracticeId));
+        if (srcPolicies.length > 0) {
+          const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
+          await tx.insert(policyDocuments).values(
+            srcPolicies.map(p => ({
+              practiceId: newPractice.id, title: p.title, category: p.category,
+              version: '1.0', status: 'draft', nextReviewDate: nextYear,
+            }))
+          );
+        }
+
+        // 6. Create onboarding session starting at step 5 (rooms setup)
+        const enabledModules = srcModules.filter(m => m.isEnabled).map(m => m.moduleName);
+        await tx.insert(onboardingSessions).values({
+          practiceName: newPracticeName, registrationNumber, regulator,
+          modulesEnabled: enabledModules, practiceId: newPractice.id, currentStep: 5,
+        });
+
+        // 7. Audit
+        await storage.createAuditLog({
+          practiceId: newPractice.id, userId: req.session.userId ?? null,
+          entityType: "practice", entityId: newPractice.id,
+          action: "practice_cloned", afterData: { sourcePracticeId, modules: enabledModules.length },
+        } as any);
+
+        return newPractice.id;
+      });
+
+      console.log(JSON.stringify({ svc: 'clone', event: 'success', sourcePracticeId, practiceId, requestId: rid }));
+      res.status(201).json({ requestId: rid, practiceId });
+    } catch (err) {
+      console.error("POST /clone error:", err);
+      res.status(500).json({ requestId: rid, error: "Failed to clone practice" });
     }
   });
 

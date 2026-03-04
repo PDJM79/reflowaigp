@@ -84,6 +84,16 @@ export interface ComplianceTemplate {
   sortOrder: number;
 }
 
+// ── AI Recommendations (Step 7) ───────────────────────────────────────────────
+export interface FocusArea  { task: string; reason: string; deadline: string; category: string; }
+export interface QuickWin   { task: string; reason: string; timeEstimate: string; }
+export interface AIPriorities {
+  focusAreas:     FocusArea[];
+  quickWins:      QuickWin[];
+  ongoingSummary: { weeklyTasks: number; monthlyTasks: number; annualTasks: number; totalRooms: number; cleaningTasksPerDay: number; };
+  personalNote:   string;
+}
+
 // Dynamic step configuration — 7 steps if cleaning on, 5 if off
 export interface StepConfig {
   total: number;

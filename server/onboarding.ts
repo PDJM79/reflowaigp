@@ -4,11 +4,15 @@ import { db } from './db';
 import { onboardingSessions, complianceTemplates, cleaningTemplates } from '@shared/schema';
 import { eq, inArray, asc } from 'drizzle-orm';
 import { lookupPractice, CqcServiceError } from './services/cqc-service';
+import { getAiService, buildFallback } from './services/ai-service';
+import type { SessionSummary } from './services/ai-service';
+import { executeComplete } from './onboarding-complete';
 import {
   newRequestId, sanitizeText,
   lookupPracticeSchema, createSessionSchema, updateSessionSchema,
   updateModulesSchema, updateInspectionSchema, complianceTemplatesQuerySchema,
   updateRoomsSchema, updateCleaningScheduleSchema,
+  aiPrioritizeSchema, completeSessionSchema,
 } from './onboarding-helpers';
 
 // ── Audit log helper ──────────────────────────────────────────────────────────
@@ -267,5 +271,68 @@ export function registerOnboardingRoutes(app: Express): void {
       .from(cleaningTemplates)
       .orderBy(asc(cleaningTemplates.roomType), asc(cleaningTemplates.sortOrder));
     return res.json({ requestId: rid, templates: rows });
+  });
+
+  // POST /api/onboarding/ai-prioritize ─────────────────────────────────────────
+  // Calls the AI service to generate priority recommendations for Step 7.
+  // Result is cached in onboarding_sessions.ai_recommendations.
+  // Returns fallback gracefully if AI fails — never blocks wizard completion.
+  app.post('/api/onboarding/ai-prioritize', async (req, res) => {
+    const rid = newRequestId();
+    const parse = aiPrioritizeSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: 'Invalid request', details: parse.error.flatten() });
+
+    const session = await getSession(parse.data.sessionId);
+    if (!session || session.deletedAt) return res.status(404).json({ requestId: rid, error: 'Session not found' });
+
+    // Return cached result if available
+    if (session.aiRecommendations) {
+      return res.json({ requestId: rid, priorities: session.aiRecommendations, fromCache: true, fromFallback: false });
+    }
+
+    const summary: SessionSummary = {
+      practiceName:    session.practiceName,
+      regulator:       session.regulator,
+      modulesEnabled:  (session.modulesEnabled as string[]) ?? [],
+      inspectionData:  (session.inspectionData as Record<string, any>) ?? null,
+      roomCount:       (session.roomsConfig as any)?.rooms?.length ?? 0,
+      cleaningEnabled: ((session.modulesEnabled as string[]) ?? []).includes('cleaning'),
+    };
+
+    try {
+      const { priorities, fromFallback } = await getAiService().generatePriorities(summary);
+      if (!fromFallback) {
+        await db.update(onboardingSessions)
+          .set({ aiRecommendations: priorities as any, updatedAt: new Date() })
+          .where(eq(onboardingSessions.id, parse.data.sessionId));
+      }
+      auditOnboarding('ai_prioritize', parse.data.sessionId, { fromFallback });
+      return res.json({ requestId: rid, priorities, fromCache: false, fromFallback });
+    } catch (err: any) {
+      const fallback = buildFallback(summary);
+      return res.json({ requestId: rid, priorities: fallback, fromCache: false, fromFallback: true });
+    }
+  });
+
+  // POST /api/onboarding/complete ───────────────────────────────────────────────
+  // CRITICAL endpoint: creates all live practice records in a single transaction.
+  // On any failure, everything is rolled back. Returns { practiceId }.
+  app.post('/api/onboarding/complete', async (req, res) => {
+    const rid = newRequestId();
+    const parse = completeSessionSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: 'Invalid request', details: parse.error.flatten() });
+
+    const { sessionId } = parse.data;
+    auditOnboarding('complete_started', sessionId, {});
+    try {
+      const practiceId = await executeComplete(sessionId);
+      auditOnboarding('complete_success', sessionId, { practiceId });
+      return res.status(201).json({ requestId: rid, practiceId, redirect: '/home' });
+    } catch (err: any) {
+      const status = err.status ?? 500;
+      auditOnboarding('complete_failed', sessionId, { error: err.message, status });
+      console.error('onboarding/complete:', err);
+      return res.status(status).json({ requestId: rid, error: err.message ?? 'Completion failed' });
+    }
   });
 }

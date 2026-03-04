@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
+import { usePracticeModules } from '@/hooks/usePracticeModules';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -22,6 +23,7 @@ interface NavItem {
   label: string;
   path: string;
   capabilities?: Capability | Capability[] | 'all';
+  module?: string;   // if set, item is hidden when this module is disabled
 }
 
 interface NavGroup {
@@ -42,6 +44,7 @@ const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
 export function AppLayout() {
   const { user, signOut, loading: authLoading } = useAuth();
   const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
+  const { enabledSet: enabledModules } = usePracticeModules();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,24 +109,24 @@ export function AppLayout() {
       items: [
         { icon: Pill, label: t('nav.month_end'), path: '/month-end', capabilities: 'record_script' },
         { icon: PoundSterling, label: t('nav.claims'), path: '/claims', capabilities: 'manage_claims' },
-        { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', capabilities: ['record_fridge_temp', 'manage_fridges'] },
+        { icon: Thermometer, label: t('nav.fridge_temps'), path: '/fridge-temps', capabilities: ['record_fridge_temp', 'manage_fridges'], module: 'fridge_temps' },
         { icon: FileCheck, label: t('nav.medical_requests'), path: '/medical-requests', capabilities: 'manage_medical_requests' },
       ]
     },
     {
       title: 'Compliance',
       items: [
-        { icon: Shield, label: 'IPC Audits', path: '/ipc', capabilities: ['manage_ipc', 'run_ipc_audit'] },
-        { icon: BookOpen, label: t('nav.policies'), path: '/policies', capabilities: 'view_policies' },
-        { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', capabilities: ['manage_hs', 'run_risk_assessment'] },
+        { icon: Shield, label: 'IPC Audits', path: '/ipc', capabilities: ['manage_ipc', 'run_ipc_audit'], module: 'ipc' },
+        { icon: BookOpen, label: t('nav.policies'), path: '/policies', capabilities: 'view_policies', module: 'policies' },
+        { icon: ShieldAlert, label: 'Risk Register', path: '/risk-register', capabilities: ['manage_hs', 'run_risk_assessment'], module: 'compliance' },
       ]
     },
     {
       title: 'Facilities',
       items: [
-        { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', capabilities: ['manage_cleaning', 'complete_cleaning'] },
+        { icon: Droplet, label: t('nav.cleaning'), path: '/cleaning', capabilities: ['manage_cleaning', 'complete_cleaning'], module: 'cleaning' },
         { icon: Building, label: 'Room Assessments', path: '/room-assessments', capabilities: ['manage_rooms', 'run_room_assessment'] },
-        { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', capabilities: ['manage_fire', 'run_fire_checks'] },
+        { icon: Flame, label: t('nav.fire_safety'), path: '/fire-safety', capabilities: ['manage_fire', 'run_fire_checks'], module: 'fire_safety' },
       ]
     },
     {
@@ -131,11 +134,11 @@ export function AppLayout() {
       items: [
         { icon: Users, label: 'User Management', path: '/user-management', capabilities: 'manage_users' },
         { icon: Shield, label: 'Role Management', path: '/role-management', capabilities: 'assign_roles' },
-        { icon: Users, label: t('nav.hr'), path: '/hr', capabilities: ['manage_training', 'manage_appraisals'] },
+        { icon: Users, label: t('nav.hr'), path: '/hr', capabilities: ['manage_training', 'manage_appraisals'], module: 'hr' },
         { icon: Users, label: 'Team', path: '/team', capabilities: ['manage_users', 'assign_roles'] },
         { icon: Users, label: 'My Information', path: '/staff-self-service', capabilities: 'all' },
         { icon: AlertTriangle, label: t('nav.incidents'), path: '/incidents', capabilities: ['report_incident', 'manage_incident'] },
-        { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', capabilities: ['log_complaint', 'manage_complaint'] },
+        { icon: MessageSquare, label: t('nav.complaints'), path: '/complaints', capabilities: ['log_complaint', 'manage_complaint'], module: 'complaints' },
       ]
     },
     {
@@ -148,16 +151,18 @@ export function AppLayout() {
     }
   ];
 
-  // Check if user has access to a nav item based on role + capabilities
+  // Check if user has access to a nav item based on role + capabilities + modules
   const hasNavAccess = (item: NavItem): boolean => {
     const role = user?.role ?? '';
     const allowedPaths = ROLE_ALLOWED_PATHS[role];
     // For roles with a strict path allowlist, path presence is the only gate.
-    // Capability check is intentionally skipped — the allowlist already encodes
-    // exactly what these roles may see, and capability records may not be seeded.
     if (allowedPaths) return allowedPaths.includes(item.path);
 
-    // For unrestricted roles, apply the capability gate
+    // Module gate: if a module is assigned and the set has been loaded, hide disabled modules.
+    // While loading (enabledModules.size === 0), show all items to avoid flicker.
+    if (item.module && enabledModules.size > 0 && !enabledModules.has(item.module)) return false;
+
+    // Capability gate for unrestricted roles
     if (item.capabilities === 'all') return true;
     if (!item.capabilities) return true;
     const caps = Array.isArray(item.capabilities) ? item.capabilities : [item.capabilities];
@@ -279,6 +284,17 @@ export function AppLayout() {
           {(sidebarOpen || isMobile) && <span>{t('nav.settings')}</span>}
         </Button>
       </Link>
+      {(sidebarOpen || isMobile) && user?.isPracticeManager && (
+        <Link to="/settings/modules" onClick={() => setMobileMenuOpen(false)}>
+          <Button
+            variant={isActive('/settings/modules') ? 'secondary' : 'ghost'}
+            className="w-full justify-start text-xs text-muted-foreground"
+            size="sm"
+          >
+            <Settings className="h-3.5 w-3.5 mr-2" />Modules
+          </Button>
+        </Link>
+      )}
       <Button
         variant="ghost"
         onClick={handleLogout}

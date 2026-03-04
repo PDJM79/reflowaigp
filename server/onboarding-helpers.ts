@@ -105,3 +105,17 @@ export const updateCleaningScheduleSchema = z.object({
     tasks:    z.array(scheduleTaskSchema),
   })),
 });
+
+// Step 7 / completion
+export const aiPrioritizeSchema = z.object({ sessionId: z.string().uuid() });
+export const completeSessionSchema = z.object({ sessionId: z.string().uuid() });
+
+// Module management
+export const toggleModuleSchema = z.object({ isEnabled: z.boolean() });
+
+// Practice clone
+export const clonePracticeSchema = z.object({
+  newPracticeName:    z.string().min(1).max(200),
+  registrationNumber: z.string().min(1).max(50),
+  regulator:          z.enum(['cqc', 'hiw']),
+});
