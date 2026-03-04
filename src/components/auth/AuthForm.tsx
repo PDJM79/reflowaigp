@@ -344,14 +344,16 @@ export function AuthForm() {
                 >
                   Forgot password?
                 </Button>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="p-0 h-auto text-muted-foreground hover:text-primary"
-                  onClick={() => setShowSignUp(true)}
-                >
-                  Create account
-                </Button>
+                {practices.length <= 1 && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto text-muted-foreground hover:text-primary"
+                    onClick={() => setShowSignUp(true)}
+                  >
+                    Create account
+                  </Button>
+                )}
               </div>
             </form>
 
