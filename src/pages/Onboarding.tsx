@@ -23,6 +23,7 @@ export default function Onboarding() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [done, setDone]           = useState(false);
+  const [newPracticeId, setNewPracticeId] = useState<string | null>(null);
   const [state, setState]         = useState<WizardState>({
     regulator: 'cqc', inspectionData: null, modules: {}, rooms: [],
   });
@@ -30,12 +31,12 @@ export default function Onboarding() {
   const stepConfig = getStepConfig(state.modules);
   const cleaningOn = state.modules['cleaning'] !== false;
 
-  // Auto-redirect 3 seconds after completion
+  // Auto-redirect 3 seconds after completion — to register form for the new practice
   useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => navigate('/home'), 3000);
+    if (!done || !newPracticeId) return;
+    const t = setTimeout(() => navigate(`/login?register=1&pid=${newPracticeId}`), 3000);
     return () => clearTimeout(t);
-  }, [done, navigate]);
+  }, [done, newPracticeId, navigate]);
 
   // ── Step completion callbacks ──────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export default function Onboarding() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? `Completion failed (${res.status})`);
+      setNewPracticeId(d.practiceId ?? null);
       setDone(true);
     } catch (err: any) {
       toast({ title: 'Could not complete setup', description: err.message, variant: 'destructive' });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,13 +24,23 @@ export function AuthForm() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  // practiceId locked in from URL params (post-onboarding flow)
+  const lockedPracticeId = useRef<string | null>(null);
 
   useEffect(() => {
+    // Check for post-onboarding redirect: /login?register=1&pid=PRACTICE_ID
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('register') === '1' && params.get('pid')) {
+      lockedPracticeId.current = params.get('pid');
+      setPracticeId(params.get('pid')!);
+      setShowSignUp(true);
+    }
+
     fetch('/api/practices')
       .then(r => r.ok ? r.json() : [])
       .then((data: Practice[]) => {
         setPractices(data);
-        if (data.length === 1) setPracticeId(data[0].id);
+        if (!lockedPracticeId.current && data.length === 1) setPracticeId(data[0].id);
       })
       .catch(() => setPractices([]))
       .finally(() => setPracticesLoading(false));
@@ -82,7 +92,7 @@ export function AuthForm() {
       toast.error('Please enter your name');
       return;
     }
-    if (practices.length > 1 && !practiceId) {
+    if (practices.length > 1 && !lockedPracticeId.current && !practiceId) {
       toast.error('Please select your practice');
       return;
     }
@@ -161,8 +171,8 @@ export function AuthForm() {
             </div>
           </div>
           <form onSubmit={handleSignUp} className="space-y-4">
-            {/* Show practice selector only when multiple practices exist */}
-            {practices.length > 1 && <PracticeSelect id="signup-practice" />}
+            {/* Show practice selector only when multiple practices exist and not locked by URL param */}
+            {practices.length > 1 && !lockedPracticeId.current && <PracticeSelect id="signup-practice" />}
             <div className="space-y-2">
               <Label htmlFor="signup-name">Full Name</Label>
               <Input
