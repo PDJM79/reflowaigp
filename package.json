@@ -7,7 +7,8 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev:vite": "vite",
     "build:frontend": "vite build",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=dist/server/index.cjs --resolve-extensions=.ts,.js --loader:.ts=ts --external:lightningcss --external:vite",
     "build": "npm run build:frontend && npm run build:server",
