@@ -97,7 +97,7 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== "production") {
     // Dynamic import keeps vite out of the production bundle entirely
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
