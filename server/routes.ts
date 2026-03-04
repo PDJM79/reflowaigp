@@ -6,6 +6,8 @@ import { getAITips } from "./aiTips";
 import { getComplaintAnalysis } from "./complaintAnalysis";
 import { getTrainingAnalysis } from "./trainingAnalysis";
 import { getSectionTips } from "./sectionTips";
+import { registerOnboardingRoutes } from "./onboarding";
+import { getCqcCircuitStatus } from "./services/cqc-service";
 import { auditLogger } from "./auditLogger";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
@@ -38,8 +40,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/practices", auditLogger);
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    const cqc = getCqcCircuitStatus();
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      services: {
+        onboarding: { status: "ok" },
+        cqc: { status: cqc.open ? "degraded" : "ok", circuit: cqc },
+      },
+    });
   });
+
+  // Register onboarding routes (public, no auth required)
+  registerOnboardingRoutes(app);
 
   // Public: needed during login to list available practices
   app.get("/api/practices", async (_req, res) => {

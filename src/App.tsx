@@ -70,6 +70,7 @@ import TeamDashboard from "./pages/TeamDashboard";
 import AdminCalendar from "./pages/AdminCalendar";
 import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +96,7 @@ const App = () => (
                 {/* Public Routes */}
                 <Route path="/login" element={<Index />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/onboarding" element={<Onboarding />} />
                 
                 {/* Protected Routes with AppLayout */}
                 <Route element={<AppLayout />}>
