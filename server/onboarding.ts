@@ -1,13 +1,14 @@
 // ── Onboarding Wizard API ─────────────────────────────────────────────────────
 import type { Express } from 'express';
 import { db } from './db';
-import { onboardingSessions, complianceTemplates } from '@shared/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { onboardingSessions, complianceTemplates, cleaningTemplates } from '@shared/schema';
+import { eq, inArray, asc } from 'drizzle-orm';
 import { lookupPractice, CqcServiceError } from './services/cqc-service';
 import {
   newRequestId, sanitizeText,
   lookupPracticeSchema, createSessionSchema, updateSessionSchema,
   updateModulesSchema, updateInspectionSchema, complianceTemplatesQuerySchema,
+  updateRoomsSchema, updateCleaningScheduleSchema,
 } from './onboarding-helpers';
 
 // ── Audit log helper ──────────────────────────────────────────────────────────
@@ -206,5 +207,65 @@ export function registerOnboardingRoutes(app: Express): void {
       : rows;
 
     return res.json({ requestId: rid, templates: filtered, total: filtered.length });
+  });
+
+  // PUT /api/onboarding/sessions/:sessionId/rooms ─────────────────────────────
+  // Saves room layout from Step 5. Sanitises all name fields before storage.
+  app.put('/api/onboarding/sessions/:sessionId/rooms', async (req, res) => {
+    const rid = newRequestId();
+    const { sessionId } = req.params;
+    const parse = updateRoomsSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: 'Invalid request', details: parse.error.flatten() });
+
+    const session = await getSession(sessionId);
+    if (!session || session.deletedAt) return res.status(404).json({ requestId: rid, error: 'Session not found' });
+
+    // Sanitise all user-supplied text to prevent XSS in downstream rendering
+    const rooms = parse.data.rooms.map(r => ({
+      ...r,
+      name:       sanitizeText(r.name),
+      customType: r.customType ? sanitizeText(r.customType) : undefined,
+    }));
+
+    const [updated] = await db.update(onboardingSessions)
+      .set({ roomsConfig: { rooms }, currentStep: 6, updatedAt: new Date() })
+      .where(eq(onboardingSessions.id, sessionId))
+      .returning();
+
+    auditOnboarding('rooms_saved', sessionId, { roomCount: rooms.length });
+    return res.json({ requestId: rid, session: updated });
+  });
+
+  // PUT /api/onboarding/sessions/:sessionId/cleaning-schedule ─────────────────
+  // Saves cleaning schedule config from Step 6.
+  app.put('/api/onboarding/sessions/:sessionId/cleaning-schedule', async (req, res) => {
+    const rid = newRequestId();
+    const { sessionId } = req.params;
+    const parse = updateCleaningScheduleSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ requestId: rid, error: 'Invalid request', details: parse.error.flatten() });
+
+    const session = await getSession(sessionId);
+    if (!session || session.deletedAt) return res.status(404).json({ requestId: rid, error: 'Session not found' });
+
+    const taskTotal = parse.data.schedules.reduce((sum, s) => sum + s.tasks.length, 0);
+    const [updated] = await db.update(onboardingSessions)
+      .set({ cleaningConfig: { schedules: parse.data.schedules }, currentStep: 7, updatedAt: new Date() })
+      .where(eq(onboardingSessions.id, sessionId))
+      .returning();
+
+    auditOnboarding('cleaning_schedule_saved', sessionId, { roomTypeCount: parse.data.schedules.length, taskTotal });
+    return res.json({ requestId: rid, session: updated });
+  });
+
+  // GET /api/onboarding/cleaning-templates ────────────────────────────────────
+  // Returns all cleaning templates sorted by room_type + sort_order.
+  // Frontend groups by room_type and maps to Step 5 room types.
+  app.get('/api/onboarding/cleaning-templates', async (_req, res) => {
+    const rid = newRequestId();
+    const rows = await db
+      .select()
+      .from(cleaningTemplates)
+      .orderBy(asc(cleaningTemplates.roomType), asc(cleaningTemplates.sortOrder));
+    return res.json({ requestId: rid, templates: rows });
   });
 }

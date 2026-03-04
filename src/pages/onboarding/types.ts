@@ -33,11 +33,43 @@ export interface PracticeLookupResult {
 // Record<moduleId, enabled>
 export type ModuleSelections = Record<string, boolean>;
 
+// ── Room / Zone types ─────────────────────────────────────────────────────────
+export type RoomType = 'consultation' | 'bathroom' | 'waiting_room' | 'staff_area' | 'kitchen' | 'utility' | 'custom';
+export type ZoneType = 'patient' | 'staff' | 'utility' | 'clinical';
+
+export interface Room {
+  id: string;            // client-side key only — not persisted
+  name: string;          // user-editable, max 100 chars
+  type: RoomType;
+  zone: ZoneType;
+  customType?: string;   // only when type === 'custom'
+}
+
+// ── Cleaning schedule types ───────────────────────────────────────────────────
+export type CleaningFrequency = '2x_daily' | 'daily' | 'every_other_day' | 'weekly' | 'fortnightly' | 'monthly';
+
+export interface CleaningTemplate {
+  id: string;
+  roomType: string;      // matches cleaning_templates.room_type in DB
+  taskName: string;
+  frequency: string;     // raw DB value — normalized to CleaningFrequency in component
+  isMandatory: boolean;
+  sortOrder: number;
+}
+
+export interface TaskConfig {
+  templateId: string;
+  taskName: string;      // display only — not persisted
+  frequency: CleaningFrequency;
+  requiresPhoto: boolean;
+}
+
 // All state accumulated across wizard steps
 export interface WizardState {
   regulator: 'cqc' | 'hiw';
   inspectionData: InspectionData | null;
   modules: ModuleSelections;
+  rooms: Room[];
 }
 
 export interface ComplianceTemplate {

@@ -79,3 +79,29 @@ export const complianceTemplatesQuerySchema = z.object({
   modules:   z.string().min(1).max(200),   // comma-separated module names
   regulator: z.enum(['cqc', 'hiw']).optional(),
 });
+
+// Step 5: room definitions — id is client-side only and not accepted here
+const roomSchema = z.object({
+  name:       z.string().min(1).max(100),
+  type:       z.enum(['consultation', 'bathroom', 'waiting_room', 'staff_area', 'kitchen', 'utility', 'custom']),
+  zone:       z.enum(['patient', 'staff', 'utility', 'clinical']),
+  customType: z.string().max(50).optional(),
+});
+
+export const updateRoomsSchema = z.object({
+  rooms: z.array(roomSchema).min(1).max(100),
+});
+
+// Step 6: cleaning schedule per room type
+const scheduleTaskSchema = z.object({
+  templateId:    z.string().uuid(),
+  frequency:     z.enum(['2x_daily', 'daily', 'every_other_day', 'weekly', 'fortnightly', 'monthly']),
+  requiresPhoto: z.boolean(),
+});
+
+export const updateCleaningScheduleSchema = z.object({
+  schedules: z.array(z.object({
+    roomType: z.string().min(1).max(50),
+    tasks:    z.array(scheduleTaskSchema),
+  })),
+});
