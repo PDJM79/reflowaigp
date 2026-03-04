@@ -8,7 +8,16 @@
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
       "Bash(git:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm show:*)",
+      "Bash(npx vite:*)",
+      "Bash(sed:*)",
+      "Bash(npx esbuild:*)"
     ]
   }
 }
