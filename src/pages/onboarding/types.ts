@@ -64,12 +64,20 @@ export interface TaskConfig {
   requiresPhoto: boolean;
 }
 
+// Practice manager credentials collected in Step 1
+export interface ManagerCredentials {
+  name: string;
+  email: string;
+  password: string;
+}
+
 // All state accumulated across wizard steps
 export interface WizardState {
   regulator: 'cqc' | 'hiw';
   inspectionData: InspectionData | null;
   modules: ModuleSelections;
   rooms: Room[];
+  managerCredentials: ManagerCredentials | null;
 }
 
 export interface ComplianceTemplate {

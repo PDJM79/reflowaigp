@@ -2,14 +2,21 @@
 // Creates all live practice records in a single atomic transaction.
 // Any failure rolls back everything — no partial state is ever persisted.
 // Called by POST /api/onboarding/complete; do not call directly.
+import bcrypt from 'bcryptjs';
 import { db } from './db';
 import {
   onboardingSessions, practices, practiceModules, complianceTemplates,
   cleaningTemplates,
   rooms as roomsTable, cleaningZones, cleaningTasks, policyDocuments, auditLogs,
-  tasks as tasksTable,
+  tasks as tasksTable, users,
 } from '@shared/schema';
 import { eq, inArray } from 'drizzle-orm';
+
+export interface ManagerCredentials {
+  name: string;
+  email: string;
+  password: string;
+}
 
 export const ALL_MODULE_IDS = [
   'compliance', 'fire_safety', 'ipc', 'hr_training', 'policies',
@@ -62,8 +69,8 @@ const DEFAULT_POLICIES = [
 ];
 
 // ── Main completion function ──────────────────────────────────────────────────
-// Returns practiceId on success; throws structured errors on failure.
-export async function executeComplete(sessionId: string): Promise<string> {
+// Returns { practiceId, userId } on success; throws structured errors on failure.
+export async function executeComplete(sessionId: string, credentials: ManagerCredentials): Promise<{ practiceId: string; userId: string }> {
   const rows = await db.select().from(onboardingSessions)
     .where(eq(onboardingSessions.id, sessionId)).limit(1);
   const session = rows[0];
@@ -141,21 +148,33 @@ export async function executeComplete(sessionId: string): Promise<string> {
       );
     }
 
-    // ── 8. Mark session complete + link to new practice ───────────────────────
+    // ── 8. Create practice manager user account ───────────────────────────────
+    const passwordHash = await bcrypt.hash(credentials.password, 12);
+    const [user] = await tx.insert(users).values({
+      practiceId: practice.id,
+      email: credentials.email,
+      name: credentials.name,
+      passwordHash,
+      role: 'admin',
+      isPracticeManager: true,
+      isActive: true,
+    }).returning();
+
+    // ── 9. Mark session complete + link to new practice ───────────────────────
     await tx.update(onboardingSessions)
       .set({ completedAt: new Date(), practiceId: practice.id, currentStep: 8, updatedAt: new Date() })
       .where(eq(onboardingSessions.id, sessionId));
 
-    // ── 9. Audit log ──────────────────────────────────────────────────────────
+    // ── 10. Audit log ─────────────────────────────────────────────────────────
     await tx.insert(auditLogs).values({
       practiceId: practice.id,
-      userId: null as any,
+      userId: user.id,
       entityType: 'practice', entityId: practice.id,
       action: 'onboarded_via_wizard',
       afterData: { sessionId, modules: enabledModules, roomCount: (session.roomsConfig as any)?.rooms?.length ?? 0 },
     });
 
-    return practice.id;
+    return { practiceId: practice.id, userId: user.id };
   });
 }
 

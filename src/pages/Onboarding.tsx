@@ -12,7 +12,7 @@ import { Step5Rooms }        from './onboarding/Step5Rooms';
 import { Step6Cleaning }     from './onboarding/Step6Cleaning';
 import { Step7Review }       from './onboarding/Step7Review';
 import { getStepConfig }     from './onboarding/types';
-import type { InspectionData, ModuleSelections, WizardState, Room } from './onboarding/types';
+import type { InspectionData, ManagerCredentials, ModuleSelections, WizardState, Room } from './onboarding/types';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -25,24 +25,24 @@ export default function Onboarding() {
   const [done, setDone]           = useState(false);
   const [newPracticeId, setNewPracticeId] = useState<string | null>(null);
   const [state, setState]         = useState<WizardState>({
-    regulator: 'cqc', inspectionData: null, modules: {}, rooms: [],
+    regulator: 'cqc', inspectionData: null, modules: {}, rooms: [], managerCredentials: null,
   });
 
   const stepConfig = getStepConfig(state.modules);
   const cleaningOn = state.modules['cleaning'] !== false;
 
-  // Auto-redirect 3 seconds after completion — to register form for the new practice
+  // Auto-redirect 3 seconds after completion — straight to dashboard (user is now logged in)
   useEffect(() => {
-    if (!done || !newPracticeId) return;
-    const t = setTimeout(() => navigate(`/login?register=1&pid=${newPracticeId}`), 3000);
+    if (!done) return;
+    const t = setTimeout(() => navigate('/'), 3000);
     return () => clearTimeout(t);
-  }, [done, newPracticeId, navigate]);
+  }, [done, navigate]);
 
   // ── Step completion callbacks ──────────────────────────────────────────────
 
-  const onStep1Complete = (sid: string, inspection: InspectionData | null, regulator: 'cqc' | 'hiw') => {
+  const onStep1Complete = (sid: string, inspection: InspectionData | null, regulator: 'cqc' | 'hiw', credentials: ManagerCredentials) => {
     setSessionId(sid);
-    setState(prev => ({ ...prev, regulator, inspectionData: inspection }));
+    setState(prev => ({ ...prev, regulator, inspectionData: inspection, managerCredentials: credentials }));
     setStep(2);
   };
 
@@ -70,12 +70,12 @@ export default function Onboarding() {
 
   // ── Wizard completion: calls /api/onboarding/complete ─────────────────────
   const handleComplete = async () => {
-    if (!sessionId) return;
+    if (!sessionId || !state.managerCredentials) return;
     setCompleting(true);
     try {
       const res = await fetch('/api/onboarding/complete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, managerName: state.managerCredentials.name, managerEmail: state.managerCredentials.email, managerPassword: state.managerCredentials.password }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? `Completion failed (${res.status})`);

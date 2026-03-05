@@ -108,7 +108,14 @@ export const updateCleaningScheduleSchema = z.object({
 
 // Step 7 / completion
 export const aiPrioritizeSchema = z.object({ sessionId: z.string().uuid() });
-export const completeSessionSchema = z.object({ sessionId: z.string().uuid() });
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+export const completeSessionSchema = z.object({
+  sessionId:       z.string().uuid(),
+  managerName:     z.string().min(1).max(100),
+  managerEmail:    z.string().email(),
+  managerPassword: z.string().min(12).regex(PASSWORD_REGEX, 'Password must include uppercase, lowercase, number and special character'),
+});
 
 // Module management
 export const toggleModuleSchema = z.object({ isEnabled: z.boolean() });

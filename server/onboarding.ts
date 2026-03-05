@@ -322,12 +322,16 @@ export function registerOnboardingRoutes(app: Express): void {
     const parse = completeSessionSchema.safeParse(req.body);
     if (!parse.success) return res.status(400).json({ requestId: rid, error: 'Invalid request', details: parse.error.flatten() });
 
-    const { sessionId } = parse.data;
+    const { sessionId, managerName, managerEmail, managerPassword } = parse.data;
     auditOnboarding('complete_started', sessionId, {});
     try {
-      const practiceId = await executeComplete(sessionId);
+      const { practiceId, userId } = await executeComplete(sessionId, { name: managerName, email: managerEmail, password: managerPassword });
+      // Log the new practice manager in immediately
+      req.session.userId = userId;
+      req.session.practiceId = practiceId;
+      await new Promise<void>((resolve, reject) => req.session.save(e => e ? reject(e) : resolve()));
       auditOnboarding('complete_success', sessionId, { practiceId });
-      return res.status(201).json({ requestId: rid, practiceId, redirect: '/home' });
+      return res.status(201).json({ requestId: rid, practiceId });
     } catch (err: any) {
       const status = err.status ?? 500;
       auditOnboarding('complete_failed', sessionId, { error: err.message, status });

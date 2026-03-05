@@ -9,9 +9,11 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, toZonedTime } from 'date-fns-tz';
-import type { InspectionData, PracticeLookupResult } from './types';
+import type { InspectionData, ManagerCredentials, PracticeLookupResult } from './types';
 
 const LONDON = 'Europe/London';
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
 interface Step1Form {
   regulator: 'cqc' | 'hiw';
@@ -21,10 +23,12 @@ interface Step1Form {
   postcode: string;
   contactName: string;
   contactEmail: string;
+  password: string;
+  confirmPassword: string;
 }
 
 interface Props {
-  onComplete: (sessionId: string, inspection: InspectionData | null, regulator: 'cqc' | 'hiw') => void;
+  onComplete: (sessionId: string, inspection: InspectionData | null, regulator: 'cqc' | 'hiw', credentials: ManagerCredentials) => void;
 }
 
 const RATING_COLOUR: Record<string, string> = {
@@ -41,7 +45,7 @@ const formatUKDate = (iso: string) =>
 
 export function Step1Practice({ onComplete }: Props) {
   const { toast } = useToast();
-  const [form, setForm] = useState<Step1Form>({ regulator: 'cqc', registrationNumber: '', practiceName: '', address: '', postcode: '', contactName: '', contactEmail: '' });
+  const [form, setForm] = useState<Step1Form>({ regulator: 'cqc', registrationNumber: '', practiceName: '', address: '', postcode: '', contactName: '', contactEmail: '', password: '', confirmPassword: '' });
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<PracticeLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -74,6 +78,15 @@ export function Step1Practice({ onComplete }: Props) {
     if (!form.practiceName.trim() || !form.contactName.trim() || !form.contactEmail.trim()) {
       toast({ title: 'Practice name, contact name and email are required', variant: 'destructive' }); return;
     }
+    if (!form.password) {
+      toast({ title: 'Please create a password', variant: 'destructive' }); return;
+    }
+    if (!PASSWORD_REGEX.test(form.password)) {
+      toast({ title: 'Password must be at least 12 characters and include uppercase, lowercase, a number, and a special character', variant: 'destructive' }); return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' }); return;
+    }
     setSaving(true);
     try {
       const inspectionData: InspectionData | null = lookupResult
@@ -85,7 +98,7 @@ export function Step1Practice({ onComplete }: Props) {
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? `Failed to save (${res.status})`); }
       const data = await res.json();
-      onComplete(data.sessionId, inspectionData, form.regulator);
+      onComplete(data.sessionId, inspectionData, form.regulator, { name: form.contactName, email: form.contactEmail, password: form.password });
     } catch (err: any) { toast({ title: 'Could not save progress', description: err.message, variant: 'destructive' }); }
     finally { setSaving(false); }
   };
@@ -166,8 +179,19 @@ export function Step1Practice({ onComplete }: Props) {
         {confirmed && <button type="button" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80" onClick={() => setManualEntry(true)}>Details incorrect? Edit manually</button>}
         <div className="border-t pt-2" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2"><Label htmlFor="contactName">Contact Name *</Label><Input id="contactName" placeholder="e.g. Sarah Jones" value={form.contactName} onChange={setField('contactName')} /></div>
-          <div className="space-y-2"><Label htmlFor="contactEmail">Contact Email *</Label><Input id="contactEmail" type="email" placeholder="e.g. manager@surgery.nhs.uk" value={form.contactEmail} onChange={setField('contactEmail')} /></div>
+          <div className="space-y-2"><Label htmlFor="contactName">Your Name *</Label><Input id="contactName" placeholder="e.g. Sarah Jones" value={form.contactName} onChange={setField('contactName')} /></div>
+          <div className="space-y-2"><Label htmlFor="contactEmail">Your Email *</Label><Input id="contactEmail" type="email" placeholder="e.g. manager@surgery.nhs.uk" value={form.contactEmail} onChange={setField('contactEmail')} /></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">Password *</Label>
+            <Input id="password" type="password" placeholder="Min. 12 characters" value={form.password} onChange={setField('password')} />
+            <p className="text-xs text-muted-foreground">Must include uppercase, lowercase, number and special character</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <Input id="confirmPassword" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={setField('confirmPassword')} />
+          </div>
         </div>
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-muted-foreground">Step 1 of setup</span>
