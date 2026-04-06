@@ -21,7 +21,8 @@
       "WebFetch(domain:github.com)",
       "Bash(supabase projects:*)",
       "Bash(supabase db:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npx vibecop:*)"
     ]
   }
 }

@@ -16,12 +16,58 @@ interface ReauthenticationDialogProps {
   description?: string;
 }
 
+interface ReauthFormProps {
+  password: string;
+  loading: boolean;
+  error: string | null;
+  onPasswordChange: (v: string) => void;
+  onVerify: () => void;
+  onCancel: () => void;
+}
+
+function ReauthForm({ password, loading, error, onPasswordChange, onVerify, onCancel }: ReauthFormProps) {
+  return (
+    <div className="space-y-4">
+      <Alert>
+        <KeyRound className="h-4 w-4" />
+        <AlertDescription>
+          For your security, please re-enter your password to confirm this action.
+        </AlertDescription>
+      </Alert>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <div className="space-y-2">
+        <Label htmlFor="reauth-password">Password</Label>
+        <Input
+          id="reauth-password"
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => onPasswordChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !loading) onVerify(); }}
+          autoFocus
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+        <Button className="flex-1" onClick={onVerify} disabled={loading || !password.trim()}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Verify
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ReauthenticationDialog({
   open,
   onOpenChange,
   onSuccess,
   title = "Verify Your Identity",
-  description = "Please enter your password to continue with this security-sensitive action"
+  description = "Please enter your password to continue with this security-sensitive action",
 }: ReauthenticationDialogProps) {
   const { user } = useAuth();
   const [password, setPassword] = useState('');
@@ -29,19 +75,10 @@ export function ReauthenticationDialog({
   const [error, setError] = useState<string | null>(null);
 
   const handleVerify = async () => {
-    if (!password.trim()) {
-      setError('Please enter your password');
-      return;
-    }
-
-    if (!user) {
-      setError('Unable to verify user session');
-      return;
-    }
-
+    if (!password.trim()) { setError('Please enter your password'); return; }
+    if (!user) { setError('Unable to verify user session'); return; }
     setLoading(true);
     setError(null);
-
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -49,15 +86,12 @@ export function ReauthenticationDialog({
         credentials: 'include',
         body: JSON.stringify({ email: user.email, password, practiceId: user.practiceId }),
       });
-
       if (!res.ok) {
         setError('Incorrect password. Please try again.');
         setPassword('');
         setLoading(false);
         return;
       }
-
-      // Password verified successfully
       toast.success('Identity verified');
       onSuccess(password);
       setPassword('');
@@ -84,61 +118,16 @@ export function ReauthenticationDialog({
             <ShieldCheck className="h-5 w-5 text-primary" />
             {title}
           </DialogTitle>
-          <DialogDescription>
-            {description}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <Alert>
-            <KeyRound className="h-4 w-4" />
-            <AlertDescription>
-              For your security, please re-enter your password to confirm this action.
-            </AlertDescription>
-          </Alert>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="reauth-password">Password</Label>
-            <Input
-              id="reauth-password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading) {
-                  handleVerify();
-                }
-              }}
-              autoFocus
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleVerify}
-              disabled={loading || !password.trim()}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Verify
-            </Button>
-          </div>
-        </div>
+        <ReauthForm
+          password={password}
+          loading={loading}
+          error={error}
+          onPasswordChange={setPassword}
+          onVerify={handleVerify}
+          onCancel={handleClose}
+        />
       </DialogContent>
     </Dialog>
   );

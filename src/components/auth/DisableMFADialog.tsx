@@ -13,13 +13,9 @@ async function invokeDisableMFA(userId: string, password: string, totpCode: stri
   const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
     body: { action: 'disable', userId, password, totpCode },
   });
-  if (error) {
-    throw new Error(error.message || 'Failed to disable MFA');
-  }
+  if (error) throw new Error(error.message || 'Failed to disable MFA');
   if (data?.error) {
-    if (data.error.includes('verification code')) {
-      return { invalidCode: true };
-    }
+    if (data.error.includes('verification code')) return { invalidCode: true };
     throw new Error(data.error);
   }
   return { invalidCode: false };
@@ -33,13 +29,49 @@ interface DisableMFADialogProps {
   onSuccess: () => void;
 }
 
-export function DisableMFADialog({ 
-  open, 
-  onOpenChange, 
-  userId,
-  userEmail,
-  onSuccess 
-}: DisableMFADialogProps) {
+interface DisableMFABodyProps {
+  code: string;
+  loading: boolean;
+  onCodeChange: (v: string) => void;
+  onDisable: () => void;
+  onCancel: () => void;
+}
+
+function DisableMFABody({ code, loading, onCodeChange, onDisable, onCancel }: DisableMFABodyProps) {
+  return (
+    <div className="space-y-4">
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Disabling MFA will make your account less secure. Are you sure you want to continue?
+        </AlertDescription>
+      </Alert>
+      <div className="space-y-2">
+        <Label htmlFor="disable-mfa-code">Verification Code</Label>
+        <Input
+          id="disable-mfa-code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={6}
+          placeholder="000000"
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value.replace(/\D/g, ''))}
+          className="text-center text-2xl tracking-widest font-mono"
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+        <Button variant="destructive" className="flex-1" onClick={onDisable} disabled={loading || code.length !== 6}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Disable MFA
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function DisableMFADialog({ open, onOpenChange, userId, userEmail, onSuccess }: DisableMFADialogProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showReauth, setShowReauth] = useState(false);
@@ -47,7 +79,6 @@ export function DisableMFADialog({
 
   useEffect(() => {
     if (open) {
-      // Reset state and show re-auth first
       setCode('');
       setVerifiedPassword(null);
       setShowReauth(true);
@@ -61,29 +92,13 @@ export function DisableMFADialog({
     setShowReauth(false);
   };
 
-  const handleReauthClose = () => {
-    setShowReauth(false);
-    onOpenChange(false);
-  };
-
   const handleDisable = async () => {
-    if (code.length !== 6) {
-      toast.error('Please enter a 6-digit code');
-      return;
-    }
-    if (!verifiedPassword) {
-      toast.error('Please complete re-authentication first');
-      setShowReauth(true);
-      return;
-    }
+    if (code.length !== 6) { toast.error('Please enter a 6-digit code'); return; }
+    if (!verifiedPassword) { toast.error('Please complete re-authentication first'); setShowReauth(true); return; }
     setLoading(true);
     try {
       const result = await invokeDisableMFA(userId, verifiedPassword, code);
-      if (result.invalidCode) {
-        toast.error('Invalid verification code');
-        setCode('');
-        return;
-      }
+      if (result.invalidCode) { toast.error('Invalid verification code'); setCode(''); return; }
       toast.success('MFA disabled successfully. You will receive a confirmation email.');
       setCode('');
       onSuccess();
@@ -96,12 +111,11 @@ export function DisableMFADialog({
     }
   };
 
-  // Show re-authentication dialog first
   if (showReauth && open) {
     return (
       <ReauthenticationDialog
         open={true}
-        onOpenChange={handleReauthClose}
+        onOpenChange={() => { setShowReauth(false); onOpenChange(false); }}
         onSuccess={handleReauthSuccess}
         title="Verify Identity to Disable MFA"
         description="Enter your password to confirm you want to disable Two-Factor Authentication"
@@ -121,50 +135,13 @@ export function DisableMFADialog({
             Enter your current MFA code to disable two-factor authentication
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Disabling MFA will make your account less secure. Are you sure you want to continue?
-            </AlertDescription>
-          </Alert>
-
-          <div className="space-y-2">
-            <Label htmlFor="disable-mfa-code">Verification Code</Label>
-            <Input
-              id="disable-mfa-code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              placeholder="000000"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              className="text-center text-2xl tracking-widest font-mono"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
-              onClick={handleDisable}
-              disabled={loading || code.length !== 6}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Disable MFA
-            </Button>
-          </div>
-        </div>
+        <DisableMFABody
+          code={code}
+          loading={loading}
+          onCodeChange={setCode}
+          onDisable={handleDisable}
+          onCancel={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

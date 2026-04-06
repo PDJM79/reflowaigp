@@ -90,6 +90,147 @@ async function seedTestIncidents(practiceId: string): Promise<void> {
   }
 }
 
+interface GeneratePromptProps {
+  generating: boolean;
+  onGenerate: () => void;
+}
+
+function GeneratePrompt({ generating, onGenerate }: GeneratePromptProps) {
+  return (
+    <>
+      <div className="text-sm text-muted-foreground space-y-2">
+        <p><strong>This will create:</strong></p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>6 test users with different roles</li>
+          <li>Sample tasks for various modules</li>
+          <li>Sample incidents and complaints</li>
+        </ul>
+      </div>
+      <Button onClick={onGenerate} disabled={generating} className="w-full" data-testid="button-generate-test-data">
+        {generating
+          ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Test Data...</>
+          : <><Database className="h-4 w-4 mr-2" />Generate Test Data</>}
+      </Button>
+    </>
+  );
+}
+
+interface CredentialsSummaryProps {
+  testUsers: TestUser[];
+  showCredentials: boolean;
+  copiedIndex: number | null;
+  onShow: () => void;
+  onHide: () => void;
+  onCopy: (email: string, password: string, index: number) => void;
+  onClear: () => void;
+}
+
+function CredentialsSummary({ testUsers, showCredentials, copiedIndex, onShow, onHide, onCopy, onClear }: CredentialsSummaryProps) {
+  if (showCredentials) {
+    return (
+      <CredentialsPanel
+        testUsers={testUsers}
+        copiedIndex={copiedIndex}
+        onCopy={onCopy}
+        onHide={onHide}
+        onClear={onClear}
+      />
+    );
+  }
+  return (
+    <>
+      <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
+        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Test credentials saved</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Click below to view {testUsers.length} saved test user credentials
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onShow} className="flex-1" data-testid="button-show-credentials">
+          <Eye className="h-4 w-4 mr-2" />Show Credentials
+        </Button>
+        <Button variant="outline" onClick={onClear} className="flex-1" data-testid="button-clear-all">
+          Clear All
+        </Button>
+      </div>
+    </>
+  );
+}
+
+interface TestUserCardProps {
+  testUser: TestUser;
+  index: number;
+  isCopied: boolean;
+  onCopy: (email: string, password: string, index: number) => void;
+}
+
+function TestUserCard({ testUser, index, isCopied, onCopy }: TestUserCardProps) {
+  const roleLabel = testUser.role.replace('_', ' ').split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2" data-testid={`card-test-user-${index}`}>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-sm"><span className="font-medium">Email:</span> {testUser.email}</p>
+          <p className="text-sm"><span className="font-medium">Password:</span> {testUser.password}</p>
+          <p className="text-xs text-muted-foreground">Role: {roleLabel}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onCopy(testUser.email, testUser.password, index)}
+          data-testid={`button-copy-credentials-${index}`}
+        >
+          {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface CredentialsPanelProps {
+  testUsers: TestUser[];
+  copiedIndex: number | null;
+  onCopy: (email: string, password: string, index: number) => void;
+  onHide: () => void;
+  onClear: () => void;
+}
+
+function CredentialsPanel({ testUsers, copiedIndex, onCopy, onHide, onClear }: CredentialsPanelProps) {
+  return (
+    <>
+      <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
+        <p className="text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-test-data-success">
+          Test data generated successfully!
+        </p>
+      </div>
+      <div className="space-y-3">
+        <h3 className="font-semibold text-sm">Test User Credentials:</h3>
+        {testUsers.map((testUser, index) => (
+          <TestUserCard
+            key={index}
+            testUser={testUser}
+            index={index}
+            isCopied={copiedIndex === index}
+            onCopy={onCopy}
+          />
+        ))}
+      </div>
+      <div className="text-xs text-muted-foreground mb-4">
+        <p>You can now sign out and log in with any of these test accounts to explore different role permissions.</p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onHide} className="flex-1" data-testid="button-hide-credentials">
+          <EyeOff className="h-4 w-4 mr-2" />Hide Credentials
+        </Button>
+        <Button variant="outline" onClick={onClear} className="flex-1" data-testid="button-clear-credentials">
+          Clear All
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export function GenerateTestData() {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
@@ -159,138 +300,18 @@ export function GenerateTestData() {
       <CardContent>
         <div className="space-y-4">
           {testUsers.length === 0 ? (
-            <>
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p><strong>This will create:</strong></p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>6 test users with different roles</li>
-                  <li>Sample tasks for various modules</li>
-                  <li>Sample incidents and complaints</li>
-                </ul>
-              </div>
-
-              <Button
-                onClick={generateTestData}
-                disabled={generating}
-                className="w-full"
-                data-testid="button-generate-test-data"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Test Data...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Generate Test Data
-                  </>
-                )}
-              </Button>
-            </>
+            <GeneratePrompt generating={generating} onGenerate={generateTestData} />
           ) : (
             <div className="space-y-4">
-              {showCredentials ? (
-                <>
-                  <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
-                    <p className="text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-test-data-success">
-                      Test data generated successfully!
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-sm">Test User Credentials:</h3>
-                    {testUsers.map((testUser, index) => (
-                      <div
-                        key={index}
-                        className="rounded-lg border bg-card p-3 space-y-2"
-                        data-testid={`card-test-user-${index}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <p className="text-sm">
-                              <span className="font-medium">Email:</span> {testUser.email}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Password:</span> {testUser.password}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Role: {testUser.role.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyCredentials(testUser.email, testUser.password, index)}
-                            data-testid={`button-copy-credentials-${index}`}
-                          >
-                            {copiedIndex === index ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground mb-4">
-                    <p>You can now sign out and log in with any of these test accounts to explore different role permissions.</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowCredentials(false)}
-                      className="flex-1"
-                      data-testid="button-hide-credentials"
-                    >
-                      <EyeOff className="h-4 w-4 mr-2" />
-                      Hide Credentials
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={clearCredentials}
-                      className="flex-1"
-                      data-testid="button-clear-credentials"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
-                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                      Test credentials saved
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Click below to view {testUsers.length} saved test user credentials
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowCredentials(true)}
-                      className="flex-1"
-                      data-testid="button-show-credentials"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Show Credentials
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={clearCredentials}
-                      className="flex-1"
-                      data-testid="button-clear-all"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <CredentialsSummary
+                testUsers={testUsers}
+                showCredentials={showCredentials}
+                copiedIndex={copiedIndex}
+                onShow={() => setShowCredentials(true)}
+                onHide={() => setShowCredentials(false)}
+                onCopy={copyCredentials}
+                onClear={clearCredentials}
+              />
             </div>
           )}
         </div>

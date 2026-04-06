@@ -11,41 +11,12 @@ interface PracticeSelectionProps {
   onPracticeSelected: () => void;
 }
 
-export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps) => {
-  const { practices, loading, selectPractice, clearPracticeSelection } = usePracticeSelection();
-  const [selectedId, setSelectedId] = useState<string>('');
-
-  // Clear old practice selection and auto-select if only one practice
-  useEffect(() => {
-    console.log('PracticeSelection useEffect', { loading, practicesLength: practices.length });
-    clearPracticeSelection();
-    if (!loading && practices.length === 1) {
-      const practice = practices[0];
-      console.log('Auto-selecting single practice:', practice);
-      setSelectedId(practice.id);
-      selectPractice(practice.id, practice.name);
-      setTimeout(() => onPracticeSelected(), 100);
-    }
-  }, [practices, loading]);
-
-  const handleContinue = () => {
-    console.log('handleContinue clicked', { selectedId, practices });
-    const practice = practices.find(p => p.id === selectedId);
-    if (practice) {
-      console.log('Selecting practice:', practice);
-      selectPractice(practice.id, practice.name);
-      onPracticeSelected();
-    } else {
-      console.log('No practice found for selectedId:', selectedId);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <AppHeader useLoginStyles={true} />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
+function PracticeSelectionSkeleton() {
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+      <AppHeader useLoginStyles={true} />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <CardHeader className="space-y-4">
             <Skeleton className="h-12 w-12 rounded-full mx-auto" />
             <Skeleton className="h-8 w-3/4 mx-auto" />
@@ -56,79 +27,101 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
             <Skeleton className="h-10 w-full" />
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+interface PracticePickerProps {
+  practices: { id: string; name: string }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onContinue: () => void;
+}
+
+function PracticePicker({ practices, selectedId, onSelect, onContinue }: PracticePickerProps) {
+  return (
+    <CardContent className="space-y-6">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Practice</label>
+        <Select value={selectedId} onValueChange={onSelect}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose a practice" />
+          </SelectTrigger>
+          <SelectContent>
+            {practices.map((practice) => (
+              <SelectItem key={practice.id} value={practice.id}>{practice.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Button onClick={onContinue} disabled={!selectedId} className="w-full h-12 text-base font-semibold">
+        Continue to Login
+      </Button>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">or</span>
         </div>
       </div>
-    );
-  }
+      <Button variant="outline" className="w-full h-12" onClick={() => { /* TODO: Navigate to practice registration */ }}>
+        <Plus className="h-4 w-4 mr-2" />
+        Add New Practice
+      </Button>
+      {practices.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          No practices found. Please contact your administrator.
+        </p>
+      )}
+    </CardContent>
+  );
+}
+
+export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps) => {
+  const { practices, loading, selectPractice, clearPracticeSelection } = usePracticeSelection();
+  const [selectedId, setSelectedId] = useState<string>('');
+
+  useEffect(() => {
+    clearPracticeSelection();
+    if (!loading && practices.length === 1) {
+      const practice = practices[0];
+      setSelectedId(practice.id);
+      selectPractice(practice.id, practice.name);
+      setTimeout(() => onPracticeSelected(), 100);
+    }
+  }, [practices, loading]);
+
+  if (loading) return <PracticeSelectionSkeleton />;
+
+  const handleContinue = () => {
+    const practice = practices.find(p => p.id === selectedId);
+    if (practice) {
+      selectPractice(practice.id, practice.name);
+      onPracticeSelected();
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
       <AppHeader useLoginStyles={true} />
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Building2 className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-3xl font-bold">Choose Your Practice</CardTitle>
-          <CardDescription className="text-base">
-            Select your practice from the list below to continue
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Practice</label>
-            <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a practice" />
-              </SelectTrigger>
-              <SelectContent>
-                {practices.map((practice) => (
-                  <SelectItem key={practice.id} value={practice.id}>
-                    {practice.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button 
-            onClick={handleContinue} 
-            disabled={!selectedId}
-            className="w-full h-12 text-base font-semibold"
-          >
-            Continue to Login
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-8 w-8 text-primary" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          <Button 
-            variant="outline" 
-            className="w-full h-12"
-            onClick={() => {
-              // TODO: Navigate to practice registration
-              console.log('Add new practice');
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Practice
-          </Button>
-
-          {practices.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              No practices found. Please contact your administrator.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            <CardTitle className="text-3xl font-bold">Choose Your Practice</CardTitle>
+            <CardDescription className="text-base">
+              Select your practice from the list below to continue
+            </CardDescription>
+          </CardHeader>
+          <PracticePicker
+            practices={practices}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onContinue={handleContinue}
+          />
+        </Card>
       </div>
     </div>
   );

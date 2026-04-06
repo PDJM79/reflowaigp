@@ -39,29 +39,56 @@ function verifyTOTPCode(secret: string, userEmail: string, token: string): boole
   return totp.validate({ token, window: 1 }) !== null;
 }
 
+interface MFACodeFormProps {
+  code: string;
+  loading: boolean;
+  onCodeChange: (v: string) => void;
+  onVerify: () => void;
+  onCancel: () => void;
+}
+
+function MFACodeForm({ code, loading, onCodeChange, onVerify, onCancel }: MFACodeFormProps) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="mfa-code">Verification Code</Label>
+        <Input
+          id="mfa-code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={6}
+          placeholder="000000"
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={(e) => { if (e.key === 'Enter' && code.length === 6) onVerify(); }}
+          className="text-center text-2xl tracking-widest font-mono"
+          autoFocus
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+        <Button className="flex-1" onClick={onVerify} disabled={loading || code.length !== 6}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Verify
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function MFAVerificationDialog({
-  open,
-  onOpenChange,
-  userId,
-  userEmail,
-  onSuccess,
-  onCancel
+  open, onOpenChange, userId, userEmail, onSuccess, onCancel,
 }: MFAVerificationDialogProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleVerify = async () => {
-    if (code.length !== 6) {
-      toast.error('Please enter a 6-digit code');
-      return;
-    }
+    if (code.length !== 6) { toast.error('Please enter a 6-digit code'); return; }
     setLoading(true);
     try {
       const mfaSecret = await fetchMFASecret(userId);
-      if (!mfaSecret) {
-        toast.error('MFA not configured for this account');
-        return;
-      }
+      if (!mfaSecret) { toast.error('MFA not configured for this account'); return; }
       if (!verifyTOTPCode(mfaSecret, userEmail, code)) {
         toast.error('Invalid verification code');
         setCode('');
@@ -77,10 +104,7 @@ export function MFAVerificationDialog({
     }
   };
 
-  const handleCancel = () => {
-    setCode('');
-    onCancel();
-  };
+  const handleCancel = () => { setCode(''); onCancel(); };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,52 +114,15 @@ export function MFAVerificationDialog({
             <Shield className="h-5 w-5 text-primary" />
             Two-Factor Authentication
           </DialogTitle>
-          <DialogDescription>
-            Enter the 6-digit code from your authenticator app
-          </DialogDescription>
+          <DialogDescription>Enter the 6-digit code from your authenticator app</DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mfa-code">Verification Code</Label>
-            <Input
-              id="mfa-code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              placeholder="000000"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && code.length === 6) {
-                  handleVerify();
-                }
-              }}
-              className="text-center text-2xl tracking-widest font-mono"
-              autoFocus
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleCancel}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleVerify}
-              disabled={loading || code.length !== 6}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Verify
-            </Button>
-          </div>
-        </div>
+        <MFACodeForm
+          code={code}
+          loading={loading}
+          onCodeChange={setCode}
+          onVerify={handleVerify}
+          onCancel={handleCancel}
+        />
       </DialogContent>
     </Dialog>
   );
