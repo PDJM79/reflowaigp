@@ -52,6 +52,7 @@ async function seedTestUsers(practiceId: string): Promise<TestUser[]> {
       }
     } catch (error) {
       console.error(`Error creating user ${emp.name}:`, error);
+      throw error;
     }
   }
   return createdUsers;
@@ -68,6 +69,7 @@ async function seedTestTasks(practiceId: string): Promise<void> {
       });
     } catch (error) {
       console.error(`Error creating task ${task.title}:`, error);
+      throw error;
     }
   }
 }
@@ -83,6 +85,7 @@ async function seedTestIncidents(practiceId: string): Promise<void> {
       });
     } catch (error) {
       console.error(`Error creating incident ${incident.title}:`, error);
+      throw error;
     }
   }
 }
@@ -101,6 +104,7 @@ export function GenerateTestData() {
         setTestUsers(JSON.parse(savedUsers));
       } catch (error) {
         console.error('Error loading saved credentials:', error);
+        localStorage.removeItem(TEST_USERS_STORAGE_KEY);
       }
     }
   }, []);

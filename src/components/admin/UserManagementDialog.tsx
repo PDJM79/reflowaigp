@@ -137,6 +137,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       setFormData(prev => ({ ...prev, selectedPracticeRoleIds: roleIds }));
     } catch (error) {
       console.error('Error fetching user roles:', error);
+      toast.error('Could not load current role assignments');
     }
   };
 

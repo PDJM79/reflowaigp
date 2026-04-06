@@ -389,6 +389,7 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         }
       }
 
+      const roleAssignmentFailures: string[] = [];
       for (const assignment of filledAssignments) {
         const userId = createdUserIds[assignment.email];
         if (!userId) continue;
@@ -397,8 +398,16 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
             await assignRoleToUser(userId, roleKey, practice.id);
           } catch (roleError) {
             console.error(`Error assigning role ${roleKey} to user:`, roleError);
+            roleAssignmentFailures.push(`${roleKey} for ${assignment.email}`);
           }
         }
+      }
+      if (roleAssignmentFailures.length > 0) {
+        toast({
+          title: 'Role assignment warning',
+          description: `Some roles could not be assigned: ${roleAssignmentFailures.join(', ')}`,
+          variant: 'destructive',
+        });
       }
 
       const { data: createdTemplates, error: templatesError } = await createProcessTemplatesForPractice(
@@ -425,6 +434,10 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
         await supabase.functions.invoke('auto-provision-practice', { body: { practice_id: practice.id } });
       } catch (autoProvisionError) {
         console.error('Auto-provision error:', autoProvisionError);
+        toast({
+          title: 'Background provisioning skipped',
+          description: 'Some optional features may need to be enabled manually in settings.',
+        });
       }
 
       onComplete();
