@@ -66,7 +66,7 @@ export function GenerateTestData() {
           if (response.ok) {
             createdUsers.push({
               email: emp.email,
-              password: 'TestPassword123',
+              password: `Test${Math.random().toString(36).slice(2, 10)}!`,
               role: emp.role,
             });
           }
