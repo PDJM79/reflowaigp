@@ -9,6 +9,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ReauthenticationDialog } from './ReauthenticationDialog';
 
+async function invokeDisableMFA(userId: string, password: string, totpCode: string) {
+  const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
+    body: { action: 'disable', userId, password, totpCode },
+  });
+  if (error) {
+    throw new Error(error.message || 'Failed to disable MFA');
+  }
+  if (data?.error) {
+    if (data.error.includes('verification code')) {
+      return { invalidCode: true };
+    }
+    throw new Error(data.error);
+  }
+  return { invalidCode: false };
+}
+
 interface DisableMFADialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,40 +71,19 @@ export function DisableMFADialog({
       toast.error('Please enter a 6-digit code');
       return;
     }
-
     if (!verifiedPassword) {
       toast.error('Please complete re-authentication first');
       setShowReauth(true);
       return;
     }
-
     setLoading(true);
     try {
-      // Call the secure edge function to disable MFA
-      const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
-        body: {
-          action: 'disable',
-          userId: userId,
-          password: verifiedPassword,
-          totpCode: code,
-        },
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to disable MFA');
+      const result = await invokeDisableMFA(userId, verifiedPassword, code);
+      if (result.invalidCode) {
+        toast.error('Invalid verification code');
+        setCode('');
+        return;
       }
-
-      if (data?.error) {
-        if (data.error.includes('verification code')) {
-          toast.error('Invalid verification code');
-          setCode('');
-          setLoading(false);
-          return;
-        }
-        throw new Error(data.error);
-      }
-
       toast.success('MFA disabled successfully. You will receive a confirmation email.');
       setCode('');
       onSuccess();

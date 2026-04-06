@@ -41,22 +41,18 @@ interface StaffRoleAssignmentTableProps {
   onCapabilitiesChange?: (users: { id: string; name: string; capabilities: Capability[] }[]) => void;
 }
 
-export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssignmentTableProps) {
-  const { user } = useAuth();
-  const selectedPracticeId = user?.practiceId ?? null;
+function useStaffData(
+  selectedPracticeId: string | null,
+  onCapabilitiesChange?: (users: { id: string; name: string; capabilities: Capability[] }[]) => void
+) {
   const [users, setUsers] = useState<User[]>([]);
   const [practiceRoles, setPracticeRoles] = useState<PracticeRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('active');
 
   const fetchData = async () => {
     if (!selectedPracticeId) return;
-    
     setLoading(true);
     try {
-      // Fetch users with their roles
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select(`
@@ -77,7 +73,6 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
 
       if (usersError) throw usersError;
 
-      // Fetch available practice roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('practice_roles')
         .select(`
@@ -92,11 +87,9 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
 
       if (rolesError) throw rolesError;
 
-      // Cast to our interface types
       setUsers((usersData || []) as unknown as User[]);
       setPracticeRoles((rolesData || []) as unknown as PracticeRole[]);
 
-      // Calculate capabilities for coverage tracking
       if (onCapabilitiesChange) {
         const usersWithCapabilities = (usersData || []).map((user: any) => {
           const capabilities = user.user_practice_roles
@@ -134,7 +127,6 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
     const toRemove = currentRoleIds.filter(id => !newRoleIds.includes(id));
 
     try {
-      // Remove roles
       if (toRemove.length > 0) {
         const { error: removeError } = await supabase
           .from('user_practice_roles')
@@ -143,8 +135,6 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
           .in('practice_role_id', toRemove);
         if (removeError) throw removeError;
       }
-
-      // Add roles
       if (toAdd.length > 0 && selectedPracticeId) {
         const { error: addError } = await supabase
           .from('user_practice_roles')
@@ -155,7 +145,6 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
           })));
         if (addError) throw addError;
       }
-
       toast.success('Roles updated successfully');
       fetchData();
     } catch (error) {
@@ -171,7 +160,6 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
         .from('users')
         .update({ is_active: !currentStatus })
         .eq('id', userId);
-
       if (error) throw error;
       toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`);
       fetchData();
@@ -180,6 +168,20 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
       toast.error('Failed to update user status');
     }
   };
+
+  return { users, practiceRoles, loading, handleRoleSave, handleStatusToggle };
+}
+
+export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssignmentTableProps) {
+  const { user } = useAuth();
+  const selectedPracticeId = user?.practiceId ?? null;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
+
+  const { users, practiceRoles, loading, handleRoleSave, handleStatusToggle } = useStaffData(
+    selectedPracticeId, onCapabilitiesChange
+  );
 
   const getCategoryColor = (category: string): string => {
     switch (category) {

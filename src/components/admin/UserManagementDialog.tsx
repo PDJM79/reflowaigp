@@ -13,6 +13,70 @@ import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { useRoleCatalog } from '@/hooks/useRoleCatalog';
 import type { PracticeRole } from '@/types/roles';
 
+const CATEGORY_COLORS: Record<string, string> = {
+  clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  governance: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  it: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  support: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+  pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+};
+
+interface RoleSelectionListProps {
+  activePracticeRoles: PracticeRole[];
+  selectedPracticeRoleIds: string[];
+  onToggle: (id: string) => void;
+}
+
+function RoleSelectionList({ activePracticeRoles, selectedPracticeRoleIds, onToggle }: RoleSelectionListProps) {
+  return (
+    <ScrollArea className="h-[300px] border rounded-lg p-4">
+      <div className="space-y-3">
+        {activePracticeRoles.map((practiceRole) => {
+          const roleInfo = practiceRole.role_catalog;
+          if (!roleInfo) return null;
+          return (
+            <div
+              key={practiceRole.id}
+              className={`flex items-start space-x-3 p-3 rounded-lg transition-colors cursor-pointer ${
+                selectedPracticeRoleIds.includes(practiceRole.id)
+                  ? 'bg-primary/10 border border-primary/20'
+                  : 'hover:bg-muted/50 border border-transparent'
+              }`}
+              onClick={() => onToggle(practiceRole.id)}
+            >
+              <Checkbox
+                id={practiceRole.id}
+                checked={selectedPracticeRoleIds.includes(practiceRole.id)}
+                onCheckedChange={() => onToggle(practiceRole.id)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor={practiceRole.id}
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {roleInfo.display_name}
+                  </label>
+                  <Badge variant="outline" className={CATEGORY_COLORS[roleInfo.category || 'support'] || CATEGORY_COLORS.support}>
+                    {roleInfo.category}
+                  </Badge>
+                </div>
+                {roleInfo.description && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {roleInfo.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  );
+}
+
 interface UserManagementDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -205,18 +269,6 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  const getCategoryColor = (category: string | undefined): string => {
-    const colors: Record<string, string> = {
-      clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      governance: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      it: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      support: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-      pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-    };
-    return colors[category || 'support'] || colors.support;
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -290,51 +342,11 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                 <p className="text-sm mt-1">Go to Role Management to enable roles.</p>
               </div>
             ) : (
-              <ScrollArea className="h-[300px] border rounded-lg p-4">
-                <div className="space-y-3">
-                  {activePracticeRoles.map((practiceRole) => {
-                    const roleInfo = practiceRole.role_catalog;
-                    if (!roleInfo) return null;
-
-                    return (
-                      <div
-                        key={practiceRole.id}
-                        className={`flex items-start space-x-3 p-3 rounded-lg transition-colors cursor-pointer ${
-                          formData.selectedPracticeRoleIds.includes(practiceRole.id)
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'hover:bg-muted/50 border border-transparent'
-                        }`}
-                        onClick={() => handleRoleToggle(practiceRole.id)}
-                      >
-                        <Checkbox
-                          id={practiceRole.id}
-                          checked={formData.selectedPracticeRoleIds.includes(practiceRole.id)}
-                          onCheckedChange={() => handleRoleToggle(practiceRole.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <label
-                              htmlFor={practiceRole.id}
-                              className="text-sm font-medium leading-none cursor-pointer"
-                            >
-                              {roleInfo.display_name}
-                            </label>
-                            <Badge variant="outline" className={getCategoryColor(roleInfo.category)}>
-                              {roleInfo.category}
-                            </Badge>
-                          </div>
-                          {roleInfo.description && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {roleInfo.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+              <RoleSelectionList
+                activePracticeRoles={activePracticeRoles}
+                selectedPracticeRoleIds={formData.selectedPracticeRoleIds}
+                onToggle={handleRoleToggle}
+              />
             )}
           </div>
 

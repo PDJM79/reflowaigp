@@ -13,6 +13,80 @@ interface TestUser {
 
 const TEST_USERS_STORAGE_KEY = 'test_users_credentials';
 
+const TEST_EMPLOYEES = [
+  { name: 'Dr. Sarah Johnson', role: 'gp', email: 'sarah.johnson@test.com' },
+  { name: 'Nurse Emily Davis', role: 'nurse', email: 'emily.davis@test.com' },
+  { name: 'Admin Rachel Green', role: 'administrator', email: 'rachel.green@test.com' },
+  { name: 'HCA Tom Wilson', role: 'hca', email: 'tom.wilson@test.com' },
+  { name: 'Reception Lisa Brown', role: 'reception', email: 'lisa.brown@test.com' },
+  { name: 'Nurse Lead Jane Smith', role: 'nurse_lead', email: 'jane.smith@test.com' },
+];
+
+const TEST_TASKS = [
+  { title: 'Monthly Fire Safety Check', description: 'Complete fire safety inspection', priority: 'high', status: 'pending' },
+  { title: 'Weekly Cleaning Audit', description: 'Review cleaning schedules', priority: 'medium', status: 'pending' },
+  { title: 'Staff Training Review', description: 'Review staff training records', priority: 'medium', status: 'pending' },
+];
+
+const TEST_INCIDENTS = [
+  { title: 'Slip in corridor', description: 'Patient slipped on wet floor', severity: 'moderate', status: 'open' },
+  { title: 'Medication error', description: 'Wrong dosage administered', severity: 'high', status: 'investigating' },
+];
+
+async function seedTestUsers(practiceId: string): Promise<TestUser[]> {
+  const createdUsers: TestUser[] = [];
+  for (const emp of TEST_EMPLOYEES) {
+    try {
+      const response = await fetch(`/api/practices/${practiceId}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: emp.name, email: emp.email, role: emp.role }),
+      });
+      if (response.ok) {
+        createdUsers.push({
+          email: emp.email,
+          password: `Test${Math.random().toString(36).slice(2, 10)}!`,
+          role: emp.role,
+        });
+      }
+    } catch (error) {
+      console.error(`Error creating user ${emp.name}:`, error);
+    }
+  }
+  return createdUsers;
+}
+
+async function seedTestTasks(practiceId: string): Promise<void> {
+  for (const task of TEST_TASKS) {
+    try {
+      await fetch(`/api/practices/${practiceId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(task),
+      });
+    } catch (error) {
+      console.error(`Error creating task ${task.title}:`, error);
+    }
+  }
+}
+
+async function seedTestIncidents(practiceId: string): Promise<void> {
+  for (const incident of TEST_INCIDENTS) {
+    try {
+      await fetch(`/api/practices/${practiceId}/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(incident),
+      });
+    } catch (error) {
+      console.error(`Error creating incident ${incident.title}:`, error);
+    }
+  }
+}
+
 export function GenerateTestData() {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
@@ -36,82 +110,11 @@ export function GenerateTestData() {
       toast.error('No practice context available');
       return;
     }
-
     setGenerating(true);
     try {
-      const testEmployees = [
-        { name: 'Dr. Sarah Johnson', role: 'gp', email: 'sarah.johnson@test.com' },
-        { name: 'Nurse Emily Davis', role: 'nurse', email: 'emily.davis@test.com' },
-        { name: 'Admin Rachel Green', role: 'administrator', email: 'rachel.green@test.com' },
-        { name: 'HCA Tom Wilson', role: 'hca', email: 'tom.wilson@test.com' },
-        { name: 'Reception Lisa Brown', role: 'reception', email: 'lisa.brown@test.com' },
-        { name: 'Nurse Lead Jane Smith', role: 'nurse_lead', email: 'jane.smith@test.com' },
-      ];
-
-      const createdUsers: TestUser[] = [];
-
-      for (const emp of testEmployees) {
-        try {
-          const response = await fetch(`/api/practices/${user.practiceId}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              name: emp.name,
-              email: emp.email,
-              role: emp.role,
-            }),
-          });
-
-          if (response.ok) {
-            createdUsers.push({
-              email: emp.email,
-              password: `Test${Math.random().toString(36).slice(2, 10)}!`,
-              role: emp.role,
-            });
-          }
-        } catch (error) {
-          console.error(`Error creating user ${emp.name}:`, error);
-        }
-      }
-
-      const testTasks = [
-        { title: 'Monthly Fire Safety Check', description: 'Complete fire safety inspection', priority: 'high', status: 'pending' },
-        { title: 'Weekly Cleaning Audit', description: 'Review cleaning schedules', priority: 'medium', status: 'pending' },
-        { title: 'Staff Training Review', description: 'Review staff training records', priority: 'medium', status: 'pending' },
-      ];
-
-      for (const task of testTasks) {
-        try {
-          await fetch(`/api/practices/${user.practiceId}/tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(task),
-          });
-        } catch (error) {
-          console.error(`Error creating task ${task.title}:`, error);
-        }
-      }
-
-      const testIncidents = [
-        { title: 'Slip in corridor', description: 'Patient slipped on wet floor', severity: 'moderate', status: 'open' },
-        { title: 'Medication error', description: 'Wrong dosage administered', severity: 'high', status: 'investigating' },
-      ];
-
-      for (const incident of testIncidents) {
-        try {
-          await fetch(`/api/practices/${user.practiceId}/incidents`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(incident),
-          });
-        } catch (error) {
-          console.error(`Error creating incident ${incident.title}:`, error);
-        }
-      }
-
+      const createdUsers = await seedTestUsers(user.practiceId);
+      await seedTestTasks(user.practiceId);
+      await seedTestIncidents(user.practiceId);
       setTestUsers(createdUsers);
       setShowCredentials(true);
       localStorage.setItem(TEST_USERS_STORAGE_KEY, JSON.stringify(createdUsers));
@@ -161,8 +164,8 @@ export function GenerateTestData() {
                   <li>Sample incidents and complaints</li>
                 </ul>
               </div>
-              
-              <Button 
+
+              <Button
                 onClick={generateTestData}
                 disabled={generating}
                 className="w-full"
@@ -194,7 +197,7 @@ export function GenerateTestData() {
                   <div className="space-y-3">
                     <h3 className="font-semibold text-sm">Test User Credentials:</h3>
                     {testUsers.map((testUser, index) => (
-                      <div 
+                      <div
                         key={index}
                         className="rounded-lg border bg-card p-3 space-y-2"
                         data-testid={`card-test-user-${index}`}

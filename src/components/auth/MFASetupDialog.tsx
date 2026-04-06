@@ -19,8 +19,14 @@ interface MFASetupDialogProps {
   onSuccess: () => void;
 }
 
-export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSuccess }: MFASetupDialogProps) {
-  const { user: sessionUser } = useAuth();
+function useMFASetup(
+  open: boolean,
+  onOpenChange: (open: boolean) => void,
+  userEmail: string,
+  userId: string | undefined,
+  sessionUserId: string | undefined,
+  onSuccess: () => void
+) {
   const [step, setStep] = useState<'reauth' | 'generate' | 'verify'>('reauth');
   const [secret, setSecret] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -44,24 +50,12 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
     }
   }, [open]);
 
-  const handleReauthSuccess = (password: string) => {
-    setVerifiedPassword(password);
-    setShowReauth(false);
-    setStep('generate');
-    generateSecret();
-  };
-
-  const handleReauthClose = () => {
-    setShowReauth(false);
-    onOpenChange(false);
-  };
-
   const generateSecret = async () => {
     try {
       // Generate a random secret
       const randomBytes = crypto.getRandomValues(new Uint8Array(20));
       const secret = new OTPAuth.Secret({ buffer: randomBytes.buffer });
-      
+
       // Create TOTP instance
       const totp = new OTPAuth.TOTP({
         issuer: 'ReflowAI GP',
@@ -83,6 +77,18 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
       console.error('Error generating MFA secret:', error);
       toast.error('Failed to generate MFA setup');
     }
+  };
+
+  const handleReauthSuccess = (password: string) => {
+    setVerifiedPassword(password);
+    setShowReauth(false);
+    setStep('generate');
+    generateSecret();
+  };
+
+  const handleReauthClose = () => {
+    setShowReauth(false);
+    onOpenChange(false);
   };
 
   const copySecret = async () => {
@@ -130,8 +136,8 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
       // Get target user ID
       let targetUserId = userId;
       if (!targetUserId) {
-        if (!sessionUser) throw new Error('Not authenticated');
-        targetUserId = sessionUser.id;
+        if (!sessionUserId) throw new Error('Not authenticated');
+        targetUserId = sessionUserId;
       }
 
       // Call the secure edge function to enable MFA
@@ -165,13 +171,34 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
     }
   };
 
-  // Show re-authentication dialog first
-  if (showReauth && open) {
+  return {
+    step,
+    setStep,
+    secret,
+    qrDataUrl,
+    verificationCode,
+    setVerificationCode,
+    loading,
+    copied,
+    verifiedPassword,
+    showReauth,
+    handleReauthSuccess,
+    handleReauthClose,
+    copySecret,
+    verifyAndSave,
+  };
+}
+
+export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSuccess }: MFASetupDialogProps) {
+  const { user: sessionUser } = useAuth();
+  const mfa = useMFASetup(open, onOpenChange, userEmail, userId, sessionUser?.id, onSuccess);
+
+  if (mfa.showReauth && open) {
     return (
       <ReauthenticationDialog
         open={true}
-        onOpenChange={handleReauthClose}
-        onSuccess={handleReauthSuccess}
+        onOpenChange={mfa.handleReauthClose}
+        onSuccess={mfa.handleReauthSuccess}
         title="Verify Identity for MFA Setup"
         description="Enter your password to begin setting up Two-Factor Authentication"
       />
@@ -179,7 +206,7 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
   }
 
   return (
-    <Dialog open={open && step !== 'reauth'} onOpenChange={onOpenChange}>
+    <Dialog open={open && mfa.step !== 'reauth'} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -192,7 +219,7 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
         </DialogHeader>
 
         <div className="space-y-4">
-          {step === 'generate' && (
+          {mfa.step === 'generate' && (
             <>
               <Alert>
                 <QrCode className="h-4 w-4" />
@@ -202,8 +229,8 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
               </Alert>
 
               <div className="flex justify-center p-4 bg-white rounded-lg">
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="MFA QR Code" className="w-48 h-48" />
+                {mfa.qrDataUrl ? (
+                  <img src={mfa.qrDataUrl} alt="MFA QR Code" className="w-48 h-48" />
                 ) : (
                   <div className="w-48 h-48 flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -217,27 +244,27 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
                 </Label>
                 <div className="flex gap-2">
                   <Input
-                    value={secret}
+                    value={mfa.secret}
                     readOnly
                     className="font-mono text-sm"
                   />
-                  <Button variant="outline" size="icon" onClick={copySecret}>
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  <Button variant="outline" size="icon" onClick={mfa.copySecret}>
+                    {mfa.copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
 
               <Button
                 className="w-full"
-                onClick={() => setStep('verify')}
-                disabled={!secret}
+                onClick={() => mfa.setStep('verify')}
+                disabled={!mfa.secret}
               >
                 Continue to Verification
               </Button>
             </>
           )}
 
-          {step === 'verify' && (
+          {mfa.step === 'verify' && (
             <>
               <Alert variant="default">
                 <AlertTriangle className="h-4 w-4" />
@@ -255,8 +282,8 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
                   pattern="[0-9]*"
                   maxLength={6}
                   placeholder="000000"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  value={mfa.verificationCode}
+                  onChange={(e) => mfa.setVerificationCode(e.target.value.replace(/\D/g, ''))}
                   className="text-center text-2xl tracking-widest font-mono"
                 />
               </div>
@@ -265,17 +292,17 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep('generate')}
-                  disabled={loading}
+                  onClick={() => mfa.setStep('generate')}
+                  disabled={mfa.loading}
                 >
                   Back
                 </Button>
                 <Button
                   className="flex-1"
-                  onClick={verifyAndSave}
-                  disabled={loading || verificationCode.length !== 6}
+                  onClick={mfa.verifyAndSave}
+                  disabled={mfa.loading || mfa.verificationCode.length !== 6}
                 >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {mfa.loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Enable MFA
                 </Button>
               </div>

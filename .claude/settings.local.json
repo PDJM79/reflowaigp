@@ -17,7 +17,11 @@
       "Bash(npm show:*)",
       "Bash(npx vite:*)",
       "Bash(sed:*)",
-      "Bash(npx esbuild:*)"
+      "Bash(npx esbuild:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(supabase projects:*)",
+      "Bash(supabase db:*)",
+      "Bash(python3:*)"
     ]
   }
 }

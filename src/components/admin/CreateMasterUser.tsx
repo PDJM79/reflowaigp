@@ -4,40 +4,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Crown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+async function createMasterPractice(): Promise<{ id: string }> {
+  const response = await fetch('/api/practices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name: 'Master Admin Practice', country: 'England' }),
+  });
+  if (!response.ok) throw new Error('Failed to create practice');
+  return response.json();
+}
+
+async function createMasterUserAccount(practiceId: string): Promise<void> {
+  const response = await fetch(`/api/practices/${practiceId}/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: 'Master Admin',
+      email: 'phil@reflowai.co.uk',
+      role: 'practice_manager',
+      isPracticeManager: true,
+    }),
+  });
+  if (!response.ok) throw new Error('Failed to create master user');
+}
+
 export function CreateMasterUser() {
   const [creating, setCreating] = useState(false);
 
   const createMasterUser = async () => {
     setCreating(true);
     try {
-      const practiceResponse = await fetch('/api/practices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: 'Master Admin Practice',
-          country: 'England',
-        }),
-      });
-
-      if (!practiceResponse.ok) throw new Error('Failed to create practice');
-
-      const practice = await practiceResponse.json();
-
-      const userResponse = await fetch(`/api/practices/${practice.id}/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: 'Master Admin',
-          email: 'phil@reflowai.co.uk',
-          role: 'practice_manager',
-          isPracticeManager: true,
-        }),
-      });
-
-      if (!userResponse.ok) throw new Error('Failed to create master user');
-
+      const practice = await createMasterPractice();
+      await createMasterUserAccount(practice.id);
       toast.success('Master user account created successfully!');
     } catch (error) {
       console.error('Error creating master user:', error);

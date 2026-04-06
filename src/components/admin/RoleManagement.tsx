@@ -25,6 +25,80 @@ interface RoleManagementProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function useRoleManagement(open: boolean, practiceId: string | null | undefined) {
+  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchRoleAssignments = async () => {
+    if (!practiceId) {
+      console.error('User practice not found');
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('role_assignments')
+        .select('*')
+        .eq('practice_id', practiceId)
+        .order('assigned_name');
+      if (error) throw error;
+      setRoleAssignments(data || []);
+    } catch (error) {
+      console.error('Error fetching role assignments:', error);
+      toast.error('Failed to load role assignments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) fetchRoleAssignments();
+  }, [open, practiceId]);
+
+  const addRoleAssignment = async (name: string, email: string, role: UserRole) => {
+    if (!practiceId) throw new Error('User practice not found');
+    try {
+      setSaving(true);
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('role_assignments')
+        .insert({ assigned_name: name, role, practice_id: practiceId })
+        .select()
+        .single();
+      if (assignmentError) throw assignmentError;
+      const { error: contactError } = await supabase
+        .from('role_assignment_contacts')
+        .insert({ assignment_id: assignmentData.id, assigned_email: email });
+      if (contactError) throw contactError;
+      toast.success('Role assignment added successfully');
+      fetchRoleAssignments();
+    } catch (error) {
+      console.error('Error adding role assignment:', error);
+      toast.error('Failed to add role assignment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteRoleAssignment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('role_assignments')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast.success('Role assignment deleted');
+      fetchRoleAssignments();
+    } catch (error) {
+      console.error('Error deleting role assignment:', error);
+      toast.error('Failed to delete role assignment');
+    }
+  };
+
+  return { roleAssignments, loading, saving, addRoleAssignment, deleteRoleAssignment };
+}
+
 const roleOptions = [
   { value: 'practice_manager' as const, label: 'Practice Manager' },
   { value: 'group_manager' as const, label: 'Group Manager' },
@@ -43,108 +117,21 @@ const roleOptions = [
 
 export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
   const { user } = useAuth();
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([]);
   const [newAssignment, setNewAssignment] = useState({
     name: '',
     email: '',
     role: '' as UserRole | ''
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      fetchRoleAssignments();
-    }
-  }, [user, open]);
+  const { roleAssignments, loading, saving, addRoleAssignment, deleteRoleAssignment } = useRoleManagement(open, user?.practiceId);
 
-  const fetchRoleAssignments = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      if (!user.practiceId) {
-        console.error('User practice not found');
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('role_assignments')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('assigned_name');
-
-      if (error) throw error;
-      setRoleAssignments(data || []);
-    } catch (error) {
-      console.error('Error fetching role assignments:', error);
-      toast.error('Failed to load role assignments');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addRoleAssignment = async () => {
+  const handleAdd = async () => {
     if (!newAssignment.name || !newAssignment.email || !newAssignment.role) {
       toast.error('Please fill in all fields');
       return;
     }
-
-    try {
-      setSaving(true);
-      
-      if (!user?.practiceId) throw new Error('User practice not found');
-
-      // Insert role assignment
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('role_assignments')
-        .insert({
-          assigned_name: newAssignment.name,
-          role: newAssignment.role as UserRole,
-          practice_id: user.practiceId
-        })
-        .select()
-        .single();
-
-      if (assignmentError) throw assignmentError;
-
-      // Insert email in separate table
-      const { error: contactError } = await supabase
-        .from('role_assignment_contacts')
-        .insert({
-          assignment_id: assignmentData.id,
-          assigned_email: newAssignment.email
-        });
-
-      if (contactError) throw contactError;
-
-      toast.success('Role assignment added successfully');
-      setNewAssignment({ name: '', email: '', role: '' });
-      fetchRoleAssignments();
-    } catch (error) {
-      console.error('Error adding role assignment:', error);
-      toast.error('Failed to add role assignment');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteRoleAssignment = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('role_assignments')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success('Role assignment deleted');
-      fetchRoleAssignments();
-    } catch (error) {
-      console.error('Error deleting role assignment:', error);
-      toast.error('Failed to delete role assignment');
-    }
+    await addRoleAssignment(newAssignment.name, newAssignment.email, newAssignment.role as UserRole);
+    setNewAssignment({ name: '', email: '', role: '' });
   };
 
   return (
@@ -203,7 +190,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
                     </Select>
                   </div>
                 </div>
-                <Button onClick={addRoleAssignment} disabled={saving} className="w-full">
+                <Button onClick={handleAdd} disabled={saving} className="w-full">
                   {saving ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />

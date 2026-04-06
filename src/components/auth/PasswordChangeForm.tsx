@@ -10,6 +10,12 @@ interface PasswordChangeFormProps {
   onComplete: () => void;
 }
 
+function validatePasswords(newPassword: string, confirmPassword: string): string | null {
+  if (newPassword !== confirmPassword) return 'Passwords do not match';
+  if (newPassword.length < 6) return 'Password must be at least 6 characters long';
+  return null;
+}
+
 export function PasswordChangeForm({ onComplete }: PasswordChangeFormProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,25 +23,15 @@ export function PasswordChangeForm({ onComplete }: PasswordChangeFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (newPassword !== confirmPassword) {
+    const validationError = validatePasswords(newPassword, confirmPassword);
+    if (validationError) {
       toast({
-        title: "Password mismatch",
-        description: "Passwords do not match",
-        variant: "destructive",
+        title: validationError === 'Passwords do not match' ? 'Password mismatch' : 'Password too short',
+        description: validationError,
+        variant: 'destructive',
       });
       return;
     }
-
-    if (newPassword.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const response = await fetch('/api/auth/change-password', {

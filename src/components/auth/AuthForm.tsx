@@ -14,6 +14,21 @@ interface Practice {
   country: string;
 }
 
+function usePractices() {
+  const [practices, setPractices] = useState<Practice[]>([]);
+  const [practicesLoading, setPracticesLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/practices')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Practice[]) => setPractices(data))
+      .catch(() => setPractices([]))
+      .finally(() => setPracticesLoading(false));
+  }, []);
+
+  return { practices, practicesLoading };
+}
+
 export function AuthForm() {
   const { signIn, signUp, loading } = useAuth();
   const navigate = useNavigate();
@@ -21,8 +36,7 @@ export function AuthForm() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [practiceId, setPracticeId] = useState('');
-  const [practices, setPractices] = useState<Practice[]>([]);
-  const [practicesLoading, setPracticesLoading] = useState(true);
+  const { practices, practicesLoading } = usePractices();
   const [showSignUp, setShowSignUp] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -37,16 +51,13 @@ export function AuthForm() {
       setPracticeId(params.get('pid')!);
       setShowSignUp(true);
     }
+  }, []); // runs once
 
-    fetch('/api/practices')
-      .then(r => r.ok ? r.json() : [])
-      .then((data: Practice[]) => {
-        setPractices(data);
-        if (!lockedPracticeId.current && data.length === 1) setPracticeId(data[0].id);
-      })
-      .catch(() => setPractices([]))
-      .finally(() => setPracticesLoading(false));
-  }, []);
+  useEffect(() => {
+    if (!lockedPracticeId.current && practices.length === 1) {
+      setPracticeId(practices[0].id);
+    }
+  }, [practices]); // runs when practices loads
 
   const PracticeSelect = ({ id }: { id: string }) => (
     <div className="space-y-2">

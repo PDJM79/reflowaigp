@@ -7,6 +7,25 @@ import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
+async function findUserByEmail(practiceId: string, email: string): Promise<{ id: string } | null> {
+  const response = await fetch(`/api/practices/${practiceId}/users`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Failed to fetch users');
+  const users = await response.json();
+  return users.find((u: any) => u.email === email.trim()) ?? null;
+}
+
+async function patchUserPassword(practiceId: string, userId: string, password: string): Promise<boolean> {
+  const response = await fetch(`/api/practices/${practiceId}/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  });
+  return response.ok;
+}
+
 export function PasswordReset() {
   const { user } = useAuth();
   const [email, setEmail] = useState('');
@@ -20,47 +39,26 @@ export function PasswordReset() {
       toast.error('Please enter an email address');
       return;
     }
-
     if (!newPassword.trim()) {
       toast.error('Please enter a new password');
       return;
     }
-
     if (!user?.practiceId) {
       toast.error('No practice context available');
       return;
     }
-
     setResetting(true);
     try {
-      const usersResponse = await fetch(`/api/practices/${user.practiceId}/users`, {
-        credentials: 'include',
-      });
-
-      if (!usersResponse.ok) throw new Error('Failed to fetch users');
-
-      const users = await usersResponse.json();
-      const targetUser = users.find((u: any) => u.email === email.trim());
-
+      const targetUser = await findUserByEmail(user.practiceId, email);
       if (!targetUser) {
         toast.error('User not found with that email address');
-        setResetting(false);
         return;
       }
-
-      const response = await fetch(`/api/practices/${user.practiceId}/users/${targetUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ password: newPassword.trim() }),
-      });
-
-      if (!response.ok) {
+      const success = await patchUserPassword(user.practiceId, targetUser.id, newPassword.trim());
+      if (!success) {
         toast.info('Password reset will be available in a future update.');
-        setResetting(false);
         return;
       }
-
       toast.success(`Password successfully reset for ${email}`);
       setLastResetEmail(email.trim());
       setLastResetPassword(newPassword.trim());

@@ -17,13 +17,35 @@ interface MFAVerificationDialogProps {
   onCancel: () => void;
 }
 
-export function MFAVerificationDialog({ 
-  open, 
-  onOpenChange, 
+async function fetchMFASecret(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_auth_sensitive')
+    .select('mfa_secret')
+    .eq('user_id', userId)
+    .single();
+  if (error || !data?.mfa_secret) return null;
+  return data.mfa_secret;
+}
+
+function verifyTOTPCode(secret: string, userEmail: string, token: string): boolean {
+  const totp = new OTPAuth.TOTP({
+    issuer: 'ReflowAI GP',
+    label: userEmail,
+    algorithm: 'SHA1',
+    digits: 6,
+    period: 30,
+    secret: OTPAuth.Secret.fromBase32(secret),
+  });
+  return totp.validate({ token, window: 1 }) !== null;
+}
+
+export function MFAVerificationDialog({
+  open,
+  onOpenChange,
   userId,
   userEmail,
-  onSuccess, 
-  onCancel 
+  onSuccess,
+  onCancel
 }: MFAVerificationDialogProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,41 +55,18 @@ export function MFAVerificationDialog({
       toast.error('Please enter a 6-digit code');
       return;
     }
-
     setLoading(true);
     try {
-      // Fetch the MFA secret from user_auth_sensitive
-      const { data: mfaData, error: fetchError } = await supabase
-        .from('user_auth_sensitive')
-        .select('mfa_secret')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError || !mfaData?.mfa_secret) {
+      const mfaSecret = await fetchMFASecret(userId);
+      if (!mfaSecret) {
         toast.error('MFA not configured for this account');
-        setLoading(false);
         return;
       }
-
-      // Verify the TOTP code
-      const totp = new OTPAuth.TOTP({
-        issuer: 'ReflowAI GP',
-        label: userEmail,
-        algorithm: 'SHA1',
-        digits: 6,
-        period: 30,
-        secret: OTPAuth.Secret.fromBase32(mfaData.mfa_secret),
-      });
-
-      const delta = totp.validate({ token: code, window: 1 });
-      
-      if (delta === null) {
+      if (!verifyTOTPCode(mfaSecret, userEmail, code)) {
         toast.error('Invalid verification code');
         setCode('');
-        setLoading(false);
         return;
       }
-
       toast.success('MFA verification successful');
       onSuccess();
     } catch (error: any) {
