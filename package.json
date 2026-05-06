@@ -7,7 +7,8 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server/index.ts",
+    "dev:vite": "vite",
     "build:frontend": "vite build",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=dist/server/index.cjs --resolve-extensions=.ts,.js --loader:.ts=ts --external:lightningcss --external:vite",
     "build": "npm run build:frontend && npm run build:server",
@@ -19,7 +20,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "seed:users": "npx tsx scripts/seedTestUsers.ts",
-    "seed:users:force": "npx tsx scripts/seedTestUsers.ts --force"
+    "seed:users:force": "npx tsx scripts/seedTestUsers.ts --force",
+    "seed:users:force": "npx tsx scripts/seedTestUsers.ts --force",
+    "pack": "repomix --compress --ignore \"scripts/*.json,scripts/*.csv,migrations/**/*.json,migrations/**/*.sql,migrations-pending/**,supabase/**,*.csv,node_modules,dist,attached_assets,*.md,src/integrations/supabase/types.ts,vibecop-report.json\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -62,6 +65,8 @@
     "connect-pg-simple": "^10.0.0",
     "crypto-js": "^4.2.0",
     "date-fns": "^3.6.0",
+    "date-fns-tz": "^3.2.0",
+    "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",

@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import path from "path";
@@ -97,7 +98,7 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== "production") {
     // Dynamic import keeps vite out of the production bundle entirely
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
@@ -121,3 +122,4 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 })();
+

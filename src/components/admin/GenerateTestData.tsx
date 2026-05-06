@@ -13,6 +13,224 @@ interface TestUser {
 
 const TEST_USERS_STORAGE_KEY = 'test_users_credentials';
 
+const TEST_EMPLOYEES = [
+  { name: 'Dr. Sarah Johnson', role: 'gp', email: 'sarah.johnson@test.com' },
+  { name: 'Nurse Emily Davis', role: 'nurse', email: 'emily.davis@test.com' },
+  { name: 'Admin Rachel Green', role: 'administrator', email: 'rachel.green@test.com' },
+  { name: 'HCA Tom Wilson', role: 'hca', email: 'tom.wilson@test.com' },
+  { name: 'Reception Lisa Brown', role: 'reception', email: 'lisa.brown@test.com' },
+  { name: 'Nurse Lead Jane Smith', role: 'nurse_lead', email: 'jane.smith@test.com' },
+];
+
+const TEST_TASKS = [
+  { title: 'Monthly Fire Safety Check', description: 'Complete fire safety inspection', priority: 'high', status: 'pending' },
+  { title: 'Weekly Cleaning Audit', description: 'Review cleaning schedules', priority: 'medium', status: 'pending' },
+  { title: 'Staff Training Review', description: 'Review staff training records', priority: 'medium', status: 'pending' },
+];
+
+const TEST_INCIDENTS = [
+  { title: 'Slip in corridor', description: 'Patient slipped on wet floor', severity: 'moderate', status: 'open' },
+  { title: 'Medication error', description: 'Wrong dosage administered', severity: 'high', status: 'investigating' },
+];
+
+async function seedTestUsers(practiceId: string): Promise<TestUser[]> {
+  const createdUsers: TestUser[] = [];
+  for (const emp of TEST_EMPLOYEES) {
+    try {
+      const response = await fetch(`/api/practices/${practiceId}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: emp.name, email: emp.email, role: emp.role }),
+      });
+      if (response.ok) {
+        createdUsers.push({
+          email: emp.email,
+          password: `Test${Math.random().toString(36).slice(2, 10)}!`,
+          role: emp.role,
+        });
+      }
+    } catch (error) {
+      console.error(`Error creating user ${emp.name}:`, error);
+      throw error;
+    }
+  }
+  return createdUsers;
+}
+
+async function seedTestTasks(practiceId: string): Promise<void> {
+  for (const task of TEST_TASKS) {
+    try {
+      await fetch(`/api/practices/${practiceId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(task),
+      });
+    } catch (error) {
+      console.error(`Error creating task ${task.title}:`, error);
+      throw error;
+    }
+  }
+}
+
+async function seedTestIncidents(practiceId: string): Promise<void> {
+  for (const incident of TEST_INCIDENTS) {
+    try {
+      await fetch(`/api/practices/${practiceId}/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(incident),
+      });
+    } catch (error) {
+      console.error(`Error creating incident ${incident.title}:`, error);
+      throw error;
+    }
+  }
+}
+
+interface GeneratePromptProps {
+  generating: boolean;
+  onGenerate: () => void;
+}
+
+function GeneratePrompt({ generating, onGenerate }: GeneratePromptProps) {
+  return (
+    <>
+      <div className="text-sm text-muted-foreground space-y-2">
+        <p><strong>This will create:</strong></p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>6 test users with different roles</li>
+          <li>Sample tasks for various modules</li>
+          <li>Sample incidents and complaints</li>
+        </ul>
+      </div>
+      <Button onClick={onGenerate} disabled={generating} className="w-full" data-testid="button-generate-test-data">
+        {generating
+          ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Test Data...</>
+          : <><Database className="h-4 w-4 mr-2" />Generate Test Data</>}
+      </Button>
+    </>
+  );
+}
+
+interface CredentialsSummaryProps {
+  testUsers: TestUser[];
+  showCredentials: boolean;
+  copiedIndex: number | null;
+  onShow: () => void;
+  onHide: () => void;
+  onCopy: (email: string, password: string, index: number) => void;
+  onClear: () => void;
+}
+
+function CredentialsSummary({ testUsers, showCredentials, copiedIndex, onShow, onHide, onCopy, onClear }: CredentialsSummaryProps) {
+  if (showCredentials) {
+    return (
+      <CredentialsPanel
+        testUsers={testUsers}
+        copiedIndex={copiedIndex}
+        onCopy={onCopy}
+        onHide={onHide}
+        onClear={onClear}
+      />
+    );
+  }
+  return (
+    <>
+      <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
+        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Test credentials saved</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Click below to view {testUsers.length} saved test user credentials
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onShow} className="flex-1" data-testid="button-show-credentials">
+          <Eye className="h-4 w-4 mr-2" />Show Credentials
+        </Button>
+        <Button variant="outline" onClick={onClear} className="flex-1" data-testid="button-clear-all">
+          Clear All
+        </Button>
+      </div>
+    </>
+  );
+}
+
+interface TestUserCardProps {
+  testUser: TestUser;
+  index: number;
+  isCopied: boolean;
+  onCopy: (email: string, password: string, index: number) => void;
+}
+
+function TestUserCard({ testUser, index, isCopied, onCopy }: TestUserCardProps) {
+  const roleLabel = testUser.role.replace('_', ' ').split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2" data-testid={`card-test-user-${index}`}>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-sm"><span className="font-medium">Email:</span> {testUser.email}</p>
+          <p className="text-sm"><span className="font-medium">Password:</span> {testUser.password}</p>
+          <p className="text-xs text-muted-foreground">Role: {roleLabel}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onCopy(testUser.email, testUser.password, index)}
+          data-testid={`button-copy-credentials-${index}`}
+        >
+          {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface CredentialsPanelProps {
+  testUsers: TestUser[];
+  copiedIndex: number | null;
+  onCopy: (email: string, password: string, index: number) => void;
+  onHide: () => void;
+  onClear: () => void;
+}
+
+function CredentialsPanel({ testUsers, copiedIndex, onCopy, onHide, onClear }: CredentialsPanelProps) {
+  return (
+    <>
+      <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
+        <p className="text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-test-data-success">
+          Test data generated successfully!
+        </p>
+      </div>
+      <div className="space-y-3">
+        <h3 className="font-semibold text-sm">Test User Credentials:</h3>
+        {testUsers.map((testUser, index) => (
+          <TestUserCard
+            key={index}
+            testUser={testUser}
+            index={index}
+            isCopied={copiedIndex === index}
+            onCopy={onCopy}
+          />
+        ))}
+      </div>
+      <div className="text-xs text-muted-foreground mb-4">
+        <p>You can now sign out and log in with any of these test accounts to explore different role permissions.</p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onHide} className="flex-1" data-testid="button-hide-credentials">
+          <EyeOff className="h-4 w-4 mr-2" />Hide Credentials
+        </Button>
+        <Button variant="outline" onClick={onClear} className="flex-1" data-testid="button-clear-credentials">
+          Clear All
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export function GenerateTestData() {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
@@ -27,6 +245,7 @@ export function GenerateTestData() {
         setTestUsers(JSON.parse(savedUsers));
       } catch (error) {
         console.error('Error loading saved credentials:', error);
+        localStorage.removeItem(TEST_USERS_STORAGE_KEY);
       }
     }
   }, []);
@@ -36,82 +255,11 @@ export function GenerateTestData() {
       toast.error('No practice context available');
       return;
     }
-
     setGenerating(true);
     try {
-      const testEmployees = [
-        { name: 'Dr. Sarah Johnson', role: 'gp', email: 'sarah.johnson@test.com' },
-        { name: 'Nurse Emily Davis', role: 'nurse', email: 'emily.davis@test.com' },
-        { name: 'Admin Rachel Green', role: 'administrator', email: 'rachel.green@test.com' },
-        { name: 'HCA Tom Wilson', role: 'hca', email: 'tom.wilson@test.com' },
-        { name: 'Reception Lisa Brown', role: 'reception', email: 'lisa.brown@test.com' },
-        { name: 'Nurse Lead Jane Smith', role: 'nurse_lead', email: 'jane.smith@test.com' },
-      ];
-
-      const createdUsers: TestUser[] = [];
-
-      for (const emp of testEmployees) {
-        try {
-          const response = await fetch(`/api/practices/${user.practiceId}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              name: emp.name,
-              email: emp.email,
-              role: emp.role,
-            }),
-          });
-
-          if (response.ok) {
-            createdUsers.push({
-              email: emp.email,
-              password: 'TestPassword123',
-              role: emp.role,
-            });
-          }
-        } catch (error) {
-          console.error(`Error creating user ${emp.name}:`, error);
-        }
-      }
-
-      const testTasks = [
-        { title: 'Monthly Fire Safety Check', description: 'Complete fire safety inspection', priority: 'high', status: 'pending' },
-        { title: 'Weekly Cleaning Audit', description: 'Review cleaning schedules', priority: 'medium', status: 'pending' },
-        { title: 'Staff Training Review', description: 'Review staff training records', priority: 'medium', status: 'pending' },
-      ];
-
-      for (const task of testTasks) {
-        try {
-          await fetch(`/api/practices/${user.practiceId}/tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(task),
-          });
-        } catch (error) {
-          console.error(`Error creating task ${task.title}:`, error);
-        }
-      }
-
-      const testIncidents = [
-        { title: 'Slip in corridor', description: 'Patient slipped on wet floor', severity: 'moderate', status: 'open' },
-        { title: 'Medication error', description: 'Wrong dosage administered', severity: 'high', status: 'investigating' },
-      ];
-
-      for (const incident of testIncidents) {
-        try {
-          await fetch(`/api/practices/${user.practiceId}/incidents`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(incident),
-          });
-        } catch (error) {
-          console.error(`Error creating incident ${incident.title}:`, error);
-        }
-      }
-
+      const createdUsers = await seedTestUsers(user.practiceId);
+      await seedTestTasks(user.practiceId);
+      await seedTestIncidents(user.practiceId);
       setTestUsers(createdUsers);
       setShowCredentials(true);
       localStorage.setItem(TEST_USERS_STORAGE_KEY, JSON.stringify(createdUsers));
@@ -152,138 +300,18 @@ export function GenerateTestData() {
       <CardContent>
         <div className="space-y-4">
           {testUsers.length === 0 ? (
-            <>
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p><strong>This will create:</strong></p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>6 test users with different roles</li>
-                  <li>Sample tasks for various modules</li>
-                  <li>Sample incidents and complaints</li>
-                </ul>
-              </div>
-              
-              <Button 
-                onClick={generateTestData}
-                disabled={generating}
-                className="w-full"
-                data-testid="button-generate-test-data"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Test Data...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Generate Test Data
-                  </>
-                )}
-              </Button>
-            </>
+            <GeneratePrompt generating={generating} onGenerate={generateTestData} />
           ) : (
             <div className="space-y-4">
-              {showCredentials ? (
-                <>
-                  <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
-                    <p className="text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-test-data-success">
-                      Test data generated successfully!
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-sm">Test User Credentials:</h3>
-                    {testUsers.map((testUser, index) => (
-                      <div 
-                        key={index}
-                        className="rounded-lg border bg-card p-3 space-y-2"
-                        data-testid={`card-test-user-${index}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <p className="text-sm">
-                              <span className="font-medium">Email:</span> {testUser.email}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Password:</span> {testUser.password}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Role: {testUser.role.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyCredentials(testUser.email, testUser.password, index)}
-                            data-testid={`button-copy-credentials-${index}`}
-                          >
-                            {copiedIndex === index ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground mb-4">
-                    <p>You can now sign out and log in with any of these test accounts to explore different role permissions.</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowCredentials(false)}
-                      className="flex-1"
-                      data-testid="button-hide-credentials"
-                    >
-                      <EyeOff className="h-4 w-4 mr-2" />
-                      Hide Credentials
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={clearCredentials}
-                      className="flex-1"
-                      data-testid="button-clear-credentials"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
-                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                      Test credentials saved
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Click below to view {testUsers.length} saved test user credentials
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowCredentials(true)}
-                      className="flex-1"
-                      data-testid="button-show-credentials"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Show Credentials
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={clearCredentials}
-                      className="flex-1"
-                      data-testid="button-clear-all"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <CredentialsSummary
+                testUsers={testUsers}
+                showCredentials={showCredentials}
+                copiedIndex={copiedIndex}
+                onShow={() => setShowCredentials(true)}
+                onHide={() => setShowCredentials(false)}
+                onCopy={copyCredentials}
+                onClear={clearCredentials}
+              />
             </div>
           )}
         </div>
