@@ -5,31 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BackButton } from '@/components/ui/back-button';
-import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus, Users } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Search, UserPlus, Shield, CheckCircle, XCircle, Settings, Plus, Users, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { toast } from 'sonner';
 import { UserManagementDialog } from '@/components/admin/UserManagementDialog';
 
-interface UserRole {
-  practice_role_id: string;
-  practice_roles: {
-    id: string;
-    role_catalog: {
-      display_name: string;
-      category: string;
-    } | null;
-  } | null;
-}
-
 interface User {
   id: string;
   name: string;
-  is_active: boolean;
-  created_at: string;
-  user_practice_roles: UserRole[];
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
 }
+
+const formatRole = (role: string) =>
+  role ? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'No role';
 
 const CATEGORY_COLORS: Record<string, string> = {
   clinical: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -46,6 +38,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -70,32 +63,19 @@ export default function UserManagement() {
     if (!user?.practiceId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          name,
-          is_active,
-          created_at,
-          user_practice_roles(
-            practice_role_id,
-            practice_roles:practice_role_id(
-              id,
-              role_catalog:role_catalog_id(
-                display_name,
-                category
-              )
-            )
-          )
-        `)
-        .eq('practice_id', user.practiceId)
-        .order('name');
+      setLoadError(false);
+      const res = await fetch(`/api/practices/${user.practiceId}/users`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch users');
 
-      if (error) throw error;
-      setUsers((data || []) as User[]);
-      setFilteredUsers((data || []) as User[]);
+      const data: User[] = await res.json();
+      const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name));
+      setUsers(sorted);
+      setFilteredUsers(sorted);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setLoadError(true);
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
@@ -103,19 +83,25 @@ export default function UserManagement() {
   };
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
+    if (!user?.practiceId) return;
 
-      if (error) throw error;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to update user status');
+      }
 
       toast.success(currentStatus ? 'User deactivated' : 'User activated');
       fetchUsers();
     } catch (error) {
       console.error('Error toggling user status:', error);
-      toast.error('Failed to update user status');
+      toast.error(error instanceof Error ? error.message : 'Failed to update user status');
     }
   };
 
@@ -209,7 +195,7 @@ export default function UserManagement() {
                   <div>
                     <CardTitle className="text-lg">{u.name}</CardTitle>
                     <div className="flex items-center gap-2 mt-1">
-                      {u.is_active ? (
+                      {u.isActive ? (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Active
@@ -226,24 +212,15 @@ export default function UserManagement() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Roles */}
+              {/* Role & contact */}
               <div>
-                <p className="text-sm font-medium mb-2">Roles:</p>
+                <p className="text-sm font-medium mb-2">Role:</p>
                 <div className="flex flex-wrap gap-2">
-                  {u.user_practice_roles.length > 0 ? (
-                    u.user_practice_roles.map((upr, idx) => {
-                      const roleName = upr.practice_roles?.role_catalog?.display_name || 'Unknown';
-                      const category = upr.practice_roles?.role_catalog?.category;
-                      return (
-                        <Badge key={idx} className={getRoleColor(category)}>
-                          {roleName}
-                        </Badge>
-                      );
-                    })
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No roles assigned</span>
-                  )}
+                  <Badge className={getRoleColor('admin')}>{formatRole(u.role)}</Badge>
                 </div>
+                {u.email && (
+                  <p className="text-xs text-muted-foreground mt-2 truncate">{u.email}</p>
+                )}
               </div>
 
               {/* Actions */}
@@ -255,15 +232,15 @@ export default function UserManagement() {
                   onClick={() => handleEditUser(u)}
                 >
                   <Shield className="h-4 w-4 mr-1" />
-                  Edit Roles
+                  Edit
                 </Button>
                 <Button
-                  variant={u.is_active ? "outline" : "default"}
+                  variant={u.isActive ? "outline" : "default"}
                   size="sm"
                   className="flex-1"
-                  onClick={() => handleToggleUserStatus(u.id, u.is_active)}
+                  onClick={() => handleToggleUserStatus(u.id, u.isActive)}
                 >
-                  {u.is_active ? 'Deactivate' : 'Activate'}
+                  {u.isActive ? 'Deactivate' : 'Activate'}
                 </Button>
               </div>
             </CardContent>
@@ -271,7 +248,21 @@ export default function UserManagement() {
         ))}
       </div>
 
-      {filteredUsers.length === 0 && (
+      {loadError && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Failed to load users</h3>
+            <p className="text-muted-foreground mb-4">Check your connection and try again.</p>
+            <Button variant="outline" onClick={() => { setLoading(true); fetchUsers(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loadError && filteredUsers.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
