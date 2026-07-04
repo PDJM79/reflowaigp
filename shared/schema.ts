@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index, date, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql, relations } from "drizzle-orm";
@@ -10,6 +10,23 @@ export const userRoleEnum = pgEnum('user_role', [
 
 export const processFrequencyEnum = pgEnum('process_frequency', [
   'daily', 'twice_daily', 'weekly', 'monthly', 'quarterly', 'six_monthly', 'annually'
+]);
+
+// Phase 1: base cadence dimension for curated logbooks. Separate from
+// process_frequency (which stays on process_templates) so it is reversible.
+export const baseCadenceEnum = pgEnum('base_cadence', [
+  'daily', 'weekly', 'fortnightly', 'monthly', 'termly', 'quarterly', 'six_monthly',
+  'biennial', 'annual', 'triennial', 'five_yearly', 'periodic_review', 'ad_hoc'
+]);
+
+// Phase 1: home nation / regulator. Distinct from country_code (no NI).
+export const regulatoryBodyEnum = pgEnum('regulatory_body', [
+  'england', 'wales', 'scotland', 'northern_ireland'
+]);
+
+// Phase 1: what produced a task row.
+export const taskSourceTypeEnum = pgEnum('task_source_type', [
+  'adhoc', 'logbook', 'cleaning', 'fridge', 'system'
 ]);
 
 export const processStatusEnum = pgEnum('process_status', [
@@ -53,6 +70,11 @@ export const practices = pgTable("practices", {
   isActive: boolean("is_active").default(true),
   onboardingStage: text("onboarding_stage").default('pending'),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // Phase 1: home nation, timezone, practice type (drive nation filtering + scheduling)
+  regulatoryBody: regulatoryBodyEnum("regulatory_body"),
+  timezone: text("timezone").notNull().default('Europe/London'),
+  isDispensing: boolean("is_dispensing").notNull().default(false),
+  isBranch: boolean("is_branch").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -120,6 +142,17 @@ export const processTemplates = pgTable("process_templates", {
   storageHints: jsonb("storage_hints").default({}),
   regulatoryStandards: jsonb("regulatory_standards").default([]),
   isActive: boolean("is_active").default(true),
+  // Phase 1: opt-in scheduling metadata (isScheduled defaults false — existing
+  // templates unaffected until explicitly enabled by the Phase 2 scheduler).
+  preferredDay: integer("preferred_day"),
+  preferredDate: integer("preferred_date"),
+  dueWindowHours: integer("due_window_hours").notNull().default(24),
+  earlyStartHours: integer("early_start_hours").notNull().default(12),
+  defaultAssigneeId: uuid("default_assignee_id").references(() => users.id, { onDelete: "set null" }),
+  defaultAssigneeRole: userRoleEnum("default_assignee_role"),
+  requiresReview: boolean("requires_review").notNull().default(false),
+  importance: text("importance").notNull().default('medium'),
+  isScheduled: boolean("is_scheduled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -579,6 +612,19 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   module: text("module"),
   metadata: jsonb("metadata").default({}),
+  // Phase 1: source + curated linkage + scheduling window + review workflow.
+  // status stays free text; new values (submitted_for_review/overdue/rejected/
+  // missed) coexist with the existing pending/in_progress/complete. Existing
+  // rows default to source_type='adhoc', so nothing changes behaviourally.
+  sourceType: taskSourceTypeEnum("source_type").notNull().default('adhoc'),
+  selectionId: uuid("selection_id").references(() => practiceLogbookSelections.id, { onDelete: "set null" }),
+  scheduledDate: date("scheduled_date", { mode: 'string' }),
+  visibleFrom: timestamp("visible_from"),
+  importance: text("importance").notNull().default('medium'),
+  submittedForReviewAt: timestamp("submitted_for_review_at"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectedReason: text("rejected_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -737,3 +783,95 @@ export type InsertCleaningLog = z.infer<typeof insertCleaningLogSchema>;
 export type CleaningZone = typeof cleaningZones.$inferSelect;
 export type CleaningTask = typeof cleaningTasks.$inferSelect;
 export type CleaningLog = typeof cleaningLogs.$inferSelect;
+
+// ===========================================================================
+// Phase 1: Curated logbook library + practice selections/closures
+// (schema foundation only — inert until a practice enables a selection)
+// ===========================================================================
+
+// One row per GP module. Module-level attributes (legislation, enforcing body,
+// provenance) live here because the source JSON defines them once per module.
+export const curatedSections = pgTable("curated_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),          // e.g. GP-MOD-001
+  name: text("name").notNull().unique(),          // module_name
+  slug: text("slug").notNull().unique(),          // e.g. fire-safety
+  sortOrder: integer("sort_order").notNull().default(0),
+  responsibleRole: text("responsible_role"),
+  primaryLegislation: jsonb("primary_legislation").notNull().default({}),
+  enforcingBody: jsonb("enforcing_body").notNull().default({}),
+  applicableTo: text("applicable_to").array().notNull().default(sql`ARRAY[]::text[]`),
+  applicableCondition: text("applicable_condition"),
+  notes: text("notes"),
+  provenance: jsonb("provenance").notNull().default({}), // {source_school_module, comparison_status}
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// One row per logbook (92). Nation tagging lives per-step inside the steps
+// JSONB; there is deliberately no logbook-level nation column.
+export const curatedLogbooks = pgTable("curated_logbooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sectionId: uuid("section_id").references(() => curatedSections.id, { onDelete: "cascade" }).notNull(),
+  code: text("code").notNull().unique(),          // e.g. GP-LB-001-001
+  title: text("title").notNull(),
+  applicableTo: text("applicable_to").array().notNull().default(sql`ARRAY[]::text[]`),
+  applicableCondition: text("applicable_condition"),
+  cadence: baseCadenceEnum("cadence").notNull(),
+  triggers: text("triggers").array().notNull().default(sql`ARRAY[]::text[]`), // event/on_change/onboarding
+  frequencyRaw: text("frequency_raw"),            // original JSON frequency string
+  frequencyDetail: text("frequency_detail"),
+  steps: jsonb("steps").notNull().default([]),    // each step keeps its own "nations"
+  // Reserved scaffolding (absent in source JSON; populated in later phases):
+  evidenceRequired: text("evidence_required"),
+  advisorySteps: text("advisory_steps"),
+  importance: text("importance"),
+  regulatoryStandards: jsonb("regulatory_standards"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Which curated logbooks a practice has enabled. Empty on ship.
+export const practiceLogbookSelections = pgTable("practice_logbook_selections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  curatedLogbookId: uuid("curated_logbook_id").references(() => curatedLogbooks.id, { onDelete: "cascade" }).notNull(),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  adHocOnly: boolean("ad_hoc_only").notNull().default(false),
+  cadenceOverride: baseCadenceEnum("cadence_override"),
+  preferredDay: integer("preferred_day"),         // 0-6 weekly/fortnightly
+  preferredDate: integer("preferred_date"),       // 1-28 monthly+
+  dueWindowHours: integer("due_window_hours").notNull().default(24),
+  earlyStartHours: integer("early_start_hours").notNull().default(12),
+  importance: text("importance"),
+  defaultAssigneeId: uuid("default_assignee_id").references(() => users.id, { onDelete: "set null" }),
+  defaultAssigneeRole: userRoleEnum("default_assignee_role"),
+  requiresReview: boolean("requires_review").notNull().default(false),
+  nextReviewDate: date("next_review_date", { mode: 'string' }), // for periodic_review items
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uqPracticeLogbook: uniqueIndex("uq_practice_logbook").on(t.practiceId, t.curatedLogbookId),
+}));
+
+// Days a practice is closed (skipped by the Phase 2 scheduler).
+export const practiceClosureDates = pgTable("practice_closure_dates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  closureDate: date("closure_date", { mode: 'string' }).notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  uqPracticeClosure: uniqueIndex("uq_practice_closure").on(t.practiceId, t.closureDate),
+}));
+
+export const insertCuratedSectionSchema = createInsertSchema(curatedSections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCuratedLogbookSchema = createInsertSchema(curatedLogbooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPracticeLogbookSelectionSchema = createInsertSchema(practiceLogbookSelections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPracticeClosureDateSchema = createInsertSchema(practiceClosureDates).omit({ id: true, createdAt: true });
+export type CuratedSection = typeof curatedSections.$inferSelect;
+export type CuratedLogbook = typeof curatedLogbooks.$inferSelect;
+export type PracticeLogbookSelection = typeof practiceLogbookSelections.$inferSelect;
+export type PracticeClosureDate = typeof practiceClosureDates.$inferSelect;
