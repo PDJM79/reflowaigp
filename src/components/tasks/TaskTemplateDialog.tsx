@@ -122,15 +122,12 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
       const validatedData = templateSchema.parse(formData);
 
       const templateData = {
-        title: validatedData.title,
+        // process_templates column is `name` (not `title`) — this mismatch made
+        // template creation silently fail before this fix.
+        name: validatedData.title,
         description: validatedData.description || '',
         module: validatedData.module,
         defaultAssigneeRole: validatedData.default_assignee_role,
-        requiresPhoto: validatedData.requires_photo,
-        slaType: validatedData.sla_type || null,
-        dueRule: validatedData.due_rule || null,
-        evidenceTags: formData.evidence_tags.length > 0 ? formData.evidence_tags : null,
-        allowedRoles: formData.allowed_roles.length > 0 ? formData.allowed_roles : null,
         // Phase 3: scheduling — only meaningful when isScheduled is on.
         isScheduled: formData.is_scheduled,
         frequency: formData.frequency,

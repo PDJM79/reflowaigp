@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,18 +10,16 @@ import { Plus, Search, Edit, Trash2, Copy, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskTemplateDialog } from '@/components/tasks/TaskTemplateDialog';
 
+// Backed by process_templates (the table the dialog + Phase 2 scheduler use).
 interface TaskTemplate {
   id: string;
-  title: string;
+  title: string;          // maps to process_templates.name
   description: string;
   module: string;
   default_assignee_role: string;
-  requires_photo: boolean;
-  sla_type: string;
-  due_rule: string;
-  allowed_roles: string[];
-  evidence_tags: string[];
-  created_at: string;
+  requires_review: boolean;
+  is_scheduled: boolean;
+  frequency: string;
 }
 
 export default function TaskTemplates() {
@@ -61,15 +58,19 @@ export default function TaskTemplates() {
   const fetchTemplates = async () => {
     try {
       if (!user?.practiceId) return;
-
-      const { data, error } = await supabase
-        .from('task_templates')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTemplates(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/process-templates`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load templates');
+      const data = await res.json();
+      setTemplates((Array.isArray(data) ? data : []).map((t: any) => ({
+        id: t.id,
+        title: t.name,
+        description: t.description || '',
+        module: t.module || '',
+        default_assignee_role: t.defaultAssigneeRole || t.responsibleRole || '',
+        requires_review: !!t.requiresReview,
+        is_scheduled: !!t.isScheduled,
+        frequency: t.frequency || '',
+      })));
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to load templates');
@@ -80,16 +81,15 @@ export default function TaskTemplates() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this template?')) return;
-
+    if (!user?.practiceId) return;
     try {
-      const { error } = await supabase
-        .from('task_templates')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success('Template deleted successfully');
+      // Soft delete (no DELETE route); scheduler ignores inactive templates.
+      const res = await fetch(`/api/practices/${user.practiceId}/process-templates/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ isActive: false }),
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      toast.success('Template deleted');
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
@@ -98,29 +98,22 @@ export default function TaskTemplates() {
   };
 
   const handleDuplicate = async (template: TaskTemplate) => {
+    if (!user?.practiceId) return;
     try {
-      if (!user?.practiceId) return;
-
-      const { id, created_at, ...templateData } = template;
-
-      const { error } = await supabase
-        .from('task_templates')
-        .insert([{
-          title: `${template.title} (Copy)`,
-          description: templateData.description,
-          module: templateData.module,
-          default_assignee_role: templateData.default_assignee_role as any,
-          requires_photo: templateData.requires_photo,
-          sla_type: templateData.sla_type,
-          due_rule: templateData.due_rule,
-          evidence_tags: templateData.evidence_tags as any,
-          allowed_roles: templateData.allowed_roles as any,
-          practice_id: user!.practiceId,
-        }]);
-
-      if (error) throw error;
-
-      toast.success('Template duplicated successfully');
+      const res = await fetch(`/api/practices/${user.practiceId}/process-templates`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({
+          name: `${template.title} (Copy)`,
+          description: template.description,
+          module: template.module,
+          defaultAssigneeRole: template.default_assignee_role || undefined,
+          frequency: template.frequency || 'monthly',
+          isScheduled: template.is_scheduled,
+          requiresReview: template.requires_review,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to duplicate');
+      toast.success('Template duplicated');
       fetchTemplates();
     } catch (error) {
       console.error('Error duplicating template:', error);
@@ -210,10 +203,13 @@ export default function TaskTemplates() {
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{t(`modules.${template.module}`)}</Badge>
-                  {template.requires_photo && (
-                    <Badge variant="secondary">Photo Required</Badge>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <Badge variant="outline">{template.module ? t(`modules.${template.module}`) : 'General'}</Badge>
+                  {template.is_scheduled && (
+                    <Badge variant="secondary">Scheduled · {template.frequency}</Badge>
+                  )}
+                  {template.requires_review && (
+                    <Badge variant="secondary">Review</Badge>
                   )}
                 </div>
               </CardHeader>
@@ -221,24 +217,12 @@ export default function TaskTemplates() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Default Assignee:</span>
-                    <span className="font-medium">{template.default_assignee_role}</span>
+                    <span className="font-medium">{template.default_assignee_role ? template.default_assignee_role.replace(/_/g, ' ') : 'Unassigned'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">SLA Type:</span>
-                    <span className="font-medium">{template.sla_type || 'None'}</span>
+                    <span className="text-muted-foreground">Scheduling:</span>
+                    <span className="font-medium">{template.is_scheduled ? template.frequency : 'Not scheduled'}</span>
                   </div>
-                  {template.evidence_tags && template.evidence_tags.length > 0 && (
-                    <div>
-                      <span className="text-muted-foreground">Evidence Tags:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {template.evidence_tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2 mt-4">
                   <Button
