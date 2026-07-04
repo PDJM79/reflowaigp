@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Users, Clock, CheckCircle, AlertTriangle, User, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
+import { AssignDialog } from '@/components/tasks/AssignDialog';
 
 interface TeamMember {
   id: string;
@@ -41,6 +42,8 @@ export default function TeamDashboard() {
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [recentTasks, setRecentTasks] = useState<TeamTask[]>([]);
+  const [unassigned, setUnassigned] = useState<{ id: string; title: string; dueAt?: string | null; module?: string }[]>([]);
+  const [assignTarget, setAssignTarget] = useState<{ id: string; title: string; assigneeId?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -104,6 +107,13 @@ export default function TeamDashboard() {
         .slice(0, 10);
 
       setRecentTasks(upcoming);
+
+      // Unassigned logbook occurrences for triage.
+      const unassignedRes = await fetch(`/api/practices/${user.practiceId}/unassigned-occurrences`, { credentials: 'include' });
+      if (unassignedRes.ok) {
+        const occ = await unassignedRes.json();
+        setUnassigned((Array.isArray(occ) ? occ : []).map((t: any) => ({ id: t.id, title: t.title, dueAt: t.dueAt, module: t.module })));
+      }
     } catch (error) {
       console.error('Error fetching team data:', error);
       setLoadError(true);
@@ -242,6 +252,37 @@ export default function TeamDashboard() {
           </Card>
         </div>
 
+        {/* Unassigned logbook occurrences — triage */}
+        {unassigned.length > 0 && (
+          <Card className="mb-6 border-amber-300 dark:border-amber-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Unassigned occurrences ({unassigned.length})
+              </CardTitle>
+              <CardDescription>Generated logbook tasks with no assignee — assign each to a team member.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {unassigned.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{o.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {o.module ? `${o.module.replace(/_/g, ' ')} · ` : ''}
+                        {o.dueAt ? `due ${new Date(o.dueAt).toLocaleDateString()}` : 'no due date'}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setAssignTarget({ id: o.id, title: o.title, assigneeId: null })}>
+                      <User className="h-4 w-4 mr-1" /> Assign
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Team Members */}
           <Card>
@@ -340,6 +381,13 @@ export default function TeamDashboard() {
           </Card>
         </div>
       </div>
+
+      <AssignDialog
+        isOpen={!!assignTarget}
+        onClose={() => setAssignTarget(null)}
+        onAssigned={fetchTeamData}
+        task={assignTarget}
+      />
     </div>
   );
 }

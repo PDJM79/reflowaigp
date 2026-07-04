@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, ChevronLeft, ChevronRight, Clock, User } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, ChevronLeft, ChevronRight, Clock, User, AlertTriangle, RefreshCw } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { AssignDialog } from '@/components/tasks/AssignDialog';
 
 type Task = {
   id: string;
@@ -18,177 +19,130 @@ type Task = {
   due_at: string;
   status: string;
   module: string;
-  assigned_to_user_id: string;
-  assigned_to_role: string;
+  assignee_id: string | null;
   assignee_name?: string;
 };
+
+const COMPLETED = new Set(['complete', 'closed', 'submitted']);
 
 export default function Schedule() {
   const { user } = useAuth();
   const { hasAnyCapability, loading: capabilitiesLoading } = useCapabilities();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [moduleFilter, setModuleFilter] = useState('all');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [assignTarget, setAssignTarget] = useState<{ id: string; title: string; assigneeId?: string | null } | null>(null);
 
-  // Check for manager capabilities via new role system
   const isManager = hasAnyCapability('assign_roles', 'manage_users', 'configure_practice', 'run_reports');
 
-  useEffect(() => {
-    if (!user) return;
+  const fetchTasks = useCallback(async () => {
+    if (!user?.practiceId) return;
+    try {
+      setLoading(true);
+      setLoadError(false);
+      const [tasksRes, usersRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+      ]);
+      if (!tasksRes.ok) throw new Error('Failed to load schedule');
+      const rawTasks = await tasksRes.json();
+      const rawUsers = usersRes.ok ? await usersRes.json() : [];
+      const nameById = new Map<string, string>((Array.isArray(rawUsers) ? rawUsers : []).map((u: any) => [u.id, u.name]));
 
-    const fetchTasks = async () => {
-      if (!user.practiceId) return;
-
-      // Fetch tasks for next 12 months
-      const startDate = new Date();
-      const endDate = addMonths(startDate, 12);
-
-      const { data: tasksData } = await supabase
-        .from('tasks')
-        .select(`
-          id,
-          title,
-          description,
-          due_at,
-          status,
-          module,
-          assigned_to_user_id,
-          assigned_to_role
-        `)
-        .eq('practice_id', user.practiceId)
-        .gte('due_at', startDate.toISOString())
-        .lte('due_at', endDate.toISOString())
-        .order('due_at', { ascending: true });
-
-      if (tasksData) {
-        // Fetch assignee names
-        const userIds = [...new Set(tasksData.map(t => t.assigned_to_user_id).filter(Boolean))];
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, name')
-          .in('id', userIds);
-
-        const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
-
-        const enrichedTasks = tasksData.map(task => ({
-          ...task,
-          assignee_name: task.assigned_to_user_id ? userMap.get(task.assigned_to_user_id) : task.assigned_to_role
+      const mapped: Task[] = (Array.isArray(rawTasks) ? rawTasks : [])
+        .filter((t: any) => t.dueAt) // scheduled/dated tasks belong on the calendar
+        .map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || '',
+          due_at: t.dueAt,
+          status: t.status || 'pending',
+          module: t.module || '',
+          assignee_id: t.assigneeId ?? null,
+          assignee_name: t.assigneeId ? (nameById.get(t.assigneeId) || 'Unknown') : null,
         }));
-
-        setTasks(enrichedTasks);
-      }
+      setTasks(mapped);
+    } catch (error) {
+      console.error('Error loading schedule:', error);
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    };
+    }
+  }, [user?.practiceId]);
 
-    fetchTasks();
-  }, [user]);
+  useEffect(() => { if (user) fetchTasks(); }, [user, fetchTasks]);
 
-  const getTasksForDate = (date: Date) => {
-    return tasks.filter(task => isSameDay(new Date(task.due_at), date));
-  };
+  const modules = useMemo(() => Array.from(new Set(tasks.map((t) => t.module).filter(Boolean))).sort(), [tasks]);
+  const assignees = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of tasks) if (t.assignee_id) seen.set(t.assignee_id, t.assignee_name || 'Unknown');
+    return Array.from(seen.entries());
+  }, [tasks]);
 
+  const filteredTasks = useMemo(() => tasks.filter((t) => {
+    if (moduleFilter !== 'all' && t.module !== moduleFilter) return false;
+    if (assigneeFilter === 'unassigned' && t.assignee_id) return false;
+    if (assigneeFilter !== 'all' && assigneeFilter !== 'unassigned' && t.assignee_id !== assigneeFilter) return false;
+    return true;
+  }), [tasks, moduleFilter, assigneeFilter]);
+
+  const getTasksForDate = (date: Date) => filteredTasks.filter((t) => isSameDay(new Date(t.due_at), date));
   const getTasksForMonth = (month: Date) => {
-    const start = startOfMonth(month);
-    const end = endOfMonth(month);
-    return tasks.filter(task => {
-      const taskDate = new Date(task.due_at);
-      return taskDate >= start && taskDate <= end;
-    });
+    const start = startOfMonth(month), end = endOfMonth(month);
+    return filteredTasks.filter((t) => { const d = new Date(t.due_at); return d >= start && d <= end; });
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'closed':
-      case 'submitted':
-        return 'bg-green-500';
-      case 'overdue':
-        return 'bg-red-500';
-      case 'in_progress':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-500';
-    }
+    if (COMPLETED.has(status)) return 'bg-green-500';
+    if (status === 'overdue' || status === 'missed') return 'bg-red-500';
+    if (status === 'in_progress') return 'bg-blue-500';
+    return 'bg-gray-500';
   };
 
   const renderCalendarView = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">{format(currentMonth, 'MMMM yyyy')}</h2>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentMonth(new Date())}
-            >
-              Today
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" onClick={() => setCurrentMonth(new Date())}>Today</Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
-
         <div className="grid grid-cols-7 gap-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="p-2 text-center font-semibold text-sm text-muted-foreground">
-              {day}
-            </div>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="p-2 text-center font-semibold text-sm text-muted-foreground">{day}</div>
           ))}
-
-          {days.map(day => {
+          {days.map((day) => {
             const dayTasks = getTasksForDate(day);
             const isToday = isSameDay(day, new Date());
-            
             return (
-              <Card
-                key={day.toString()}
-                className={cn(
-                  "min-h-[120px] p-2",
-                  !isSameMonth(day, currentMonth) && "opacity-50",
-                  isToday && "border-primary border-2"
-                )}
-              >
+              <Card key={day.toString()} className={cn('min-h-[120px] p-2', !isSameMonth(day, currentMonth) && 'opacity-50', isToday && 'border-primary border-2')}>
                 <div className="flex flex-col h-full">
-                  <div className={cn(
-                    "text-sm font-medium mb-2",
-                    isToday && "text-primary"
-                  )}>
-                    {format(day, 'd')}
-                  </div>
+                  <div className={cn('text-sm font-medium mb-2', isToday && 'text-primary')}>{format(day, 'd')}</div>
                   <div className="space-y-1 flex-1 overflow-y-auto">
-                    {dayTasks.slice(0, 3).map(task => (
-                      <div
+                    {dayTasks.slice(0, 3).map((task) => (
+                      <button
                         key={task.id}
-                        className="text-xs p-1 rounded bg-accent hover:bg-accent/80 cursor-pointer"
-                        title={`${task.title} - ${task.assignee_name || task.assigned_to_role}`}
+                        onClick={() => isManager && setAssignTarget({ id: task.id, title: task.title, assigneeId: task.assignee_id })}
+                        className="w-full text-left text-xs p-1 rounded bg-accent hover:bg-accent/80 cursor-pointer"
+                        title={`${task.title} — ${task.assignee_name || 'unassigned'}${isManager ? ' (click to reassign)' : ''}`}
                       >
                         <div className="flex items-center gap-1">
-                          <div className={cn("w-2 h-2 rounded-full", getStatusColor(task.status))} />
+                          <div className={cn('w-2 h-2 rounded-full', getStatusColor(task.status))} />
                           <span className="truncate">{task.title}</span>
                         </div>
-                      </div>
+                      </button>
                     ))}
-                    {dayTasks.length > 3 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{dayTasks.length - 3} more
-                      </div>
-                    )}
+                    {dayTasks.length > 3 && <div className="text-xs text-muted-foreground">+{dayTasks.length - 3} more</div>}
                   </div>
                 </div>
               </Card>
@@ -201,13 +155,10 @@ export default function Schedule() {
 
   const renderListView = () => {
     const monthlyTasks = new Map<string, Task[]>();
-    
     for (let i = 0; i < 12; i++) {
       const month = addMonths(new Date(), i);
-      const monthKey = format(month, 'MMMM yyyy');
-      monthlyTasks.set(monthKey, getTasksForMonth(month));
+      monthlyTasks.set(format(month, 'MMMM yyyy'), getTasksForMonth(month));
     }
-
     return (
       <div className="space-y-6">
         {Array.from(monthlyTasks.entries()).map(([monthKey, monthTasks]) => (
@@ -221,32 +172,23 @@ export default function Schedule() {
                 <p className="text-muted-foreground text-center py-4">No tasks scheduled</p>
               ) : (
                 <div className="space-y-3">
-                  {monthTasks.map(task => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                  {monthTasks.map((task) => (
+                    <div key={task.id}
+                      className={cn('flex items-center justify-between p-3 border rounded-lg transition-colors', isManager && 'hover:bg-accent/50 cursor-pointer')}
+                      onClick={() => isManager && setAssignTarget({ id: task.id, title: task.title, assigneeId: task.assignee_id })}
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <div className={cn("w-3 h-3 rounded-full", getStatusColor(task.status))} />
+                        <div className={cn('w-3 h-3 rounded-full', getStatusColor(task.status))} />
                         <div className="flex-1">
                           <h4 className="font-medium">{task.title}</h4>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(task.due_at), 'PPP')}
-                            </span>
-                            <Badge variant="outline" className="text-xs">{task.module}</Badge>
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {task.assignee_name || task.assigned_to_role}
-                            </span>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(new Date(task.due_at), 'PPP')}</span>
+                            {task.module && <Badge variant="outline" className="text-xs">{task.module.replace(/_/g, ' ')}</Badge>}
+                            <span className="flex items-center gap-1"><User className="h-3 w-3" />{task.assignee_name || 'Unassigned'}</span>
                           </div>
                         </div>
                       </div>
-                      <Badge variant={
-                        task.status === 'closed' || task.status === 'submitted' ? 'default' :
-                        task.status === 'overdue' ? 'destructive' : 'secondary'
-                      }>
+                      <Badge variant={COMPLETED.has(task.status) ? 'default' : task.status === 'overdue' || task.status === 'missed' ? 'destructive' : 'secondary'}>
                         {task.status}
                       </Badge>
                     </div>
@@ -265,7 +207,7 @@ export default function Schedule() {
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
             <p className="text-muted-foreground">Loading schedule...</p>
           </div>
         </div>
@@ -276,13 +218,23 @@ export default function Schedule() {
   if (!isManager) {
     return (
       <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Schedule View</p>
-            <p className="text-muted-foreground">Available to Practice Managers only</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="flex flex-col items-center justify-center py-12">
+          <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">Schedule View</p>
+          <p className="text-muted-foreground">Available to Practice Managers only</p>
+        </CardContent></Card>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card><CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+          <AlertTriangle className="h-10 w-10 text-destructive" />
+          <div><p className="font-medium">Failed to load the schedule</p><p className="text-sm text-muted-foreground">Check your connection and try again.</p></div>
+          <Button variant="outline" onClick={fetchTasks}><RefreshCw className="h-4 w-4 mr-2" /> Retry</Button>
+        </CardContent></Card>
       </div>
     );
   }
@@ -292,12 +244,27 @@ export default function Schedule() {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <BackButton />
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Calendar className="h-8 w-8" />
-            Task Schedule
-          </h1>
+          <h1 className="text-3xl font-bold flex items-center gap-2"><Calendar className="h-8 w-8" /> Task Schedule</h1>
         </div>
-        <p className="text-muted-foreground">12-month overview of all scheduled tasks</p>
+        <p className="text-muted-foreground">12-month overview of scheduled tasks. Managers can click a task to reassign.</p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Select value={moduleFilter} onValueChange={setModuleFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All modules" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All modules</SelectItem>
+            {modules.map((m) => <SelectItem key={m} value={m}>{m.replace(/_/g, ' ')}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All assignees" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All assignees</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {assignees.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'calendar' | 'list')}>
@@ -305,47 +272,23 @@ export default function Schedule() {
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="calendar" className="mt-6">
-          {renderCalendarView()}
-        </TabsContent>
-
-        <TabsContent value="list" className="mt-6">
-          {renderListView()}
-        </TabsContent>
+        <TabsContent value="calendar" className="mt-6">{renderCalendarView()}</TabsContent>
+        <TabsContent value="list" className="mt-6">{renderListView()}</TabsContent>
       </Tabs>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Summary</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <div className="text-2xl font-bold">{tasks.length}</div>
-              <p className="text-sm text-muted-foreground">Total Tasks</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">
-                {tasks.filter(t => t.status === 'closed' || t.status === 'submitted').length}
-              </div>
-              <p className="text-sm text-muted-foreground">Completed</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-600">
-                {tasks.filter(t => t.status === 'open' || t.status === 'in_progress').length}
-              </div>
-              <p className="text-sm text-muted-foreground">In Progress</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">
-                {tasks.filter(t => t.status === 'overdue').length}
-              </div>
-              <p className="text-sm text-muted-foreground">Overdue</p>
-            </div>
+            <div><div className="text-2xl font-bold">{filteredTasks.length}</div><p className="text-sm text-muted-foreground">Total (filtered)</p></div>
+            <div><div className="text-2xl font-bold text-green-600">{filteredTasks.filter((t) => COMPLETED.has(t.status)).length}</div><p className="text-sm text-muted-foreground">Completed</p></div>
+            <div><div className="text-2xl font-bold text-blue-600">{filteredTasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length}</div><p className="text-sm text-muted-foreground">Open</p></div>
+            <div><div className="text-2xl font-bold text-red-600">{filteredTasks.filter((t) => t.status === 'overdue' || t.status === 'missed').length}</div><p className="text-sm text-muted-foreground">Overdue / missed</p></div>
           </div>
         </CardContent>
       </Card>
+
+      <AssignDialog isOpen={!!assignTarget} onClose={() => setAssignTarget(null)} onAssigned={fetchTasks} task={assignTarget} />
     </div>
   );
 }

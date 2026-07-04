@@ -32,7 +32,7 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
   const { user } = useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     title: '',
     description: '',
     module: '',
@@ -42,7 +42,17 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
     due_rule: '',
     evidence_tags: [] as string[],
     allowed_roles: [] as string[],
-  });
+    // Phase 3: bespoke scheduling (opt-in; existing templates stay is_scheduled=false)
+    is_scheduled: false,
+    frequency: 'monthly',
+    preferred_day: '1',
+    preferred_date: '1',
+    due_window_hours: '24',
+    early_start_hours: '12',
+    requires_review: false,
+    importance: 'medium',
+  };
+  const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
     if (template) {
@@ -56,19 +66,17 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
         due_rule: template.dueRule || template.due_rule || '',
         evidence_tags: template.evidenceTags || template.evidence_tags || [],
         allowed_roles: template.allowedRoles || template.allowed_roles || [],
+        is_scheduled: template.isScheduled ?? template.is_scheduled ?? false,
+        frequency: template.frequency || 'monthly',
+        preferred_day: String(template.preferredDay ?? template.preferred_day ?? '1'),
+        preferred_date: String(template.preferredDate ?? template.preferred_date ?? '1'),
+        due_window_hours: String(template.dueWindowHours ?? template.due_window_hours ?? '24'),
+        early_start_hours: String(template.earlyStartHours ?? template.early_start_hours ?? '12'),
+        requires_review: template.requiresReview ?? template.requires_review ?? false,
+        importance: template.importance || 'medium',
       });
     } else {
-      setFormData({
-        title: '',
-        description: '',
-        module: '',
-        default_assignee_role: '',
-        requires_photo: false,
-        sla_type: '',
-        due_rule: '',
-        evidence_tags: [],
-        allowed_roles: [],
-      });
+      setFormData(emptyForm);
     }
   }, [template]);
 
@@ -123,6 +131,15 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
         dueRule: validatedData.due_rule || null,
         evidenceTags: formData.evidence_tags.length > 0 ? formData.evidence_tags : null,
         allowedRoles: formData.allowed_roles.length > 0 ? formData.allowed_roles : null,
+        // Phase 3: scheduling — only meaningful when isScheduled is on.
+        isScheduled: formData.is_scheduled,
+        frequency: formData.frequency,
+        preferredDay: formData.is_scheduled ? Number(formData.preferred_day) : null,
+        preferredDate: formData.is_scheduled ? Number(formData.preferred_date) : null,
+        dueWindowHours: Number(formData.due_window_hours) || 24,
+        earlyStartHours: Number(formData.early_start_hours) || 12,
+        requiresReview: formData.requires_review,
+        importance: formData.importance,
       };
 
       const templateId = template?.id;
@@ -272,6 +289,100 @@ export function TaskTemplateDialog({ isOpen, onClose, onSuccess, template }: Tas
               onCheckedChange={(checked) => setFormData({ ...formData, requires_photo: checked })}
             />
             <Label htmlFor="requires_photo">Requires photo evidence</Label>
+          </div>
+
+          {/* Phase 3: bespoke scheduling — opt-in */}
+          <div className="border-t pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="is_scheduled">Schedule this template</Label>
+                <p className="text-xs text-muted-foreground">
+                  Auto-generate task occurrences on a cadence (like a curated logbook).
+                </p>
+              </div>
+              <Switch
+                id="is_scheduled"
+                checked={formData.is_scheduled}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_scheduled: checked })}
+              />
+            </div>
+
+            {formData.is_scheduled && (
+              <div className="space-y-4 rounded-lg bg-muted/40 p-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Frequency</Label>
+                    <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="six_monthly">Six-monthly</SelectItem>
+                        <SelectItem value="annually">Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Importance</Label>
+                    <Select value={formData.importance} onValueChange={(v) => setFormData({ ...formData, importance: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {formData.frequency === 'weekly' && (
+                  <div className="space-y-2">
+                    <Label>Preferred day</Label>
+                    <Select value={formData.preferred_day} onValueChange={(v) => setFormData({ ...formData, preferred_day: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Monday</SelectItem>
+                        <SelectItem value="2">Tuesday</SelectItem>
+                        <SelectItem value="3">Wednesday</SelectItem>
+                        <SelectItem value="4">Thursday</SelectItem>
+                        <SelectItem value="5">Friday</SelectItem>
+                        <SelectItem value="6">Saturday</SelectItem>
+                        <SelectItem value="0">Sunday</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {['monthly', 'quarterly', 'six_monthly', 'annually'].includes(formData.frequency) && (
+                  <div className="space-y-2">
+                    <Label>Preferred date (1–28)</Label>
+                    <Input type="number" min={1} max={28} value={formData.preferred_date}
+                      onChange={(e) => setFormData({ ...formData, preferred_date: e.target.value })} />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Due window (hours)</Label>
+                    <Input type="number" min={1} value={formData.due_window_hours}
+                      onChange={(e) => setFormData({ ...formData, due_window_hours: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Early start (hours)</Label>
+                    <Input type="number" min={0} value={formData.early_start_hours}
+                      onChange={(e) => setFormData({ ...formData, early_start_hours: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requires_review">Requires manager review</Label>
+                  <Switch id="requires_review" checked={formData.requires_review}
+                    onCheckedChange={(checked) => setFormData({ ...formData, requires_review: checked })} />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
