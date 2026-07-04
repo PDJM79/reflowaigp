@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar as CalendarIcon, AlertTriangle, CheckCircle, FileWarning } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { TempLogWithFridge, Fridge, DailyComplianceStats } from './types';
 
@@ -25,55 +24,61 @@ export function HistoricalLogView({ practiceId, fridges, onSelectBreachLog, onSt
   const [isLoading, setIsLoading] = useState(false);
   const [weeklyStats, setWeeklyStats] = useState<DailyComplianceStats[]>([]);
 
+  // Map an API fridge_readings row into the TempLogWithFridge shape the render uses.
+  const mapReading = useCallback((r: any): TempLogWithFridge => {
+    const fridge = fridges.find((f) => f.id === r.fridgeId);
+    return {
+      id: r.id,
+      log_date: String(r.readingDate).slice(0, 10),
+      log_time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+      breach_flag: !!r.isOutOfRange,
+      reading: r.temperature,
+      remedial_action: r.actionTaken ?? null,
+      outcome: null,
+      fridges: fridge ? { name: fridge.name, min_temp: fridge.min_temp, max_temp: fridge.max_temp } : undefined,
+    } as unknown as TempLogWithFridge;
+  }, [fridges]);
+
+  // fridge_readings has no date-filter param, so fetch once and filter client-side.
+  const fetchAllReadings = useCallback(async (): Promise<any[]> => {
+    const res = await fetch(`/api/practices/${practiceId}/fridge-readings`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to load logs');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }, [practiceId]);
+
   const fetchLogsForDate = useCallback(async (date: Date) => {
     setIsLoading(true);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const { data, error } = await supabase
-        .from('temp_logs')
-        .select('*, fridges(name, min_temp, max_temp)')
-        .eq('log_date', dateStr)
-        .order('log_time', { ascending: true });
-
-      if (error) throw error;
-      setLogs((data as TempLogWithFridge[]) || []);
+      const readings = await fetchAllReadings();
+      setLogs(readings.filter((r) => String(r.readingDate).slice(0, 10) === dateStr).map(mapReading));
     } catch (error) {
       console.error('Error fetching logs:', error);
       toast.error('Failed to load logs');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchAllReadings, mapReading]);
 
   const fetchWeeklyStats = useCallback(async (date: Date) => {
     try {
       const weekStart = startOfWeek(date, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
-
-      const { data, error } = await supabase
-        .from('temp_logs')
-        .select('log_date, breach_flag')
-        .gte('log_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('log_date', format(weekEnd, 'yyyy-MM-dd'));
-
-      if (error) throw error;
+      const readings = await fetchAllReadings();
+      const inWeek = readings
+        .map((r) => ({ date: String(r.readingDate).slice(0, 10), breach: !!r.isOutOfRange }))
+        .filter((r) => r.date >= format(weekStart, 'yyyy-MM-dd') && r.date <= format(weekEnd, 'yyyy-MM-dd'));
 
       const stats: DailyComplianceStats[] = days.map(day => {
         const dayStr = format(day, 'yyyy-MM-dd');
-        const dayLogs = (data || []).filter(l => l.log_date === dayStr);
-        const breaches = dayLogs.filter(l => l.breach_flag).length;
+        const dayLogs = inWeek.filter(l => l.date === dayStr);
+        const breaches = dayLogs.filter(l => l.breach).length;
         const total = dayLogs.length;
         const compliant = total - breaches;
         const complianceRate = total > 0 ? (compliant / total) * 100 : 0;
-
-        return {
-          date: dayStr,
-          total,
-          compliant,
-          breaches,
-          complianceRate
-        };
+        return { date: dayStr, total, compliant, breaches, complianceRate };
       });
 
       setWeeklyStats(stats);
@@ -81,7 +86,7 @@ export function HistoricalLogView({ practiceId, fridges, onSelectBreachLog, onSt
     } catch (error) {
       console.error('Error fetching weekly stats:', error);
     }
-  }, [onStatsChange]);
+  }, [fetchAllReadings, onStatsChange]);
 
   useEffect(() => {
     if (practiceId) {
