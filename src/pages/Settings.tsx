@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sun, Moon, Monitor, Bell, Lock, User, Mail, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, Lock, User, Mail, Shield, ShieldCheck, ShieldOff, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { BackButton } from '@/components/ui/back-button';
 import { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
@@ -12,8 +13,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { MFASetupDialog } from '@/components/auth/MFASetupDialog';
 import { DisableMFADialog } from '@/components/auth/DisableMFADialog';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 type Theme = "light" | "dark" | "system";
+
+type RegulatoryBody = 'england' | 'wales' | 'scotland' | 'northern_ireland';
+interface PracticeSettings {
+  regulatoryBody: RegulatoryBody | null;
+  timezone: string;
+  isDispensing: boolean;
+  isBranch: boolean;
+}
+const REGULATORY_BODIES: { value: RegulatoryBody; label: string }[] = [
+  { value: 'england', label: 'England (CQC)' },
+  { value: 'wales', label: 'Wales (HIW)' },
+  { value: 'scotland', label: 'Scotland (HIS)' },
+  { value: 'northern_ireland', label: 'Northern Ireland (RQIA)' },
+];
 
 export default function Settings() {
   const [theme, setTheme] = useState<Theme>("system");
@@ -25,11 +41,72 @@ export default function Settings() {
   const [showMfaDisable, setShowMfaDisable] = useState(false);
   const [userData, setUserData] = useState<{ id: string; email: string } | null>(null);
 
+  // Practice settings (practice managers only)
+  const isPracticeManager = !!user?.isPracticeManager;
+  const [practiceSettings, setPracticeSettings] = useState<PracticeSettings | null>(null);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [practiceSaving, setPracticeSaving] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchMfaStatus();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isPracticeManager && user?.practiceId) {
+      fetchPracticeSettings();
+    }
+  }, [isPracticeManager, user?.practiceId]);
+
+  const fetchPracticeSettings = async () => {
+    if (!user?.practiceId) return;
+    setPracticeLoading(true);
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load practice settings');
+      const p = await res.json();
+      setPracticeSettings({
+        regulatoryBody: p.regulatoryBody ?? null,
+        timezone: p.timezone ?? 'Europe/London',
+        isDispensing: !!p.isDispensing,
+        isBranch: !!p.isBranch,
+      });
+    } catch (error) {
+      console.error('Error loading practice settings:', error);
+      toast.error('Could not load practice settings');
+    } finally {
+      setPracticeLoading(false);
+    }
+  };
+
+  const savePracticeSettings = async () => {
+    if (!user?.practiceId || !practiceSettings) return;
+    setPracticeSaving(true);
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          regulatoryBody: practiceSettings.regulatoryBody,
+          timezone: practiceSettings.timezone.trim() || 'Europe/London',
+          isDispensing: practiceSettings.isDispensing,
+          isBranch: practiceSettings.isBranch,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to save');
+      }
+      toast.success('Practice settings saved');
+    } catch (error) {
+      console.error('Error saving practice settings:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save practice settings');
+    } finally {
+      setPracticeSaving(false);
+    }
+  };
 
   const fetchMfaStatus = async () => {
     setMfaLoading(true);
@@ -88,6 +165,106 @@ export default function Settings() {
           Manage your application preferences and account settings
         </p>
       </div>
+
+      {/* Practice Settings (practice managers only) */}
+      {isPracticeManager && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Practice Settings
+            </CardTitle>
+            <CardDescription>
+              Home nation, timezone and practice type. These determine which curated
+              compliance logbooks apply to your practice.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {practiceLoading || !practiceSettings ? (
+              <p className="text-sm text-muted-foreground">Loading practice settings…</p>
+            ) : (
+              <>
+                <div className="space-y-2 max-w-sm">
+                  <Label htmlFor="regulatory-body">Regulatory body (home nation)</Label>
+                  <Select
+                    value={practiceSettings.regulatoryBody ?? 'unset'}
+                    onValueChange={(v) =>
+                      setPracticeSettings((s) => s && {
+                        ...s,
+                        regulatoryBody: v === 'unset' ? null : (v as RegulatoryBody),
+                      })
+                    }
+                  >
+                    <SelectTrigger id="regulatory-body">
+                      <SelectValue placeholder="Select regulatory body" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      {REGULATORY_BODIES.map((rb) => (
+                        <SelectItem key={rb.value} value={rb.value}>{rb.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Controls which nation's compliance requirements apply.
+                  </p>
+                </div>
+
+                <div className="space-y-2 max-w-sm">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Input
+                    id="timezone"
+                    value={practiceSettings.timezone}
+                    onChange={(e) =>
+                      setPracticeSettings((s) => s && { ...s, timezone: e.target.value })
+                    }
+                    placeholder="Europe/London"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    IANA timezone used for scheduling (default Europe/London).
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between max-w-sm">
+                  <div>
+                    <Label htmlFor="is-dispensing">Dispensing practice</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enables dispensing-specific logbooks.
+                    </p>
+                  </div>
+                  <Switch
+                    id="is-dispensing"
+                    checked={practiceSettings.isDispensing}
+                    onCheckedChange={(checked) =>
+                      setPracticeSettings((s) => s && { ...s, isDispensing: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between max-w-sm">
+                  <div>
+                    <Label htmlFor="is-branch">Branch surgery</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enables branch-specific logbooks.
+                    </p>
+                  </div>
+                  <Switch
+                    id="is-branch"
+                    checked={practiceSettings.isBranch}
+                    onCheckedChange={(checked) =>
+                      setPracticeSettings((s) => s && { ...s, isBranch: checked })
+                    }
+                  />
+                </div>
+
+                <Button onClick={savePracticeSettings} disabled={practiceSaving}>
+                  {practiceSaving ? 'Saving…' : 'Save practice settings'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Appearance Settings */}
       <Card>
