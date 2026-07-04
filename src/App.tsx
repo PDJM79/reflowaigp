@@ -68,8 +68,6 @@ import StepExecution from "./pages/StepExecution";
 import AllProcesses from "./pages/AllProcesses";
 import RiskRegister from "./pages/RiskRegister";
 import TeamDashboard from "./pages/TeamDashboard";
-import AdminCalendar from "./pages/AdminCalendar";
-import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -148,8 +146,6 @@ const App = () => (
                   <Route path="/processes" element={<AllProcesses />} />
                   <Route path="/risk-register" element={<RiskRegister />} />
                   <Route path="/team" element={<TeamDashboard />} />
-                  <Route path="/admin/calendar" element={<AdminCalendar />} />
-                  <Route path="/admin/reports" element={<AdminReports />} />
                 </Route>
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
