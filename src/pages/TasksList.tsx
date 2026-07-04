@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -68,7 +67,7 @@ export default function TasksList() {
   const isCleanerRole = user?.role === 'reception' || user?.role === 'cleaner';
   // Non-manager, non-cleaner roles always see only their own tasks
   const forceMyTasks = !isManagerRole && !isCleanerRole;
-  const [useServerSearch, setUseServerSearch] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -113,14 +112,12 @@ export default function TasksList() {
   // Reset page when activeTab changes
   useEffect(() => { setPage(1); }, [activeTab]);
 
-  // Enable server search when query is non-empty
-  useEffect(() => {
-    setUseServerSearch(debouncedSearchQuery.length > 0);
-  }, [debouncedSearchQuery]);
+  const COMPLETED_STATUSES = new Set(['complete', 'closed', 'submitted']);
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       if (!user?.practiceId) return;
 
       // Tab-based filter logic
@@ -128,105 +125,59 @@ export default function TasksList() {
       const tabIsCompleted = activeTab === 'completed';
       const tabIsMine = activeTab === 'mine' || forceMyTasks || showMyTasks;
 
-      // Use server-side search RPC when searching
-      if (debouncedSearchQuery.length > 0) {
-        const { data, error } = await supabase.rpc('search_tasks_secure', {
-          p_query: debouncedSearchQuery,
-          p_module: selectedModule === 'all' ? null : selectedModule,
-          p_status: selectedStatus === 'all' ? null : selectedStatus,
-          p_priority: selectedPriority === 'all' ? null : selectedPriority,
-          p_only_my_tasks: tabIsMine,
-          p_limit: pageSize,
-          p_offset: (page - 1) * pageSize,
-        });
+      const [tasksRes, usersRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+      ]);
+      if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
 
-        if (error) {
-          console.error('Search error:', error);
-          throw error;
-        }
+      const rawTasks = await tasksRes.json();
+      const rawUsers = usersRes.ok ? await usersRes.json() : [];
+      const nameById = new Map<string, string>(
+        (Array.isArray(rawUsers) ? rawUsers : []).map((u: any) => [u.id, u.name])
+      );
 
-        // Map RPC results to Task interface
-        const mappedTasks: Task[] = (data || []).map((t: any) => ({
-          ...t,
-          requires_photo: false,
-          created_at: '',
-          assignedUser: null,
-          task_templates: null,
-        }));
+      const mapped: Task[] = (Array.isArray(rawTasks) ? rawTasks : []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || '',
+        module: t.module || '',
+        status: t.status || 'pending',
+        priority: t.priority || 'medium',
+        due_at: t.dueAt,
+        assigned_to_user_id: t.assigneeId,
+        assigned_to_role: '',
+        requires_photo: false,
+        created_at: t.createdAt || '',
+        completed_at: t.completedAt || undefined,
+        assignedUser: t.assigneeId
+          ? { name: nameById.get(t.assigneeId) || 'Unknown' }
+          : null,
+        task_templates: null,
+      }));
 
-        setTasks(mappedTasks);
-        setTotalCount(mappedTasks.length < pageSize ? (page - 1) * pageSize + mappedTasks.length : (page + 1) * pageSize);
-        return;
-      }
+      const query = debouncedSearchQuery.toLowerCase();
+      const now = new Date();
 
-      // Standard query when not searching
-      let countQuery = supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', user!.practiceId);
+      const filtered = mapped
+        .filter((t) => {
+          if (selectedModule !== 'all' && t.module !== selectedModule) return false;
+          if (selectedStatus !== 'all' && t.status !== selectedStatus) return false;
+          if (selectedPriority !== 'all' && t.priority !== selectedPriority) return false;
+          if (tabIsMine && t.assigned_to_user_id !== user.id) return false;
+          if (tabIsCompleted && !COMPLETED_STATUSES.has(t.status)) return false;
+          if (tabIsUrgent && (COMPLETED_STATUSES.has(t.status) || !t.due_at || new Date(t.due_at) >= now)) return false;
+          if (query && !`${t.title} ${t.description} ${t.module}`.toLowerCase().includes(query)) return false;
+          return true;
+        })
+        .sort((a, b) => new Date(a.due_at || 0).getTime() - new Date(b.due_at || 0).getTime());
 
-      let dataQuery = supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name),
-          task_templates(title)
-        `)
-        .eq('practice_id', user!.practiceId)
-        .order('due_at', { ascending: true });
-
-      if (selectedModule !== 'all') {
-        countQuery = countQuery.eq('module', selectedModule);
-        dataQuery = dataQuery.eq('module', selectedModule);
-      }
-
-      if (selectedStatus !== 'all') {
-        countQuery = countQuery.eq('status', selectedStatus);
-        dataQuery = dataQuery.eq('status', selectedStatus);
-      }
-
-      if (selectedPriority !== 'all') {
-        countQuery = countQuery.eq('priority', selectedPriority);
-        dataQuery = dataQuery.eq('priority', selectedPriority);
-      }
-
-      // Apply tab-based filters
-      if (tabIsMine) {
-        countQuery = countQuery.eq('assigned_to_user_id', user!.id);
-        dataQuery = dataQuery.eq('assigned_to_user_id', user!.id);
-      }
-
-      if (tabIsCompleted) {
-        countQuery = countQuery.in('status', ['complete', 'closed', 'submitted']);
-        dataQuery = dataQuery.in('status', ['complete', 'closed', 'submitted']);
-      }
-
-      if (tabIsUrgent) {
-        countQuery = countQuery
-          .lt('due_at', new Date().toISOString())
-          .neq('status', 'complete')
-          .neq('status', 'closed')
-          .neq('status', 'submitted');
-        dataQuery = dataQuery
-          .lt('due_at', new Date().toISOString())
-          .neq('status', 'complete')
-          .neq('status', 'closed')
-          .neq('status', 'submitted');
-      }
-
+      setTotalCount(filtered.length);
       const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      dataQuery = dataQuery.range(from, to);
-
-      const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
-
-      if (countResult.error) throw countResult.error;
-      if (dataResult.error) throw dataResult.error;
-
-      setTotalCount(countResult.count || 0);
-      setTasks(dataResult.data || []);
+      setTasks(filtered.slice(from, from + pageSize));
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -306,12 +257,6 @@ export default function TasksList() {
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             {t('tasks.filters')}
-            {useServerSearch && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                <Search className="h-3 w-3 mr-1" />
-                Full-text search
-              </Badge>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
@@ -381,6 +326,18 @@ export default function TasksList() {
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
           <span>Loading tasks...</span>
         </div>
+      ) : loadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <p className="font-medium mb-1">Failed to load tasks</p>
+            <p className="text-muted-foreground mb-4">Check your connection and try again.</p>
+            <Button variant="outline" onClick={fetchTasks}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 import { BackButton } from '@/components/ui/back-button';
+import { toast } from 'sonner';
 
 interface ProcessInstance {
   id: string;
@@ -102,15 +103,24 @@ export default function TaskDetail() {
 
           setStepInstances(steps || []);
         } else {
-          // If not found in process_instances, try tasks table
-          const { data: task } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('id', taskId)
-            .maybeSingle();
-
-          if (task) {
-            setSimpleTask(task);
+          // If not found in process_instances, try the tasks API
+          const res = await fetch(`/api/practices/${user!.practiceId}/tasks/${taskId}`, {
+            credentials: 'include',
+          });
+          if (res.ok) {
+            const task = await res.json();
+            setSimpleTask({
+              id: task.id,
+              title: task.title,
+              description: task.description || '',
+              module: task.module || '',
+              status: task.status || 'pending',
+              due_at: task.dueAt,
+              priority: task.priority || 'medium',
+              assigned_to_user_id: task.assigneeId,
+              completed_at: task.completedAt,
+              created_at: task.createdAt,
+            });
             setTaskType('simple');
           }
         }
@@ -190,20 +200,25 @@ export default function TaskDetail() {
   };
 
   const handleCompleteSimpleTask = async () => {
-    if (!simpleTask) return;
+    if (!simpleTask || !user?.practiceId) return;
 
     try {
-      await supabase
-        .from('tasks')
-        .update({ 
-          status: 'complete',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', simpleTask.id);
+      const res = await fetch(`/api/practices/${user.practiceId}/tasks/${simpleTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'complete' }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to complete task');
+      }
 
       setSimpleTask({ ...simpleTask, status: 'complete', completed_at: new Date().toISOString() });
+      toast.success('Task completed');
     } catch (error) {
       console.error('Error completing task:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to complete task');
     }
   };
 
