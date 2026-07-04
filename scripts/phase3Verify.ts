@@ -17,7 +17,8 @@ const check = (name: string, cond: boolean, detail = "") => {
   if (!cond) failures++;
 };
 
-const PID = "76191215-70bb-48e6-874f-9b5bbaf4e118"; // seeded Test Surgery
+// Practice id: override per-DB via TEST_PRACTICE_ID; fallback to a prior seed.
+const PID = process.env.TEST_PRACTICE_ID ?? "76191215-70bb-48e6-874f-9b5bbaf4e118";
 
 async function generateForSelection(selRow: any, dateISO: string) {
   const practice = (await pool.query(`SELECT id, timezone, is_dispensing, is_branch FROM practices WHERE id=$1`, [PID])).rows[0];
