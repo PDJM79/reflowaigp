@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, User, Loader2 } from 'lucide-react';
+import { Building2, User, Loader2, Plus } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { toast } from 'sonner';
 
@@ -22,6 +24,8 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
   const [selectedPracticeId, setSelectedPracticeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [entering, setEntering] = useState(false);
+  const [newPracticeName, setNewPracticeName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetchPractices();
@@ -64,22 +68,35 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
     }
   };
 
-  const createTestPractice = async () => {
+  const createPractice = async () => {
+    const name = newPracticeName.trim();
+    if (!name) {
+      toast.error('Enter a name for the new practice');
+      return;
+    }
+
+    setCreating(true);
     try {
       const response = await fetch('/api/practices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name: 'Test Medical Practice' }),
+        body: JSON.stringify({ name }),
       });
 
-      if (!response.ok) throw new Error('Failed to create practice');
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to create practice');
+      }
 
-      toast.success('Test practice created');
+      toast.success(`Practice "${name}" created`);
+      setNewPracticeName('');
       fetchPractices();
     } catch (error) {
-      console.error('Error creating test practice:', error);
-      toast.error('Failed to create test practice');
+      console.error('Error creating practice:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create practice');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -132,14 +149,33 @@ export function PracticeSelector({ onPracticeSelected, onSignOut }: PracticeSele
             </div>
 
             {practices.length === 0 && (
-              <div className="text-center py-8" data-testid="text-no-practices">
+              <div className="text-center py-4" data-testid="text-no-practices">
                 <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">No practices found</p>
-                <Button onClick={createTestPractice} variant="outline" data-testid="button-create-test-practice">
-                  Create Test Practice
-                </Button>
+                <p className="text-muted-foreground">No practices found — create one below</p>
               </div>
             )}
+
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="new-practice-name" className="text-sm font-medium">Create a new practice</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-practice-name"
+                  placeholder="Practice name"
+                  value={newPracticeName}
+                  onChange={(e) => setNewPracticeName(e.target.value)}
+                  disabled={creating}
+                />
+                <Button
+                  variant="outline"
+                  onClick={createPractice}
+                  disabled={creating || !newPracticeName.trim()}
+                  data-testid="button-create-practice"
+                >
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  <span className="ml-1">Create</span>
+                </Button>
+              </div>
+            </div>
 
             <div className="flex gap-4 justify-between">
               <Button variant="outline" onClick={onSignOut} data-testid="button-sign-out">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,11 +17,9 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
 
   // Clear old practice selection and auto-select if only one practice
   useEffect(() => {
-    console.log('PracticeSelection useEffect', { loading, practicesLength: practices.length });
     clearPracticeSelection();
     if (!loading && practices.length === 1) {
       const practice = practices[0];
-      console.log('Auto-selecting single practice:', practice);
       setSelectedId(practice.id);
       selectPractice(practice.id, practice.name);
       setTimeout(() => onPracticeSelected(), 100);
@@ -29,14 +27,10 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
   }, [practices, loading]);
 
   const handleContinue = () => {
-    console.log('handleContinue clicked', { selectedId, practices });
     const practice = practices.find(p => p.id === selectedId);
     if (practice) {
-      console.log('Selecting practice:', practice);
       selectPractice(practice.id, practice.name);
       onPracticeSelected();
-    } else {
-      console.log('No practice found for selectedId:', selectedId);
     }
   };
 
@@ -99,27 +93,6 @@ export const PracticeSelection = ({ onPracticeSelected }: PracticeSelectionProps
             className="w-full h-12 text-base font-semibold"
           >
             Continue to Login
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          <Button 
-            variant="outline" 
-            className="w-full h-12"
-            onClick={() => {
-              // TODO: Navigate to practice registration
-              console.log('Add new practice');
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Practice
           </Button>
 
           {practices.length === 0 && (
