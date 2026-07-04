@@ -49,7 +49,6 @@ export const usePracticeSelection = () => {
         throw error;
       }
 
-      console.log("Fetched practices:", data);
       setPractices(data || []);
     } catch (error) {
       console.error("Error fetching practices:", error);

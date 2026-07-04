@@ -100,7 +100,6 @@ export default function StepExecution() {
             setEvidence(evidenceData || []);
           } else if (template) {
             // No step instances exist yet - create them automatically
-            console.log('No step instances found, creating them...');
             
             // Parse steps from template
             let stepsArray: any[] = [];
@@ -153,7 +152,6 @@ export default function StepExecution() {
                   })
                   .eq('id', taskId);
                   
-                console.log('Created step instances and started process');
               }
             }
           }
@@ -467,8 +465,6 @@ export default function StepExecution() {
     }
   }
   
-  console.log('StepExecution - Raw steps data:', processTemplate.steps);
-  console.log('StepExecution - Parsed steps array:', stepsArray);
   
   const currentStep = Array.isArray(stepsArray) && stepsArray.length > currentStepIndex ? stepsArray[currentStepIndex] : null;
   const totalSteps = Array.isArray(stepsArray) ? stepsArray.length : 0;

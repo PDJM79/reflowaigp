@@ -32,7 +32,6 @@ export function useTaskData() {
         targetPracticeId = selectedPracticeId;
       }
 
-      console.log('Fetching data for practice:', targetPracticeId);
 
       // Get practice manager for default assignment via new role system
       // First try new role system, then fallback to is_practice_manager flag
@@ -70,7 +69,6 @@ export function useTaskData() {
         practiceManager = fallbackPM;
       }
 
-      console.log('Practice manager:', practiceManager);
 
       // Get ALL process instances for the target practice with template info
       const { data: processInstances, error: processError } = await supabase
@@ -90,9 +88,7 @@ export function useTaskData() {
         `)
         .eq('practice_id', targetPracticeId);
 
-      console.log('Process instances:', processInstances, 'Error:', processError);
       if (!processInstances) {
-        console.log('No process instances found for practice:', targetPracticeId);
         return;
       }
 
@@ -168,8 +164,6 @@ export function useTaskData() {
         };
       });
 
-      console.log('All tasks:', tasks);
-      console.log('Current user ID:', user.id);
 
       // Split tasks based on current user
       // User tasks = tasks assigned to the current user
@@ -177,8 +171,6 @@ export function useTaskData() {
       const userTasksList = tasks.filter(task => task.isCurrentUser);
       const otherTasksList = tasks.filter(task => !task.isCurrentUser);
 
-      console.log('User tasks:', userTasksList);
-      console.log('Other tasks:', otherTasksList);
 
       setUserTasks(userTasksList);
       setOtherTasks(otherTasksList);

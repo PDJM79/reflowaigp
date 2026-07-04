@@ -56,7 +56,6 @@ export function UserDashboard() {
   }, [user, effectivePracticeId, capabilityRoles, canViewDashboards]);
 
   const handleTaskClick = (taskId: string) => {
-    console.log('Navigate to task:', taskId);
     navigate(`/task/${taskId}`);
   };
 

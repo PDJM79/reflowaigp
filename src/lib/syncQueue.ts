@@ -21,7 +21,6 @@ class SyncQueue {
   ): Promise<void> {
     try {
       await offlineStorage.addPendingMutation(table, operation, data);
-      console.log(`Queued ${operation} on ${table}:`, data);
     } catch (error) {
       console.error('Failed to queue mutation:', error);
       throw error;
@@ -30,7 +29,6 @@ class SyncQueue {
 
   async syncPendingMutations(): Promise<SyncResult> {
     if (this.isSyncing) {
-      console.log('Sync already in progress');
       return { success: false, synced: 0, failed: 0, errors: [] };
     }
 
@@ -44,7 +42,6 @@ class SyncQueue {
 
     try {
       const mutations = await offlineStorage.getPendingMutations();
-      console.log(`Syncing ${mutations.length} pending mutations...`);
 
       for (const mutation of mutations) {
         if (mutation.retryCount >= MAX_RETRIES) {
@@ -62,7 +59,6 @@ class SyncQueue {
           await this.executeMutation(mutation);
           await offlineStorage.removePendingMutation(mutation.id);
           result.synced++;
-          console.log(`Successfully synced mutation ${mutation.id}`);
         } catch (error: any) {
           console.error(`Failed to sync mutation ${mutation.id}:`, error);
           await offlineStorage.incrementRetryCount(mutation.id);
