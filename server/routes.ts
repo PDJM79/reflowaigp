@@ -53,6 +53,20 @@ const requireUserManager: RequestHandler = async (req, res, next) => {
   }
 };
 
+// Generic manager gate for practice-management actions (logbooks, scheduling, reassignment).
+const requireManager: RequestHandler = async (req, res, next) => {
+  try {
+    const currentUser = await storage.getUser(req.session.userId!, req.session.practiceId!);
+    if (!currentUser || (!currentUser.isPracticeManager && !USER_MANAGER_ROLES.has(currentUser.role ?? ''))) {
+      return res.status(403).json({ error: "Practice manager permission required" });
+    }
+    next();
+  } catch (error) {
+    console.error("requireManager error:", error);
+    res.status(500).json({ error: "Failed to verify permissions" });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
@@ -253,6 +267,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(employee);
     } catch (error) {
       res.status(500).json({ error: "Failed to update employee" });
+    }
+  });
+
+  // ── Phase 3: curated logbook library + selections ─────────────────────────
+
+  // The curated library for THIS practice (applicability-filtered, selection attached).
+  app.get("/api/practices/:practiceId/curated-logbooks", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const library = await storage.getCuratedLibraryForPractice(req.params.practiceId as string);
+      res.json(library);
+    } catch (error) {
+      console.error("GET curated-logbooks error:", error);
+      res.status(500).json({ error: "Failed to fetch curated logbooks" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/logbook-selections", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const selections = await storage.getLogbookSelections(req.params.practiceId as string);
+      res.json(selections);
+    } catch (error) {
+      console.error("GET logbook-selections error:", error);
+      res.status(500).json({ error: "Failed to fetch logbook selections" });
+    }
+  });
+
+  // Fields a manager may set on a selection (never trust practiceId/id from body).
+  const SELECTION_FIELDS = [
+    "curatedLogbookId", "isEnabled", "adHocOnly", "cadenceOverride", "preferredDay",
+    "preferredDate", "dueWindowHours", "earlyStartHours", "importance",
+    "defaultAssigneeId", "defaultAssigneeRole", "requiresReview", "nextReviewDate",
+  ] as const;
+  function pickSelectionFields(body: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const k of SELECTION_FIELDS) if (k in body) out[k] = body[k];
+    return out;
+  }
+
+  app.post("/api/practices/:practiceId/logbook-selections", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const fields = pickSelectionFields(req.body ?? {});
+      if (!fields.curatedLogbookId) {
+        return res.status(400).json({ error: "curatedLogbookId is required" });
+      }
+      // Enabling a logbook that already has a (disabled) selection updates it, so the
+      // library toggle is idempotent and preserves prior schedule settings.
+      const existing = (await storage.getLogbookSelections(practiceId))
+        .find((s) => s.curatedLogbookId === fields.curatedLogbookId);
+      if (existing) {
+        const updated = await storage.updateLogbookSelection(existing.id, practiceId, { ...fields, isEnabled: true });
+        return res.json(updated);
+      }
+      const created = await storage.createLogbookSelection({ ...fields, practiceId, isEnabled: true });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("POST logbook-selection error:", error);
+      res.status(500).json({ error: "Failed to create logbook selection" });
+    }
+  });
+
+  app.patch("/api/practices/:practiceId/logbook-selections/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const updated = await storage.updateLogbookSelection(
+        req.params.id as string, req.params.practiceId as string, pickSelectionFields(req.body ?? {})
+      );
+      if (!updated) return res.status(404).json({ error: "Selection not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("PATCH logbook-selection error:", error);
+      res.status(500).json({ error: "Failed to update logbook selection" });
+    }
+  });
+
+  // Disable (soft) a selection — keeps its settings; scheduler stops generating.
+  app.delete("/api/practices/:practiceId/logbook-selections/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const disabled = await storage.disableLogbookSelection(req.params.id as string, req.params.practiceId as string);
+      if (!disabled) return res.status(404).json({ error: "Selection not found" });
+      res.json(disabled);
+    } catch (error) {
+      console.error("DELETE logbook-selection error:", error);
+      res.status(500).json({ error: "Failed to disable logbook selection" });
+    }
+  });
+
+  // Generated logbook occurrences with no assignee, for manager triage.
+  app.get("/api/practices/:practiceId/unassigned-occurrences", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const occ = await storage.getUnassignedOccurrences(req.params.practiceId as string);
+      res.json(occ);
+    } catch (error) {
+      console.error("GET unassigned-occurrences error:", error);
+      res.status(500).json({ error: "Failed to fetch unassigned occurrences" });
+    }
+  });
+
+  // Assign / reassign a task occurrence. Anyone may self-assign an UNASSIGNED
+  // occurrence; reassigning an already-assigned task (or assigning someone else)
+  // requires manager permission.
+  app.post("/api/practices/:practiceId/tasks/:id/assign", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const taskId = req.params.id as string;
+      const selfId = req.session.userId!;
+      const assignToMe = req.body?.assignToMe === true;
+      const targetAssignee: string | null = assignToMe ? selfId : (req.body?.assigneeId ?? null);
+
+      const task = await storage.getTask(taskId, practiceId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      const isSelfClaimOfUnassigned = task.assigneeId == null && targetAssignee === selfId;
+      if (!isSelfClaimOfUnassigned) {
+        // Reassigning others / already-assigned tasks -> manager only.
+        const currentUser = await storage.getUser(selfId, practiceId);
+        const isManager = !!currentUser && (currentUser.isPracticeManager || USER_MANAGER_ROLES.has(currentUser.role ?? ''));
+        if (!isManager) {
+          return res.status(403).json({ error: "Only a practice manager can reassign an occupied task" });
+        }
+      }
+
+      const updated = await storage.updateTask(taskId, practiceId, { assigneeId: targetAssignee });
+      res.json(updated);
+    } catch (error) {
+      console.error("POST task assign error:", error);
+      res.status(500).json({ error: "Failed to assign task" });
+    }
+  });
+
+  // Role assignments (role -> user) for the Schedule Editor's role-assignee picker.
+  app.get("/api/practices/:practiceId/role-assignments", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const rows = await storage.getRoleAssignments(req.params.practiceId as string);
+      res.json(rows);
+    } catch (error) {
+      console.error("GET role-assignments error:", error);
+      res.status(500).json({ error: "Failed to fetch role assignments" });
     }
   });
 

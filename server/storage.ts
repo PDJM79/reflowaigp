@@ -536,6 +536,150 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db.insert(schema.cleaningLogs).values(log).returning();
     return created;
   }
+
+  // ── Phase 3: curated logbook library + selections ─────────────────────────
+
+  /**
+   * The curated library for a practice: every active curated logbook joined to
+   * its section, filtered by applicability against the practice's flags, with
+   * the practice's current selection attached (if any).
+   */
+  async getCuratedLibraryForPractice(practiceId: string): Promise<any[]> {
+    const practice = await this.getPractice(practiceId);
+    if (!practice) return [];
+
+    const logbooks = await db
+      .select({
+        id: schema.curatedLogbooks.id,
+        code: schema.curatedLogbooks.code,
+        title: schema.curatedLogbooks.title,
+        cadence: schema.curatedLogbooks.cadence,
+        triggers: schema.curatedLogbooks.triggers,
+        applicableTo: schema.curatedLogbooks.applicableTo,
+        steps: schema.curatedLogbooks.steps,
+        sortOrder: schema.curatedLogbooks.sortOrder,
+        sectionId: schema.curatedSections.id,
+        sectionName: schema.curatedSections.name,
+        sectionSlug: schema.curatedSections.slug,
+        sectionSort: schema.curatedSections.sortOrder,
+        provenance: schema.curatedSections.provenance,
+      })
+      .from(schema.curatedLogbooks)
+      .innerJoin(schema.curatedSections, eq(schema.curatedLogbooks.sectionId, schema.curatedSections.id))
+      .where(eq(schema.curatedLogbooks.isActive, true))
+      .orderBy(schema.curatedSections.sortOrder, schema.curatedLogbooks.sortOrder);
+
+    const selections = await db
+      .select()
+      .from(schema.practiceLogbookSelections)
+      .where(eq(schema.practiceLogbookSelections.practiceId, practiceId));
+    const selByLogbook = new Map(selections.map((s) => [s.curatedLogbookId, s]));
+
+    // Nation coverage: distinct step nations for informational display.
+    const applies = (applicableTo: string[] | null): boolean => {
+      const arr = applicableTo ?? ["all"];
+      return arr.some((a) =>
+        a === "all" ||
+        (a === "dispensing" && practice.isDispensing) ||
+        (a === "branch" && practice.isBranch)
+      );
+    };
+
+    return logbooks
+      .filter((lb) => applies(lb.applicableTo as string[] | null))
+      .map((lb) => {
+        const stepNations = Array.from(
+          new Set(((lb.steps as any[]) ?? []).map((s) => s?.nations).filter(Boolean))
+        );
+        return {
+          id: lb.id,
+          code: lb.code,
+          title: lb.title,
+          cadence: lb.cadence,
+          triggers: lb.triggers ?? [],
+          applicableTo: lb.applicableTo ?? ["all"],
+          nationCoverage: stepNations,
+          section: { id: lb.sectionId, name: lb.sectionName, slug: lb.sectionSlug, sortOrder: lb.sectionSort },
+          provenance: lb.provenance,
+          selection: selByLogbook.get(lb.id) ?? null,
+        };
+      });
+  }
+
+  async getLogbookSelections(practiceId: string): Promise<any[]> {
+    return db
+      .select({
+        id: schema.practiceLogbookSelections.id,
+        curatedLogbookId: schema.practiceLogbookSelections.curatedLogbookId,
+        isEnabled: schema.practiceLogbookSelections.isEnabled,
+        adHocOnly: schema.practiceLogbookSelections.adHocOnly,
+        cadenceOverride: schema.practiceLogbookSelections.cadenceOverride,
+        preferredDay: schema.practiceLogbookSelections.preferredDay,
+        preferredDate: schema.practiceLogbookSelections.preferredDate,
+        dueWindowHours: schema.practiceLogbookSelections.dueWindowHours,
+        earlyStartHours: schema.practiceLogbookSelections.earlyStartHours,
+        importance: schema.practiceLogbookSelections.importance,
+        defaultAssigneeId: schema.practiceLogbookSelections.defaultAssigneeId,
+        defaultAssigneeRole: schema.practiceLogbookSelections.defaultAssigneeRole,
+        requiresReview: schema.practiceLogbookSelections.requiresReview,
+        nextReviewDate: schema.practiceLogbookSelections.nextReviewDate,
+        logbookTitle: schema.curatedLogbooks.title,
+        logbookCadence: schema.curatedLogbooks.cadence,
+        sectionName: schema.curatedSections.name,
+        assigneeName: schema.users.name,
+      })
+      .from(schema.practiceLogbookSelections)
+      .innerJoin(schema.curatedLogbooks, eq(schema.practiceLogbookSelections.curatedLogbookId, schema.curatedLogbooks.id))
+      .innerJoin(schema.curatedSections, eq(schema.curatedLogbooks.sectionId, schema.curatedSections.id))
+      .leftJoin(schema.users, eq(schema.practiceLogbookSelections.defaultAssigneeId, schema.users.id))
+      .where(eq(schema.practiceLogbookSelections.practiceId, practiceId));
+  }
+
+  async getLogbookSelection(id: string, practiceId: string): Promise<schema.PracticeLogbookSelection | undefined> {
+    const [row] = await db.select().from(schema.practiceLogbookSelections).where(
+      and(eq(schema.practiceLogbookSelections.id, id), eq(schema.practiceLogbookSelections.practiceId, practiceId))
+    );
+    return row;
+  }
+
+  async createLogbookSelection(data: any): Promise<schema.PracticeLogbookSelection> {
+    const [created] = await db.insert(schema.practiceLogbookSelections).values(data).returning();
+    return created;
+  }
+
+  async updateLogbookSelection(id: string, practiceId: string, data: any): Promise<schema.PracticeLogbookSelection | undefined> {
+    const [updated] = await db.update(schema.practiceLogbookSelections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.practiceLogbookSelections.id, id), eq(schema.practiceLogbookSelections.practiceId, practiceId)))
+      .returning();
+    return updated;
+  }
+
+  /** Disable a selection (soft): keeps its schedule settings; scheduler stops generating. */
+  async disableLogbookSelection(id: string, practiceId: string): Promise<schema.PracticeLogbookSelection | undefined> {
+    return this.updateLogbookSelection(id, practiceId, { isEnabled: false });
+  }
+
+  /** Generated logbook occurrences with no assignee, in active states, for triage. */
+  async getUnassignedOccurrences(practiceId: string): Promise<Task[]> {
+    return db.select().from(schema.tasks).where(
+      and(
+        eq(schema.tasks.practiceId, practiceId),
+        eq(schema.tasks.sourceType, "logbook"),
+        isNull(schema.tasks.assigneeId),
+        sql`${schema.tasks.status} IN ('pending','in_progress','overdue')`
+      )
+    ).orderBy(schema.tasks.dueAt);
+  }
+
+  async getRoleAssignments(practiceId: string): Promise<{ role: string; userId: string | null; assignedName: string | null }[]> {
+    const rows = await db.select({
+      role: schema.roleAssignments.role,
+      userId: schema.roleAssignments.userId,
+      assignedName: schema.roleAssignments.assignedName,
+    }).from(schema.roleAssignments).where(eq(schema.roleAssignments.practiceId, practiceId));
+    return rows as any;
+  }
 }
 
 export const storage = new DatabaseStorage();
