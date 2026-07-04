@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +41,7 @@ export default function Reports() {
   const { hasCapability } = useCapabilities();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'timeline'>('timeline');
@@ -61,30 +61,41 @@ export default function Reports() {
   const fetchTasks = async () => {
     try {
       if (!user?.practiceId) return;
+      setLoadError(false);
 
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignedUser:users!tasks_assigned_to_user_id_fkey(name)
-        `)
-        .eq('practice_id', user.practiceId)
-        .order('due_at', { ascending: true });
+      const [tasksRes, usersRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+      ]);
+      if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
 
-      if (selectedModule !== 'all') {
-        query = query.eq('module', selectedModule);
-      }
+      const rawTasks = await tasksRes.json();
+      const rawUsers = usersRes.ok ? await usersRes.json() : [];
+      const nameById = new Map<string, string>(
+        (Array.isArray(rawUsers) ? rawUsers : []).map((u: any) => [u.id, u.name])
+      );
 
-      if (selectedPriority !== 'all') {
-        query = query.eq('priority', selectedPriority);
-      }
+      const mapped: Task[] = (Array.isArray(rawTasks) ? rawTasks : [])
+        .map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || '',
+          module: t.module || '',
+          status: t.status || 'pending',
+          priority: t.priority || 'medium',
+          due_at: t.dueAt,
+          assigned_to_user_id: t.assigneeId,
+          created_at: t.createdAt || '',
+          assignedUser: t.assigneeId ? { name: nameById.get(t.assigneeId) || 'Unknown' } : null,
+        }))
+        .filter((t) => selectedModule === 'all' || t.module === selectedModule)
+        .filter((t) => selectedPriority === 'all' || t.priority === selectedPriority)
+        .sort((a, b) => new Date(a.due_at || 0).getTime() - new Date(b.due_at || 0).getTime());
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setTasks(data || []);
+      setTasks(mapped);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -241,6 +252,25 @@ export default function Reports() {
       </div>
     );
   };
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <AlertCircle className="h-10 w-10 text-destructive" />
+            <div>
+              <p className="font-medium">Failed to load report data</p>
+              <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" onClick={() => { setLoading(true); fetchTasks(); }}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">

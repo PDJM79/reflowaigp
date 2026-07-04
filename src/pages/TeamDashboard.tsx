@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, Users, Clock, CheckCircle, AlertTriangle, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft, Users, Clock, CheckCircle, AlertTriangle, User, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
 interface TeamMember {
   id: string;
   name: string;
-  roles: string[];
+  role: string;
   is_active: boolean;
   assigned_tasks: number;
   completed_tasks: number;
@@ -27,17 +27,14 @@ interface TeamTask {
   status: string;
   assignee: {
     name: string;
-    roles: string[];
+    role: string;
   };
 }
 
-// Helper to extract role keys from new role system
-const extractRoleKeys = (userPracticeRoles: any): string[] => {
-  if (!userPracticeRoles || !Array.isArray(userPracticeRoles)) return [];
-  return userPracticeRoles
-    .map((upr: any) => upr.practice_roles?.role_catalog?.role_key)
-    .filter(Boolean);
-};
+const COMPLETED_STATUSES = new Set(['complete', 'closed', 'submitted']);
+
+const formatRole = (role: string) =>
+  role ? role.replace(/_/g, ' ').toUpperCase() : 'NO ROLE';
 
 export default function TeamDashboard() {
   const navigate = useNavigate();
@@ -45,112 +42,88 @@ export default function TeamDashboard() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [recentTasks, setRecentTasks] = useState<TeamTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  const fetchTeamData = useCallback(async () => {
+    if (!user?.practiceId) return;
+
+    try {
+      setLoading(true);
+      setLoadError(false);
+
+      const [usersRes, tasksRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+      ]);
+      if (!usersRes.ok || !tasksRes.ok) {
+        throw new Error('Failed to fetch team data');
+      }
+
+      const members = await usersRes.json();
+      const tasks = await tasksRes.json();
+      const memberList = Array.isArray(members) ? members : [];
+      const taskList = Array.isArray(tasks) ? tasks : [];
+      const now = new Date();
+
+      const membersWithStats: TeamMember[] = memberList.map((member: any) => {
+        const memberTasks = taskList.filter((t: any) => t.assigneeId === member.id);
+        const completed = memberTasks.filter((t: any) => COMPLETED_STATUSES.has(t.status)).length;
+        const overdue = memberTasks.filter(
+          (t: any) => !COMPLETED_STATUSES.has(t.status) && t.dueAt && new Date(t.dueAt) < now
+        ).length;
+        const pending = memberTasks.length - completed - overdue;
+
+        return {
+          id: member.id,
+          name: member.name,
+          role: member.role || '',
+          is_active: member.isActive !== false,
+          assigned_tasks: memberTasks.length,
+          completed_tasks: completed,
+          overdue_tasks: overdue,
+          pending_tasks: Math.max(0, pending),
+        };
+      });
+
+      setTeamMembers(membersWithStats);
+
+      const nameById = new Map<string, any>(memberList.map((m: any) => [m.id, m]));
+      const upcoming: TeamTask[] = taskList
+        .filter((t: any) => t.assigneeId && !COMPLETED_STATUSES.has(t.status))
+        .map((t: any) => ({
+          id: t.id,
+          name: t.title || 'Untitled task',
+          due_at: t.dueAt,
+          status: t.status || 'pending',
+          assignee: {
+            name: nameById.get(t.assigneeId)?.name || 'Unknown',
+            role: nameById.get(t.assigneeId)?.role || '',
+          },
+        }))
+        .sort((a, b) => new Date(a.due_at || 0).getTime() - new Date(b.due_at || 0).getTime())
+        .slice(0, 10);
+
+      setRecentTasks(upcoming);
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
-
-    const fetchTeamData = async () => {
-      try {
-        if (!user.practiceId) return;
-
-        // Fetch all team members
-        const { data: members } = await supabase
-          .from('users')
-          .select(`
-            id,
-            name,
-            is_active,
-            user_practice_roles(
-              practice_roles(
-                role_catalog(role_key, display_name)
-              )
-            )
-          `)
-          .eq('practice_id', user.practiceId);
-
-        // Fetch process instances with assignee info
-        const { data: processInstances } = await supabase
-          .from('process_instances')
-          .select(`
-            *,
-            process_templates!inner (
-              name
-            ),
-            users!assignee_id (
-              name,
-              user_practice_roles(
-                practice_roles(
-                  role_catalog(role_key, display_name)
-                )
-              )
-            )
-          `)
-          .eq('practice_id', user.practiceId);
-
-        if (members) {
-          // Calculate task statistics for each team member
-          const membersWithStats = members.map(member => {
-            const memberTasks = (processInstances || []).filter(
-              task => task.assignee_id === member.id
-            );
-
-            const completed = memberTasks.filter(t => t.status === 'complete').length;
-            const overdue = memberTasks.filter(
-              t => t.status !== 'complete' && new Date(t.due_at) < new Date()
-            ).length;
-            const pending = memberTasks.filter(t => t.status === 'pending').length;
-
-            return {
-              id: member.id,
-              name: member.name,
-              is_active: member.is_active,
-              roles: extractRoleKeys((member as any).user_practice_roles),
-              assigned_tasks: memberTasks.length,
-              completed_tasks: completed,
-              overdue_tasks: overdue,
-              pending_tasks: pending
-            };
-          });
-
-          setTeamMembers(membersWithStats);
-        }
-
-        // Recent tasks for team overview
-        if (processInstances) {
-          const tasksWithAssignee = processInstances
-            .filter(task => task.users)
-            .map(task => ({
-              id: task.id,
-              name: task.process_templates?.name || 'Unnamed Process',
-              due_at: task.due_at,
-              status: task.status,
-              assignee: {
-                name: task.users?.name || 'Unknown',
-                roles: extractRoleKeys(task.users?.user_practice_roles)
-              }
-            }))
-            .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
-            .slice(0, 10);
-
-          setRecentTasks(tasksWithAssignee);
-        }
-      } catch (error) {
-        console.error('Error fetching team data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTeamData();
-  }, [user]);
+  }, [user, fetchTeamData]);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   const getTaskStatusBadge = (status: string, dueAt: string) => {
-    if (status === 'complete') return 'green';
-    if (new Date(dueAt) < new Date()) return 'red';
+    if (COMPLETED_STATUSES.has(status)) return 'green';
+    if (dueAt && new Date(dueAt) < new Date()) return 'red';
     return 'amber';
   };
 
@@ -163,8 +136,42 @@ export default function TeamDashboard() {
   if (loading) {
     return (
       <div className="p-4 md:p-6">
+        <div className="container mx-auto px-4 py-8 space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-8 w-56" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton className="h-72 w-full" />
+            <Skeleton className="h-72 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-4 md:p-6">
         <div className="container mx-auto px-4 py-8">
-          <div className="animate-pulse">Loading...</div>
+          <Card>
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <AlertTriangle className="h-10 w-10 text-destructive" />
+              <div>
+                <p className="font-medium">Failed to load team data</p>
+                <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+              </div>
+              <Button variant="outline" onClick={fetchTeamData}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -177,7 +184,7 @@ export default function TeamDashboard() {
 
   return (
     <div className="p-4 md:p-6">
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
           <Button variant="outline" onClick={() => navigate('/')}>
@@ -246,38 +253,43 @@ export default function TeamDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {teamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-medium">{member.name}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="text-xs">
-                            {member.roles && member.roles.length > 0 
-                              ? member.roles[0].replace('_', ' ').toUpperCase()
-                              : 'NO ROLE'}
-                          </Badge>
-                          <span>•</span>
-                          <span>{member.assigned_tasks} tasks</span>
+                {teamMembers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-sm">No team members yet — add users in User Management</p>
+                  </div>
+                ) : (
+                  teamMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="font-medium">{member.name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">
+                              {formatRole(member.role)}
+                            </Badge>
+                            <span>•</span>
+                            <span>{member.assigned_tasks} tasks</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-green-600">{member.completed_tasks} ✓</span>
-                        <span className="text-amber-600">{member.pending_tasks} ⏳</span>
-                        <span className="text-red-600">{member.overdue_tasks} ⚠️</span>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-green-600">{member.completed_tasks} ✓</span>
+                          <span className="text-amber-600">{member.pending_tasks} ⏳</span>
+                          <span className="text-red-600">{member.overdue_tasks} ⚠️</span>
+                        </div>
+                        <p className={`text-xs font-medium ${getMemberPerformanceColor(member)}`}>
+                          {member.overdue_tasks > 0 ? 'Needs attention' :
+                           member.completed_tasks > member.pending_tasks ? 'On track' : 'Monitor'}
+                        </p>
                       </div>
-                      <p className={`text-xs font-medium ${getMemberPerformanceColor(member)}`}>
-                        {member.overdue_tasks > 0 ? 'Needs attention' : 
-                         member.completed_tasks > member.pending_tasks ? 'On track' : 'Monitor'}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -294,7 +306,7 @@ export default function TeamDashboard() {
               <div className="space-y-3">
                 {recentTasks.length > 0 ? (
                   recentTasks.map((task) => (
-                    <div 
+                    <div
                       key={task.id}
                       className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => navigate(`/task/${task.id}`)}
@@ -308,7 +320,7 @@ export default function TeamDashboard() {
                             <span>{task.assignee.name}</span>
                             <span>•</span>
                             <Clock className="h-3 w-3" />
-                            <span>{new Date(task.due_at).toLocaleDateString()}</span>
+                            <span>{task.due_at ? new Date(task.due_at).toLocaleDateString() : 'No due date'}</span>
                           </div>
                         </div>
                       </div>
