@@ -75,6 +75,8 @@ export const practices = pgTable("practices", {
   timezone: text("timezone").notNull().default('Europe/London'),
   isDispensing: boolean("is_dispensing").notNull().default(false),
   isBranch: boolean("is_branch").notNull().default(false),
+  // Phase 2: general-purpose bag; holds the scheduler_enabled staged-rollout flag.
+  metadata: jsonb("metadata").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
