@@ -9,7 +9,7 @@ import type { InsertUser } from "@shared/schema";
 const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
-function validatePasswordStrength(password: string): string | null {
+export function validatePasswordStrength(password: string): string | null {
   if (password.length < PASSWORD_MIN_LENGTH) {
     return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
   }
@@ -17,6 +17,30 @@ function validatePasswordStrength(password: string): string | null {
     return "Password must contain uppercase, lowercase, a number, and a special character";
   }
   return null;
+}
+
+/** Generates a random password satisfying the strength policy (for temporary credentials). */
+export function generateTemporaryPassword(): string {
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const special = "!@#$%&*";
+  const all = lower + upper + digits + special;
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const chars = [pick(lower), pick(upper), pick(digits), pick(special)];
+  while (chars.length < 16) {
+    chars.push(pick(all));
+  }
+  // Shuffle so required character classes aren't always at the start
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }
 
 const loginLimiter = rateLimit({

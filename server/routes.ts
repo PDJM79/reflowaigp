@@ -1,7 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./auth";
+import { setupAuth, isAuthenticated, validatePasswordStrength, generateTemporaryPassword, hashPassword } from "./auth";
 import { getAITips } from "./aiTips";
 import { getComplaintAnalysis } from "./complaintAnalysis";
 import { getTrainingAnalysis } from "./trainingAnalysis";
@@ -30,6 +30,28 @@ function stripPracticeId<T extends Record<string, any>>(data: T): Omit<T, 'pract
   const { practiceId, ...rest } = data;
   return rest;
 }
+
+// Never send password hashes to the client
+function sanitizeUser<T extends { passwordHash?: string | null }>(user: T): Omit<T, 'passwordHash'> {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
+const USER_MANAGER_ROLES = new Set(['practice_manager', 'cd_lead_gp']);
+
+// Only practice managers (or CD lead GPs) may create or modify user accounts
+const requireUserManager: RequestHandler = async (req, res, next) => {
+  try {
+    const currentUser = await storage.getUser(req.session.userId!, req.session.practiceId!);
+    if (!currentUser || (!currentUser.isPracticeManager && !USER_MANAGER_ROLES.has(currentUser.role ?? ''))) {
+      return res.status(403).json({ error: "Only practice managers can manage user accounts" });
+    }
+    next();
+  } catch (error) {
+    console.error("requireUserManager error:", error);
+    res.status(500).json({ error: "Failed to verify permissions" });
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -100,8 +122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const users = await storage.getUsersByPractice((req.params.practiceId as string));
-      res.json(users);
+      res.json(users.map(sanitizeUser));
     } catch (error) {
+      console.error("GET users error:", error);
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
@@ -112,34 +135,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
+      console.error("GET user error:", error);
       res.status(500).json({ error: "Failed to fetch user" });
     }
   });
 
-  app.post("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
+  app.post("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, requireUserManager, async (req, res) => {
     try {
-      const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
+      const practiceId = (req.params.practiceId as string);
+      // Never accept a client-supplied hash; passwords are hashed server-side
+      const { password, passwordHash: _ignored, ...body } = req.body ?? {};
+
+      if (password !== undefined && password !== '') {
+        const passwordError = validatePasswordStrength(password);
+        if (passwordError) {
+          return res.status(400).json({ error: passwordError });
+        }
+      }
+      const plainPassword: string = password || generateTemporaryPassword();
+      const wasGenerated = !password;
+
+      if (body.email) {
+        const existing = await storage.getUserByEmail(body.email, practiceId);
+        if (existing) {
+          return res.status(400).json({ error: "A user with this email already exists in this practice" });
+        }
+      }
+
+      const dataWithPractice = {
+        ...stripPracticeId(body),
+        practiceId,
+        passwordHash: await hashPassword(plainPassword),
+      };
       const validated = insertUserSchema.parse(dataWithPractice);
       const user = await storage.createUser(validated);
-      res.status(201).json(user);
+      // Return the generated password once so the manager can share login details
+      res.status(201).json({
+        ...sanitizeUser(user),
+        ...(wasGenerated ? { temporaryPassword: plainPassword } : {}),
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
+      console.error("POST user error:", error);
       res.status(500).json({ error: "Failed to create user" });
     }
   });
 
-  app.patch("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+  app.patch("/api/practices/:practiceId/users/:id", isAuthenticated, requireSamePractice, requireUserManager, async (req, res) => {
     try {
-      const user = await storage.updateUser((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
+      // Password changes go through dedicated auth flows, not this endpoint
+      const { password: _pw, passwordHash: _hash, ...updates } = req.body ?? {};
+      const user = await storage.updateUser((req.params.id as string), (req.params.practiceId as string), stripPracticeId(updates));
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
+      console.error("PATCH user error:", error);
       res.status(500).json({ error: "Failed to update user" });
     }
   });
@@ -278,28 +334,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Accept ISO strings for timestamps (clients send JSON)
+  const taskDateFields = {
+    dueAt: z.coerce.date().nullable().optional(),
+    completedAt: z.coerce.date().nullable().optional(),
+  };
+
   app.post("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const dataWithPractice = { ...stripPracticeId(req.body), practiceId: (req.params.practiceId as string) };
-      const validated = insertTaskSchema.parse(dataWithPractice);
+      const validated = insertTaskSchema.extend(taskDateFields).parse(dataWithPractice);
       const task = await storage.createTask(validated);
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
+      console.error("POST task error:", error);
       res.status(500).json({ error: "Failed to create task" });
     }
   });
 
   app.patch("/api/practices/:practiceId/tasks/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const task = await storage.updateTask((req.params.id as string), (req.params.practiceId as string), stripPracticeId(req.body));
+      const updates: Record<string, unknown> = { ...stripPracticeId(req.body) };
+      if (typeof updates.dueAt === 'string') updates.dueAt = new Date(updates.dueAt);
+      if (typeof updates.completedAt === 'string') updates.completedAt = new Date(updates.completedAt);
+      // Stamp completion time so on-time analytics work
+      if (updates.status === 'complete' && updates.completedAt === undefined) {
+        updates.completedAt = new Date();
+      }
+      const task = await storage.updateTask((req.params.id as string), (req.params.practiceId as string), updates);
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
       res.json(task);
     } catch (error) {
+      console.error("PATCH task error:", error);
       res.status(500).json({ error: "Failed to update task" });
     }
   });
