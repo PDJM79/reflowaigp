@@ -97,6 +97,7 @@ export function AppLayout() {
       title: 'Tasks & Schedule',
       items: [
         { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', capabilities: 'all' },
+        { icon: BookOpen, label: 'Logbooks', path: '/logbooks', capabilities: ['configure_practice', 'manage_users'] },
         { icon: Calendar, label: t('nav.schedule'), path: '/schedule', capabilities: ['configure_practice', 'manage_users'] },
         { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', capabilities: 'configure_practice' },
       ]

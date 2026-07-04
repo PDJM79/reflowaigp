@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 // Task Management
 import TaskTemplates from "./pages/TaskTemplates";
 import TasksList from "./pages/TasksList";
+import Logbooks from "./pages/Logbooks";
 import Schedule from "./pages/Schedule";
 
 // Modules
@@ -104,6 +105,7 @@ const App = () => (
                   {/* Task Management */}
                   <Route path="/task-templates" element={<TaskTemplates />} />
                   <Route path="/tasks" element={<TasksList />} />
+                  <Route path="/logbooks" element={<Logbooks />} />
                   <Route path="/schedule" element={<Schedule />} />
                   <Route path="/month-end" element={<MonthEndScripts />} />
                   <Route path="/claims" element={<Claims />} />
