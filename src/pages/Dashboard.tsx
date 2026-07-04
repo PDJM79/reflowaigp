@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -45,16 +44,20 @@ const MANAGER_ROLES = new Set([
 // ── Cleaner / Reception home page ─────────────────────────────────────────
 function CleanerHome({ practiceId, name }: { practiceId: string; name: string }) {
   const [stats, setStats] = useState({ total: 0, completed: 0, zones: 0, loading: true });
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
+    const getJson = async (url: string) => {
+      const r = await fetch(url, { credentials: 'include' });
+      if (!r.ok) throw new Error(`Failed to load ${url}`);
+      return r.json();
+    };
+    setLoadFailed(false);
     Promise.all([
-      fetch(`/api/practices/${practiceId}/cleaning-tasks`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : []),
-      fetch(`/api/practices/${practiceId}/cleaning-logs?date=${today}`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : []),
-      fetch(`/api/practices/${practiceId}/cleaning-zones`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : []),
+      getJson(`/api/practices/${practiceId}/cleaning-tasks`),
+      getJson(`/api/practices/${practiceId}/cleaning-logs?date=${today}`),
+      getJson(`/api/practices/${practiceId}/cleaning-zones`),
     ]).then(([tasks, logs, zones]) => {
       setStats({
         total: (tasks as { is_active?: boolean }[]).filter(t => t.is_active !== false).length,
@@ -62,7 +65,11 @@ function CleanerHome({ practiceId, name }: { practiceId: string; name: string })
         zones: (zones as { is_active?: boolean }[]).filter(z => z.is_active !== false).length,
         loading: false,
       });
-    }).catch(() => setStats(s => ({ ...s, loading: false })));
+    }).catch((error) => {
+      console.error('Error loading cleaning summary:', error);
+      setLoadFailed(true);
+      setStats(s => ({ ...s, loading: false }));
+    });
   }, [practiceId]);
 
   const firstName = name.split(' ')[0];
@@ -98,6 +105,8 @@ function CleanerHome({ practiceId, name }: { practiceId: string; name: string })
                 <div className="h-7 bg-white/20 rounded animate-pulse w-3/4" />
                 <div className="h-4 bg-white/20 rounded animate-pulse w-1/2" />
               </div>
+            ) : loadFailed ? (
+              <p className="text-lg font-semibold">Couldn't load today's schedule — check your connection and reopen this page</p>
             ) : stats.total === 0 ? (
               <p className="text-lg font-semibold">No tasks configured yet</p>
             ) : (
@@ -179,34 +188,45 @@ export default function Dashboard() {
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [allPracticeTasks, setAllPracticeTasks] = useState<SlimTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
 
   const isManager = MANAGER_ROLES.has(user?.role ?? '');
 
-  // Fetch personal tasks
+  // Fetch practice tasks once; derive personal + practice-wide views
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('tasks')
-      .select('id, title, due_at, status, priority, module')
-      .eq('assigned_to_user_id', user.id)
-      .order('due_at', { ascending: true })
-      .then(({ data }) => {
-        setMyTasks(data || []);
-        setLoading(false);
-      });
-  }, [user]);
-
-  // Fetch all practice tasks for managers
-  useEffect(() => {
-    if (!user || !isManager || !user.practiceId) return;
-    supabase
-      .from('tasks')
-      .select('id, due_at, status')
-      .eq('practice_id', user.practiceId)
-      .then(({ data }) => {
-        setAllPracticeTasks(data || []);
-      });
+    if (!user?.practiceId) return;
+    setLoadError(false);
+    fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch tasks');
+        return res.json();
+      })
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : [];
+        const mapped = rows.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          due_at: t.dueAt,
+          status: t.status || 'pending',
+          priority: t.priority || 'medium',
+          module: t.module || '',
+          assigned_to_user_id: t.assigneeId,
+        }));
+        setMyTasks(
+          mapped
+            .filter((t) => t.assigned_to_user_id === user.id)
+            .sort((a, b) => new Date(a.due_at || 0).getTime() - new Date(b.due_at || 0).getTime())
+        );
+        if (isManager) {
+          setAllPracticeTasks(mapped.map(({ id, due_at, status }) => ({ id, due_at, status })));
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching dashboard tasks:', error);
+        setLoadError(true);
+      })
+      .finally(() => setLoading(false));
   }, [user, isManager]);
 
   // Cleaner / reception: show a dedicated welcome page instead of the
@@ -223,6 +243,25 @@ export default function Dashboard() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
           <p className="text-muted-foreground">{t('app.loading')}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+            <div>
+              <p className="font-medium">Failed to load your dashboard</p>
+              <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

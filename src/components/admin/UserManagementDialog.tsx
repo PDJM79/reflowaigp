@@ -6,12 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { useRoleCatalog } from '@/hooks/useRoleCatalog';
-import type { PracticeRole } from '@/types/roles';
 
 interface UserManagementDialogProps {
   isOpen: boolean;
@@ -20,21 +20,44 @@ interface UserManagementDialogProps {
   user?: any;
 }
 
+// Fallback when the practice-roles catalog is unavailable: the core user roles
+// understood by the session-auth backend (users.role enum).
+const FALLBACK_ROLES: { value: string; label: string }[] = [
+  { value: 'practice_manager', label: 'Practice Manager' },
+  { value: 'cd_lead_gp', label: 'CD Lead GP' },
+  { value: 'nurse_lead', label: 'Nurse Lead' },
+  { value: 'ig_lead', label: 'IG Lead' },
+  { value: 'estates_lead', label: 'Estates Lead' },
+  { value: 'reception_lead', label: 'Reception Lead' },
+  { value: 'gp', label: 'GP' },
+  { value: 'nurse', label: 'Nurse' },
+  { value: 'hca', label: 'HCA' },
+  { value: 'reception', label: 'Reception' },
+  { value: 'auditor', label: 'Auditor' },
+  { value: 'cleaner', label: 'Cleaner' },
+];
+
 export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserManagementDialogProps) {
   const { user: currentUser } = useAuth();
   const { selectedPracticeId } = usePracticeSelection();
-  const { practiceRoles, practiceRolesLoading, getActivePracticeRoles } = useRoleCatalog();
-  
+  const { practiceRolesLoading, getActivePracticeRoles } = useRoleCatalog();
+
+  const practiceId = currentUser?.practiceId || selectedPracticeId;
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    role: '',
     selectedPracticeRoleIds: [] as string[],
   });
   const [existingRoleIds, setExistingRoleIds] = useState<string[]>([]);
 
   const activePracticeRoles = getActivePracticeRoles();
+  // The practice-roles catalog is loaded via the Supabase client; with
+  // session-based auth it may be unavailable, so fall back to core roles.
+  const useFallbackRoles = !practiceRolesLoading && activePracticeRoles.length === 0;
 
   useEffect(() => {
     if (user) {
@@ -42,6 +65,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: user.name || '',
         email: '',
         password: '',
+        role: user.role || '',
         selectedPracticeRoleIds: [],
       });
       fetchUserRoles(user.id);
@@ -50,6 +74,7 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
         name: '',
         email: '',
         password: '',
+        role: '',
         selectedPracticeRoleIds: [],
       });
       setExistingRoleIds([]);
@@ -57,17 +82,17 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
   }, [user, isOpen]);
 
   const fetchUserRoles = async (userId: string) => {
-    if (!selectedPracticeId) return;
+    if (!practiceId) return;
 
     try {
       const { data, error } = await supabase
         .from('user_practice_roles')
         .select('practice_role_id')
         .eq('user_id', userId)
-        .eq('practice_id', selectedPracticeId);
+        .eq('practice_id', practiceId);
 
       if (error) throw error;
-      
+
       const roleIds = (data || []).map(r => r.practice_role_id);
       setExistingRoleIds(roleIds);
       setFormData(prev => ({ ...prev, selectedPracticeRoleIds: roleIds }));
@@ -85,9 +110,17 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }));
   };
 
+  const getPrimaryRoleKey = (): string => {
+    if (useFallbackRoles) return formData.role;
+    const primaryRole = activePracticeRoles.find(
+      pr => pr.id === formData.selectedPracticeRoleIds[0]
+    );
+    return primaryRole?.role_catalog?.role_key || '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast.error('Name is required');
       return;
@@ -98,12 +131,15 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       return;
     }
 
-    if (formData.selectedPracticeRoleIds.length === 0) {
+    const roleSelected = useFallbackRoles
+      ? formData.role !== ''
+      : formData.selectedPracticeRoleIds.length > 0;
+    if (!roleSelected) {
       toast.error('Please select at least one role');
       return;
     }
 
-    if (!selectedPracticeId) {
+    if (!practiceId) {
       toast.error('No practice selected');
       return;
     }
@@ -112,12 +148,12 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
 
     try {
       if (user) {
-        await updateUserRoles(user.id);
+        await updateExistingUser(user.id);
+        toast.success('User updated successfully');
       } else {
         await createNewUser();
       }
 
-      toast.success(user ? 'User roles updated successfully' : 'User created successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -128,80 +164,106 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  const updateUserRoles = async (userId: string) => {
-    if (!selectedPracticeId) return;
+  const updateExistingUser = async (userId: string) => {
+    if (!practiceId) return;
 
-    // Delete removed roles
-    const rolesToRemove = existingRoleIds.filter(id => !formData.selectedPracticeRoleIds.includes(id));
-    if (rolesToRemove.length > 0) {
-      const { error } = await supabase
-        .from('user_practice_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('practice_id', selectedPracticeId)
-        .in('practice_role_id', rolesToRemove);
-      if (error) throw error;
+    const roleKey = getPrimaryRoleKey();
+    const res = await fetch(`/api/practices/${practiceId}/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        name: formData.name,
+        ...(roleKey ? { role: roleKey, isPracticeManager: roleKey === 'practice_manager' } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to update user');
     }
 
-    // Add new roles
-    const rolesToAdd = formData.selectedPracticeRoleIds.filter(id => !existingRoleIds.includes(id));
-    if (rolesToAdd.length > 0) {
-      const { error } = await supabase
-        .from('user_practice_roles')
-        .insert(
-          rolesToAdd.map(practiceRoleId => ({
-            user_id: userId,
-            practice_id: selectedPracticeId,
-            practice_role_id: practiceRoleId,
-          }))
-        );
-      if (error) throw error;
+    if (!useFallbackRoles) {
+      await syncPracticeRoleBadges(userId);
     }
+  };
 
-    // Update name if changed
-    if (formData.name !== user.name) {
-      const { error } = await supabase
-        .from('users')
-        .update({ name: formData.name })
-        .eq('id', userId);
-      if (error) throw error;
+  // Best-effort sync of the practice-role badge system (Supabase-backed).
+  // Failures here must not report the whole operation as failed.
+  const syncPracticeRoleBadges = async (userId: string) => {
+    try {
+      const rolesToRemove = existingRoleIds.filter(id => !formData.selectedPracticeRoleIds.includes(id));
+      if (rolesToRemove.length > 0) {
+        const { error } = await supabase
+          .from('user_practice_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('practice_id', practiceId)
+          .in('practice_role_id', rolesToRemove);
+        if (error) throw error;
+      }
+
+      const rolesToAdd = formData.selectedPracticeRoleIds.filter(id => !existingRoleIds.includes(id));
+      if (rolesToAdd.length > 0) {
+        const { error } = await supabase
+          .from('user_practice_roles')
+          .insert(
+            rolesToAdd.map(practiceRoleId => ({
+              user_id: userId,
+              practice_id: practiceId,
+              practice_role_id: practiceRoleId,
+            }))
+          );
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error syncing practice role badges:', error);
+      toast.warning('User saved, but role badges could not be updated. Use Role Management to retry.');
     }
   };
 
   const createNewUser = async () => {
-    if (!selectedPracticeId) return;
+    if (!practiceId) return;
 
-    // Get primary role for user metadata
-    const primaryRole = activePracticeRoles.find(
-      pr => pr.id === formData.selectedPracticeRoleIds[0]
-    );
-    const roleKey = primaryRole?.role_catalog?.role_key || 'user';
+    const roleKey = getPrimaryRoleKey();
 
-    // Call edge function to create user account
-    const { data, error } = await supabase.functions.invoke('create-user-accounts', {
-      body: {
-        email: formData.email,
+    const res = await fetch(`/api/practices/${practiceId}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
         name: formData.name,
+        email: formData.email,
         role: roleKey,
-        practice_id: selectedPracticeId,
+        isPracticeManager: roleKey === 'practice_manager',
+        isActive: true,
         password: formData.password || undefined,
-      }
+      }),
     });
 
-    if (error) throw error;
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      const message = typeof err?.error === 'string'
+        ? err.error
+        : 'Failed to create user';
+      throw new Error(message);
+    }
 
-    // Add roles to user_practice_roles table
-    if (data?.user_id && formData.selectedPracticeRoleIds.length > 0) {
-      const { error: rolesError } = await supabase
-        .from('user_practice_roles')
-        .insert(
-          formData.selectedPracticeRoleIds.map(practiceRoleId => ({
-            user_id: data.user_id,
-            practice_id: selectedPracticeId,
-            practice_role_id: practiceRoleId,
-          }))
-        );
-      if (rolesError) throw rolesError;
+    const created = await res.json();
+
+    if (created.temporaryPassword) {
+      toast.success(
+        `User created. Temporary password: ${created.temporaryPassword}`,
+        {
+          description: 'Copy it now and share it securely — it will not be shown again.',
+          duration: 30000,
+        }
+      );
+    } else {
+      toast.success('User created successfully');
+    }
+
+    if (!useFallbackRoles && created.id) {
+      await syncPracticeRoleBadges(created.id);
     }
   };
 
@@ -222,10 +284,10 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
-            {user ? 'Edit User Roles' : 'Create New User'}
+            {user ? 'Edit User' : 'Create New User'}
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
-            {user ? 'Update roles and permissions for this user' : 'Add a new user account with roles and permissions'}
+            {user ? 'Update details and roles for this user' : 'Add a new user account with roles and permissions'}
           </DialogDescription>
         </DialogHeader>
 
@@ -270,7 +332,8 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
                     className="h-11"
                   />
                   <p className="text-sm text-muted-foreground">
-                    If left blank, a secure password will be generated automatically
+                    Must be 12+ characters with uppercase, lowercase, a number and a special
+                    character. If left blank, a secure password will be generated.
                   </p>
                 </div>
               </>
@@ -279,16 +342,29 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
 
           {/* Role Selection */}
           <div className="space-y-3">
-            <Label className="text-base">User Roles * (Select one or more)</Label>
+            <Label className="text-base">
+              {useFallbackRoles ? 'User Role *' : 'User Roles * (Select one or more)'}
+            </Label>
             {practiceRolesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
               </div>
-            ) : activePracticeRoles.length === 0 ? (
-              <div className="border rounded-lg p-4 text-center text-muted-foreground">
-                <p>No roles have been enabled for this practice yet.</p>
-                <p className="text-sm mt-1">Go to Role Management to enable roles.</p>
-              </div>
+            ) : useFallbackRoles ? (
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FALLBACK_ROLES.map((role) => (
+                    <SelectItem key={role.value} value={role.value} className="py-3">
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : (
               <ScrollArea className="h-[300px] border rounded-lg p-4">
                 <div className="space-y-3">
@@ -339,17 +415,17 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               className="w-full sm:w-auto min-h-[44px]"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || activePracticeRoles.length === 0}
+            <Button
+              type="submit"
+              disabled={loading}
               className="w-full sm:w-auto min-h-[44px]"
             >
               {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}

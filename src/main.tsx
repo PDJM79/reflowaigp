@@ -10,8 +10,6 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        console.log("Service Worker registered:", registration);
-
         // If a new SW is installed, ask it to activate and then reload to avoid mixed bundles
         registration.addEventListener("updatefound", () => {
           const worker = registration.installing;

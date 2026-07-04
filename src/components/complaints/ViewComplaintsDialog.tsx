@@ -52,7 +52,7 @@ export function ViewComplaintsDialog({ children }: ViewComplaintsDialogProps) {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userData?.practice_id && open,
+    enabled: !!practiceId && open,
   });
 
   const closeComplaint = useMutation({

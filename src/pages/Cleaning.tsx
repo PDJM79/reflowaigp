@@ -152,6 +152,10 @@ export default function Cleaning() {
 
   const handleCompleteTask = async () => {
     if (!selectedTask || !user?.practiceId) return;
+    if (hasIssue && !issueDescription.trim()) {
+      toast.error('Please describe the issue you are flagging');
+      return;
+    }
     setSubmitting(true);
     try {
       let photoUrl: string | null = null;
