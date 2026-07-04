@@ -1,0 +1,36 @@
+{
+  "module_id": "GP-MOD-017",
+  "module_name": "Tree Safety",
+  "source_school_module": "MOD-022",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Occupiers' Liability Act 1957 and 1984 (England/Wales); Occupiers' Liability (Scotland) Act 1960; Occupiers' Liability (Northern Ireland) Order 1987; NTSG 'Common Sense Risk Management of Trees' (Good Practice Guide 2011)"
+  },
+  "enforcing_body": {
+    "england": "HSE + Local Authority (TPO/conservation area consent) + CQC",
+    "wales": "HSE + Local Authority + HIW",
+    "scotland": "HSE + Local Authority + HIS",
+    "northern_ireland": "HSENI + Local Council + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-022. Responsible person updated to Practice Manager. Applies where the GP practice premises has trees in its grounds.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-017-001",
+      "title": "Annual Tree Survey and Risk Assessment",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only required where the practice premises has trees in its grounds.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year. Additional informal visual checks recommended after severe storms or high winds.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange annual survey with an ARB (Arboricultural Association) Approved Contractor or qualified arborist (minimum Level 3 arboriculture)." },
+        { "step_number": 2, "nations": "all", "description": "Arborist walks the site and assesses all trees: species, approximate age, structural condition (crown, trunk, root zone), evidence of disease, pests or structural weakness.", "photo_evidence_optional": true, "photo_guidance": "The arborist's report should include photographs — confirm these are included in the written report retained on file." },
+        { "step_number": 3, "nations": "all", "description": "Each tree is risk-rated and recommendations made: no action / monitor / routine maintenance / urgent intervention / removal." },
+        { "step_number": 4, "nations": "all", "description": "Any tree rated as requiring urgent intervention must be dealt with before the next period of patient access. Cordon off affected areas." },
+        { "step_number": 5, "nations": "all", "description": "Any tree work requiring consent (Tree Preservation Order or Conservation Area) must be approved by the Local Planning Authority before work begins." },
+        { "step_number": 6, "nations": "all", "description": "Written arborist report retained on file. Record: date, arborist name and qualification, number of trees surveyed, risk ratings, recommended actions, urgent works completed, next survey date." }
+      ]
+    }
+  ]
+}

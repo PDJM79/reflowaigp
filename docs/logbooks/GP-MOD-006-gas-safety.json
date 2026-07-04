@@ -1,0 +1,62 @@
+{
+  "module_id": "GP-MOD-006",
+  "module_name": "Gas Safety",
+  "source_school_module": "MOD-006",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Gas Safety (Installation and Use) Regulations 1998; Health and Safety at Work Act 1974"
+  },
+  "enforcing_body": {
+    "england": "HSE (Gas Safe Register) + CQC",
+    "wales": "HSE (Gas Safe Register) + HIW",
+    "scotland": "HSE (Gas Safe Register) + HIS",
+    "northern_ireland": "HSENI (Gas Safe Register) + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-006. Responsible person updated to Practice Manager. Gas Safe Register operates across the whole of Great Britain and Northern Ireland. Medical gases (oxygen, nitrous oxide, piped gas installations) are covered separately under GP-MOD-011 (PSSR) and GP-MOD-023.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-006-001",
+      "title": "Monthly Boiler Visual Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the premises has a gas-fired boiler or heating appliance.",
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check the boiler/heating appliance: confirm the pilot light or ignition is functioning, the flue is intact and unobstructed, no smell of gas, no visible corrosion or leaks at connections, pressure gauge is within the normal operating range (typically 1–1.5 bar when cold for a sealed system)." },
+        { "step_number": 2, "nations": "all", "description": "Check the boiler room or plant room: free from combustible materials, ventilation openings clear, carbon monoxide detector (if fitted) is operational with green indicator." },
+        { "step_number": 3, "nations": "all", "description": "If a gas smell is detected at any time: do not operate any electrical switches; evacuate the area; call the National Gas Emergency Service (0800 111 999) immediately." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, boiler reference, visual check pass/fail, any issues observed, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-006-002",
+      "title": "Annual Boiler Service",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the premises has a gas-fired boiler.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year by a Gas Safe registered engineer.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange annual service with a Gas Safe registered engineer. Confirm their Gas Safe registration card before work begins — check the register at www.gassaferegister.co.uk." },
+        { "step_number": 2, "nations": "all", "description": "Engineer services the boiler per manufacturer specification: clean heat exchanger, check ignition and burner, check flue integrity and combustion analysis, check all safety controls (overheat thermostat, pressure relief valve)." },
+        { "step_number": 3, "nations": "all", "description": "Engineer provides a signed service record. Any defects noted must be repaired before winter operation if possible." },
+        { "step_number": 4, "nations": "all", "description": "Retain the service record. Record: date, engineer name and Gas Safe number, boiler reference, work carried out, any deficiencies, next service due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-006-003",
+      "title": "Annual Gas Safety Inspection (Landlord / Occupier Certificate)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year. Note: GP practices may be tenants (NHS Property Services, PCN hubs, private landlord) or owner-occupiers. In all cases the occupier must ensure an annual gas safety check is carried out.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange the annual gas safety inspection with a Gas Safe registered engineer. This check must cover all gas appliances and the gas installation in the premises." },
+        { "step_number": 2, "nations": "all", "description": "Engineer inspects and tests: all gas appliances (boiler, gas hob if present), pipework and connections, gas meter installation, emergency control valve (ECV) location and operation, flue performance." },
+        { "step_number": 3, "nations": "all", "description": "Engineer issues a Gas Safety Record (CP12 or equivalent). Any Immediately Dangerous (ID) or At Risk (AR) appliances must be capped off immediately and not used until repaired." },
+        { "step_number": 4, "nations": "all", "description": "If the practice is a tenant, provide a copy of the Gas Safety Record to the building owner/landlord. If owner-occupier, retain on file." },
+        { "step_number": 5, "nations": "all", "description": "Retain the Gas Safety Record. Record: date, engineer Gas Safe number, appliances checked, outcome (satisfactory/unsatisfactory), any ID or AR items, action taken, next inspection due." }
+      ]
+    }
+  ]
+}

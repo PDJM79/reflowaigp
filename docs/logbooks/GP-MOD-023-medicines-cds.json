@@ -1,0 +1,108 @@
+{
+  "module_id": "GP-MOD-023",
+  "module_name": "Medicines Management and Controlled Drugs",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "all": "Misuse of Drugs Act 1971; Misuse of Drugs Regulations 2001; Misuse of Drugs (Safe Custody) Regulations 1973 (as amended); Medicines Act 1968; Human Medicines Regulations 2012",
+    "england": "NHS England CD Accountable Officer framework; NHS England Medicines Optimisation guidance",
+    "wales": "NHS Wales Controlled Drug governance; Welsh Government Medicines Optimisation guidance",
+    "scotland": "NHS Scotland CD Accountable Officer arrangements; SMC (Scottish Medicines Consortium) guidance",
+    "northern_ireland": "BSO (Business Services Organisation) CD governance; HSCB medicines management guidance"
+  },
+  "enforcing_body": {
+    "england": "Home Office (CD licensing) + CQC ('Safe' domain — CD management) + NHS England CD Accountable Officer",
+    "wales": "Home Office + HIW + NHS Wales Health Board CD Accountable Officer",
+    "scotland": "Home Office + HIS + NHS Scotland Health Board CD Accountable Officer",
+    "northern_ireland": "Home Office + RQIA + BSO Pharmaceutical Advisors"
+  },
+  "responsible_role": "GP Partners (CD Licence holder) + Practice Manager (day-to-day management) + CD Accountable Officer (NHS England/Wales/Scotland/NI designated officer)",
+  "applicable_to": ["all", "dispensing"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-023-001",
+      "title": "Medicines Storage Inspection (Non-CD)",
+      "applicable_to": ["all", "dispensing"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inspect all medicines storage areas (excluding the CD cabinet — see GP-LB-013-003): medicines refrigerator(s), general medicines cupboard, emergency drugs trolley or bag." },
+        { "step_number": 2, "nations": "all", "description": "Medicines refrigerator: confirm temperature log shows continuous temperatures of 2–8°C. Check the fridge temperature at the start and end of each day; if the temperature has exceeded 8°C or fallen below 2°C at any point, segregate affected stock and consult the manufacturer or pharmacist before use." },
+        { "step_number": 3, "nations": "all", "description": "General medicines cupboard: confirm locked when unattended, no expired stock, original labelled containers, no personal medications stored with practice stock." },
+        { "step_number": 4, "nations": "all", "description": "Emergency drugs trolley/bag: confirm all contents are present per the practice's emergency drugs list, all items are in date, adrenaline auto-injectors (epinephrine) are in date and not discoloured, trolley/bag is resealable/tamper-evident seal intact." },
+        { "step_number": 5, "nations": "all", "description": "For dispensing practices: inspect the dispensary medicines shelving — confirm FIFO (first in first out) stock rotation, no expired stock on shelves, high-risk medicines (e.g., anticoagulants, methotrexate, lithium) are stored in designated areas with clear labelling." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, areas inspected, fridge temperature range (min/max since last check), any expired stock removed, any temperature excursions, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-023-002",
+      "title": "CD Register and Balance Reconciliation",
+      "applicable_to": ["all", "dispensing"],
+      "applicable_condition": "All practices holding Schedule 2 CDs (morphine sulphate, diamorphine, oxycodone, fentanyl, pethidine, methylphenidate and others). The CD register is a legal requirement — a separate register must be kept for each Schedule 2 CD.",
+      "frequency": "per_use_and_monthly_balance_check",
+      "frequency_detail": "Entry in the CD register must be made at the time of every transaction (receipt, supply to patient, destruction, return). A balance reconciliation check must be carried out at minimum monthly.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "On each CD transaction (receipt, patient supply, destruction, return to wholesaler): make an entry in the bound, numbered CD register in ink, in chronological order. Entries must include: date, transaction type (received/supplied/destroyed), quantity in, quantity out, running balance, person making the entry." },
+        { "step_number": 2, "nations": "all", "description": "Monthly balance check: physically count the stock of each Schedule 2 CD in the cabinet and compare to the register balance. Any discrepancy between physical stock and register balance must be reported to the CD Accountable Officer immediately — do not attempt to investigate or correct the register yourself." },
+        { "step_number": 3, "nations": "england", "description": "Report discrepancies to the NHS England CD Accountable Officer for the ICB area. Significant unexplained discrepancies may require reporting to the police and Home Office. CQC will review CD registers during inspection as part of 'Safe'." },
+        { "step_number": 3, "nations": "wales", "description": "Report discrepancies to the NHS Wales Health Board CD Accountable Officer. HIW may review CD registers during inspection." },
+        { "step_number": 3, "nations": "scotland", "description": "Report discrepancies to the NHS Scotland Health Board CD Accountable Officer. HIS may review CD governance during quality visits." },
+        { "step_number": 3, "nations": "northern_ireland", "description": "Report discrepancies to the BSO (Business Services Organisation) Pharmaceutical Advisors. RQIA may review CD governance during inspection." },
+        { "step_number": 4, "nations": "all", "description": "The CD register must be retained for 2 years from the date of the last entry (Misuse of Drugs Regulations 2001, Regulation 19). Best practice is to retain for 7 years in a healthcare setting." },
+        { "step_number": 5, "nations": "all", "description": "Record: date of balance check, CD name and form, register balance, physical count, match (yes/no), any discrepancy and action taken, checker name and signature, witness name and signature." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-023-003",
+      "title": "CD Destruction Record",
+      "applicable_to": ["all", "dispensing"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Record every destruction event at the time of destruction.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "CDs requiring destruction include: expired stock, returned patient CDs, damaged stock, and discontinued product. Do not destroy CDs informally — all destructions must be witnessed and recorded in the CD register." },
+        { "step_number": 2, "nations": "england", "description": "In England, Schedule 2 CDs held by a GP practice must be destroyed in the presence of an authorised witness (a person authorised by the Secretary of State — typically an NHS England/ICB CD Accountable Officer, Medicines Inspector, or an authorised pharmacist inspector). Contact the local ICB for current arrangements. Denaturing kits (e.g., Doop CD disposal kit) are used to render CDs irretrievable." },
+        { "step_number": 2, "nations": "wales", "description": "In Wales, Schedule 2 CD destruction must be witnessed by an authorised person (NHS Wales Health Board CD Accountable Officer or authorised pharmacist). Contact the local Health Board for current arrangements." },
+        { "step_number": 2, "nations": "scotland", "description": "In Scotland, Schedule 2 CD destruction must be witnessed by an authorised person (NHS Scotland Health Board CD Accountable Officer or authorised pharmacist). Contact the local Health Board for current arrangements." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "In Northern Ireland, Schedule 2 CD destruction must be witnessed by an authorised person. Contact the BSO Pharmaceutical Advisors for current arrangements." },
+        { "step_number": 3, "nations": "all", "description": "Record the destruction in the CD register: date, name of CD, quantity destroyed, method of destruction, witness name and signature, person carrying out destruction name and signature." },
+        { "step_number": 4, "nations": "all", "description": "The denaturing kit / destroyed product waste must be disposed of as clinical waste (purple-lidded bin for cytotoxic/cytostatic; yellow-lidded bin for other medicines waste — see GP-MOD-025)." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-023-004",
+      "title": "Annual Medicines Reconciliation and Audit (Dispensing Practices)",
+      "applicable_to": ["dispensing"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "For dispensing practices: carry out an annual stock reconciliation, comparing medicines received against medicines dispensed and medicines remaining in stock, identifying any unexplained losses." },
+        { "step_number": 2, "nations": "all", "description": "Review the dispensing error log for the past year. Identify any near-misses or dispensing errors. Implement or review procedures to reduce recurrence." },
+        { "step_number": 3, "nations": "all", "description": "Review cold-chain compliance records for the past year — confirm all temperature-sensitive medicines (vaccines, insulins, biologics) have been stored and transported within the required temperature range. Investigate any excursions." },
+        { "step_number": 4, "nations": "all", "description": "Review the medicines returns and disposal log — confirm all expired or returned medicines have been disposed of via an approved licensed clinical waste contractor (see GP-MOD-025)." },
+        { "step_number": 5, "nations": "england", "description": "Confirm compliance with NHS England/ICB dispensing practice requirements. Submit dispensing data as required under the dispensing practice GMS contract." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm compliance with NHS Wales Health Board dispensing practice requirements." },
+        { "step_number": 5, "nations": "scotland", "description": "Confirm compliance with NHS Scotland Health Board dispensing practice requirements." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm compliance with BSO/HSCB dispensing practice requirements." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, stock reconciliation completed, dispensing errors reviewed, cold-chain compliance confirmed, medicines disposal confirmed, auditor name, next audit due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-023-005",
+      "title": "Annual CD Audit",
+      "applicable_to": ["all", "dispensing"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. Some CD Accountable Officers require more frequent reporting.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review the CD register for the past year: confirm all entries are complete, legible, signed, and witnessed where required. Confirm running balances have been maintained correctly." },
+        { "step_number": 2, "nations": "all", "description": "Confirm all discrepancies identified during the year have been reported and investigated." },
+        { "step_number": 3, "nations": "all", "description": "Confirm all CD destructions have been witnessed and correctly recorded." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the CD cabinet is compliant with the Misuse of Drugs (Safe Custody) Regulations 1973: wall-fixed or floor-fixed, metal construction, mortice or concealed hinge lock." },
+        { "step_number": 5, "nations": "england", "description": "Complete the annual CD Audit return to the NHS England ICB/CD Accountable Officer as required. CQC will review CD audit compliance as part of 'Safe'." },
+        { "step_number": 5, "nations": "wales", "description": "Complete the annual CD Audit return to the NHS Wales Health Board CD Accountable Officer." },
+        { "step_number": 5, "nations": "scotland", "description": "Complete the annual CD Audit return to the NHS Scotland Health Board CD Accountable Officer." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Complete the annual CD Audit return to the BSO Pharmaceutical Advisors." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, audit completed by, register reviewed, discrepancies (yes/no), destructions reviewed, cabinet compliance confirmed, return submitted to AO (date and reference), next audit due." }
+      ]
+    }
+  ]
+}

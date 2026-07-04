@@ -1,0 +1,140 @@
+{
+  "module_id": "GP-MOD-002",
+  "module_name": "Water Safety / Legionella",
+  "source_school_module": "MOD-002",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Control of Substances Hazardous to Health Regulations 2002 (COSHH); L8 ACOP (Legionella: The Control of Legionella Bacteria in Water Systems)"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC ('Safe' domain)",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager (Responsible Person for water safety / Legionella)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Water safety requirements are identical across nations under L8 ACOP. The only divergence is in the enforcing body that may request records. All steps marked 'all' apply uniformly. Where a GP practice has a hydrotherapy or treatment pool this is clinical equipment outside scope — this logbook covers domestic and utility water systems only.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-002-001",
+      "title": "Weekly Sentinel Outlet Flushing and Temperature Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "weekly",
+      "frequency_detail": "Every 7 days. Sentinel outlets are those at the extremities of the hot and cold water distribution system — least-used taps, showers, sluice outlets.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify sentinel outlets for the premises from the water risk assessment schematic. In a GP surgery these typically include: least-used patient toilet taps, staff kitchen tap on the furthest run, any shower or hose reel outlet." },
+        { "step_number": 2, "nations": "all", "description": "Run each cold sentinel outlet for at least 2 minutes. Measure the cold water temperature after 2 minutes. Target: ≤20°C. Record temperature. If temperature exceeds 20°C after flushing, investigate and escalate." },
+        { "step_number": 3, "nations": "all", "description": "Run each hot sentinel outlet. After 2 minutes, measure the hot water temperature. Target: ≥50°C at outlets (60°C from calorifier). If below 50°C after 2 minutes, escalate to the water treatment contractor." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, outlet reference, cold temperature measured, hot temperature measured, pass/fail, action taken, tester name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-002",
+      "title": "Monthly Calorifier (Hot Water Storage) Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the premises has a hot water storage calorifier or cylinder. Small GP premises with combination boilers may not have this — confirm with the water risk assessment.",
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check the calorifier flow and return temperatures using the thermometers/gauges fitted to the vessel. Flow: target ≥60°C; return: target ≥50°C." },
+        { "step_number": 2, "nations": "all", "description": "Confirm the immersion thermostat is set to ≥60°C." },
+        { "step_number": 3, "nations": "all", "description": "If temperatures are outside target, contact the water treatment or heating contractor immediately. Do not operate the system at sub-target temperatures without professional advice." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, flow temperature, return temperature, thermostat setting confirmed, action taken, tester name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-003",
+      "title": "Monthly Cold Water Storage Tank (CWST) Visual Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the premises has a cold water storage tank (cistern) in the roof space or plant room. Many modern GP premises are on mains-fed supply only.",
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Access the tank location. Confirm the tank lid/cover is in place and undamaged." },
+        { "step_number": 2, "nations": "all", "description": "Visually inspect the tank: no evidence of contamination, sediment, biofilm, dead animals or insects, discolouration or unusual odour." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the insulation is intact (preventing heat gain or freezing). Confirm the inlet ball valve is operating correctly (no overflow)." },
+        { "step_number": 4, "nations": "all", "description": "Measure the cold water temperature in the tank. Target: ≤20°C." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, temperature, visual condition, any issues found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-004",
+      "title": "Quarterly Thermostatic Mixing Valve (TMV) Blending Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where TMVs are fitted (typically to patient/disabled toilet basins and clinical hand-wash basins to prevent scalding at ≤43°C).",
+      "frequency": "quarterly",
+      "frequency_detail": "Every 3 months.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Run the outlet fitted with the TMV. After 1 minute, measure the blended outlet temperature. Target: ≤43°C (anti-scald) but must not be so cool as to promote Legionella (should be above 38°C in normal operation)." },
+        { "step_number": 2, "nations": "all", "description": "Confirm the TMV fails safe to cold (check by isolating the cold supply — the outlet should reduce to a trickle or stop, not run hot)." },
+        { "step_number": 3, "nations": "all", "description": "If the blended temperature is outside the 38–43°C range, call the plumbing contractor to adjust or replace the TMV cartridge." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, TMV reference and location, outlet temperature measured, fail-safe test result, action taken, tester name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-005",
+      "title": "Quarterly Shower Head Descale and Disinfection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where showers are present. Many GP surgeries do not have showers; confirm from site survey.",
+      "frequency": "quarterly",
+      "frequency_detail": "Every 3 months (or more frequently in hard water areas).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Remove the shower head and hose. Dismantle the shower head rose." },
+        { "step_number": 2, "nations": "all", "description": "Soak the shower head and rose in a descaling solution (proprietary or citric acid) for at least 1 hour. Scrub with a brush to remove all scale and biofilm." },
+        { "step_number": 3, "nations": "all", "description": "Flush with hot water (≥60°C if possible). Refit the shower head." },
+        { "step_number": 4, "nations": "all", "description": "Run the shower at full hot for at least 2 minutes to flush and disinfect the hose. Measure outlet temperature — target ≥50°C after 2 minutes." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, shower reference, descale carried out, flush temperature, any issues, operative name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-006",
+      "title": "Annual TMV Service and Thermal Flush",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Where TMVs are fitted.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year by a competent plumber or water treatment contractor.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Isolate the TMV. Remove and inspect the cartridge for fouling, scale or debris." },
+        { "step_number": 2, "nations": "all", "description": "Clean or replace the cartridge as required. Flush the pipework upstream of the TMV." },
+        { "step_number": 3, "nations": "all", "description": "Carry out a high-temperature flush (thermal disinfection) of the outlet served by the TMV: bypass or remove the TMV and run the outlet at ≥60°C for at least 1 minute." },
+        { "step_number": 4, "nations": "all", "description": "Refit the TMV and recommission to the target blended temperature (≤43°C)." },
+        { "step_number": 5, "nations": "all", "description": "Retain the contractor's service report. Record: date, TMVs serviced, any deficiencies, remedial action, next service due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-007",
+      "title": "Annual Cold Water Storage Tank Inspection and Clean",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the premises has a cold water storage tank.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year by a competent water treatment contractor.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange with a competent water treatment contractor. Isolate the tank from the mains supply." },
+        { "step_number": 2, "nations": "all", "description": "Drain the tank completely. Inspect all internal surfaces for scale, sediment, biofilm, corrosion, cracks or contamination. Contractor to photograph findings." },
+        { "step_number": 3, "nations": "all", "description": "Clean the internal surfaces with an approved disinfectant (chlorine-based, typically 50 mg/l free residual chlorine for 1 hour contact time per BS 8558 / BS EN 806)." },
+        { "step_number": 4, "nations": "all", "description": "Inspect and test the ball valve, overflow, lid, insulation and screen. Replace any defective components." },
+        { "step_number": 5, "nations": "all", "description": "Refill the tank and confirm chlorine residual is within acceptable levels before returning to service. Flush through to all outlets." },
+        { "step_number": 6, "nations": "all", "description": "Retain the contractor's report and any water sample results. Record: date, contractor name, condition found, clean carried out, any deficiencies, next inspection due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-002-008",
+      "title": "Annual Legionella Risk Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually, or following any significant change to the water system, building use, or ownership.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the current Legionella Risk Assessment (LRA). Confirm it was carried out by a competent person and covers the entire water system of the premises (including any branch surgery sites if applicable)." },
+        { "step_number": 2, "nations": "all", "description": "Walk the premises and check for any changes to the water system since the last assessment: new outlets added, pipework alterations, changes to occupancy patterns, any areas of low water use (increased risk)." },
+        { "step_number": 3, "nations": "all", "description": "Review all control measures from the LRA — confirm each is being implemented as specified (flushing records, temperature monitoring, TMV servicing). Review any outstanding actions." },
+        { "step_number": 4, "nations": "all", "description": "If significant changes have occurred, instruct the competent water treatment specialist to carry out a full reassessment." },
+        { "step_number": 5, "nations": "england", "description": "Retain the LRA and control measures log. The assessment must be carried out by a competent person as required by L8 ACOP (4th edition). CQC may request evidence of Legionella risk management as part of the 'Safe' domain." },
+        { "step_number": 5, "nations": "wales", "description": "Retain the LRA and control measures log. L8 ACOP applies. HIW may request evidence as part of premises safety." },
+        { "step_number": 5, "nations": "scotland", "description": "Retain the LRA and control measures log. L8 ACOP and HSE guidance apply. HIS may request evidence." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Retain the LRA and control measures log. L8 ACOP applies. HSENI and RQIA may request evidence." },
+        { "step_number": 6, "nations": "all", "description": "Record: date of review, reviewer name and competence, changes identified, actions arising, next review date." }
+      ]
+    }
+  ]
+}

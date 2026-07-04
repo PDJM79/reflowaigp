@@ -1,0 +1,92 @@
+{
+  "module_id": "GP-MOD-028",
+  "module_name": "Occupational Health and Staff Clearances",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999; Control of Substances Hazardous to Health Regulations 2002 (COSHH — biological agents); Rehabilitation of Offenders Act 1974; Disclosure and Barring Service (DBS) — Police Act 1997 as amended; Employment Equality (Age) Regulations; Equality Act 2010",
+    "england": "NHS England workforce standards; NHS Employment Check Standards; Health Education England (now NHS England) immunisation guidance for healthcare workers",
+    "wales": "Health Education and Improvement Wales (HEIW) workforce standards; NHS Wales immunisation guidance",
+    "scotland": "NHS Education for Scotland (NES) workforce guidance; National Infection Prevention and Control Manual (NIPCM) immunisation standards",
+    "northern_ireland": "Health and Social Care Board (HSCB) / Health and Social Care (HSC) workforce standards; PHA NI immunisation guidance"
+  },
+  "enforcing_body": {
+    "england": "NHS England (workforce and employment standards) + CQC ('Safe' and 'Well-Led' domains) + HSE (occupational health obligations under HSWA and COSHH)",
+    "wales": "NHS Wales / HEIW + HIW + HSE",
+    "scotland": "NHS Scotland / NES + HIS + HSE",
+    "northern_ireland": "HSCB/HSC + RQIA + HSENI"
+  },
+  "responsible_role": "Practice Manager + GP Partners (DBS registered persons + responsible for ensuring employment checks are completed)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "All staff employed by a GP practice who have contact with patients require a DBS check at the appropriate level. For dispensing practice staff who handle prescription medicines, and for branch surgery staff, the same checks apply. Locum and agency staff must have equivalent checks — confirm through locum agencies or the NHS Performer List.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-028-001",
+      "title": "DBS Check Register",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "new_starters_and_triennial",
+      "frequency_detail": "New starter: before or at commencement of employment (or risk-assessed temporary arrangement). Renewal: every 3 years for all staff, or annually for high-risk roles (dispensary staff handling CDs, staff working with vulnerable adults). The DBS Update Service allows continuous monitoring where staff have subscribed.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "For each new starter: confirm the required level of DBS check — Enhanced DBS with adults barred list for clinical staff and any staff with unsupervised access to patients; Standard DBS for non-clinical staff with supervised patient contact; Basic DBS for administrative staff with no patient contact. Request the appropriate check via the practice's registered umbrella body or the NHS DBS portal." },
+        { "step_number": 2, "nations": "all", "description": "Where a new starter begins work before the DBS result is received, document the risk assessment justifying this decision: supervision arrangements, role limitations, practice of not leaving new starter unsupervised with patients until clearance received. This must be formally approved by a GP partner." },
+        { "step_number": 3, "nations": "all", "description": "On receipt of the DBS certificate: review the certificate for any disclosed convictions. Any conviction must be assessed for risk to patients using a structured risk-assessment process. Retain a note of the date seen and result — do NOT retain photocopies of the DBS certificate beyond 6 months unless there are exceptional documented reasons." },
+        { "step_number": 4, "nations": "all", "description": "For staff who have signed up to the DBS Update Service: check the Update Service status annually (free of charge) to confirm the certificate remains current with no new information. Record the date checked and outcome." },
+        { "step_number": 5, "nations": "england", "description": "Confirm that all clinical staff are either on the NHS Performers List (GPs) or have equivalent employment checks as required by NHS England employment check standards. CQC will review evidence of employment checks under 'Safe' and 'Well-Led'." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm NHS Wales employment check standards are met. HIW will review evidence of employment checks during inspection." },
+        { "step_number": 5, "nations": "scotland", "description": "Confirm NHS Scotland employment check standards are met. HIS may review staff governance as part of quality visits." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm HSCB/HSC Trust employment check standards are met. RQIA will review evidence of employment checks during inspection." },
+        { "step_number": 6, "nations": "all", "description": "Record: staff name (or reference number for data minimisation), role, date check requested, date certificate received, level of check, result (satisfactory/disclosed — detail withheld but action noted), date Update Service last checked, renewal due date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-028-002",
+      "title": "New Starter Immunisation and Health Screening Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "new_starters",
+      "frequency_detail": "For each new clinical or patient-facing member of staff at commencement of employment.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "For each new clinical or patient-facing staff member: refer to the Occupational Health service (or GP if no OH service) for a new starter health assessment, including: Hepatitis B vaccination status and immunity check (anti-HBs level), tuberculosis (TB) screening (IGRA or Mantoux), Varicella (chickenpox) immunity, MMR status (measles, mumps, rubella), seasonal influenza vaccination (offered annually)." },
+        { "step_number": 2, "nations": "all", "description": "Hepatitis B: if not immune (anti-HBs <10 mIU/mL), arrange vaccination course (0, 1, 6 months) and post-vaccination serology to confirm seroconversion. Staff who are Hepatitis B e-antigen positive must be assessed by an Occupational Physician before undertaking exposure-prone procedures (EPPs)." },
+        { "step_number": 3, "nations": "all", "description": "TB screening: for staff born in or who have lived in high-TB-incidence countries, or who have not had BCG vaccination, arrange TB screening as per current UK guidance (NICE TB Guidelines and PHE/UKHSA guidance). Confirm BCG scar or vaccination history." },
+        { "step_number": 4, "nations": "england", "description": "Follow current UKHSA/NHS England 'Green Book' (Immunisation Against Infectious Disease) guidance and NHS England immunisation standards for healthcare workers." },
+        { "step_number": 4, "nations": "wales", "description": "Follow current PHW/NHS Wales immunisation standards for healthcare workers." },
+        { "step_number": 4, "nations": "scotland", "description": "Follow current NHS Scotland/NES immunisation standards for healthcare workers (NIPCM and HPS guidance)." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "Follow current PHA NI immunisation standards for healthcare workers." },
+        { "step_number": 5, "nations": "all", "description": "Record: staff name (or reference), role, date of health assessment, Hepatitis B status (immune/not immune/in progress), TB screening result, Varicella status, MMR status, any occupational health referral made, date clearance confirmed for clinical duties." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-028-003",
+      "title": "Annual Influenza Vaccination Uptake Record",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Each autumn/winter vaccination season.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Offer influenza vaccination to all patient-facing staff before the start of the winter influenza season (target: vaccinate before end of November). Staff should not be compelled to vaccinate, but declinations should be recorded." },
+        { "step_number": 2, "nations": "all", "description": "Record: staff member (or reference), vaccination offered (yes/no), vaccination accepted (yes/no), date vaccinated (or date declined), vaccine lot number if vaccinated in-practice." },
+        { "step_number": 3, "nations": "england", "description": "Report annual staff influenza vaccination uptake data as required by NHS England/ICB (typically reported via the annual flu dashboard). CQC may note staff vaccination rates under 'Safe'." },
+        { "step_number": 3, "nations": "wales", "description": "Report as required by the NHS Wales Health Board / PHW." },
+        { "step_number": 3, "nations": "scotland", "description": "Report as required by the NHS Board / HPS Scotland." },
+        { "step_number": 3, "nations": "northern_ireland", "description": "Report as required by the PHA NI / HSCB." },
+        { "step_number": 4, "nations": "all", "description": "Record: season (e.g., 2025/26), total patient-facing staff, number vaccinated, number declined, uptake percentage, date reported to commissioner, reviewer name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-028-004",
+      "title": "Annual Appraisal and Revalidation Confirmation Log",
+      "applicable_to": ["all"],
+      "frequency": "annual",
+      "frequency_detail": "Once per appraisal year for each GP. Revalidation cycle is 5 years.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm each GP (including locums regularly working in the practice) has completed their annual appraisal with an approved NHS Appraisal Appraiser within the past 12 months. Record the date of appraisal for each GP." },
+        { "step_number": 2, "nations": "england", "description": "Appraisals are coordinated by NHS England (via the Appraisal Lead for the ICB area). Each GP's portfolio and appraisal output is submitted to NHS England to support revalidation with the General Medical Council (GMC)." },
+        { "step_number": 2, "nations": "wales", "description": "Appraisals are coordinated by the Local Health Board in Wales. Outputs support revalidation with the GMC." },
+        { "step_number": 2, "nations": "scotland", "description": "Appraisals are coordinated by the NHS Board / NES (NHS Education for Scotland). Outputs support revalidation with the GMC." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "Appraisals are coordinated by the Appraisal Lead for the HSC Board area. Outputs support revalidation with the GMC." },
+        { "step_number": 3, "nations": "all", "description": "For GPs approaching their revalidation date (every 5 years from date of first registration or last revalidation): confirm their revalidation pack has been submitted to the GMC Responsible Officer (the Revalidation Lead for the ICB/Health Board area)." },
+        { "step_number": 4, "nations": "all", "description": "For nursing staff and other regulated clinical staff: confirm annual appraisal is completed and revalidation requirements are current (e.g., NMC revalidation for nurses — 3-yearly; HCPC renewal for allied health professionals — 2-yearly)." },
+        { "step_number": 5, "nations": "all", "description": "Record: each registered clinician, date of annual appraisal, appraisal outcome, revalidation date (GPs), next revalidation due, any concerns identified (and action taken), reviewer name." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "module_id": "GP-MOD-027",
+  "module_name": "Regulatory Registration and Compliance",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "england": "Health and Social Care Act 2008; Health and Social Care Act 2008 (Regulated Activities) Regulations 2014; Care Quality Commission (Registration) Regulations 2009; CQC Fundamental Standards (Regulations 9–20A)",
+    "wales": "Health and Social Care (Community Health and Standards) Act 2003; NHS (Complaints) Regulations 2004; Healthcare Inspectorate Wales (HIW) Registration and Inspection regime",
+    "scotland": "National Health Service (Scotland) Act 1978; Healthcare Improvement Scotland (HIS) — GP quality frameworks; NHSScotland Quality Strategy",
+    "northern_ireland": "Health and Personal Social Services (Quality, Improvement and Regulation) (Northern Ireland) Order 2003; Regulation and Quality Improvement Authority (RQIA) registration requirements"
+  },
+  "enforcing_body": {
+    "england": "Care Quality Commission (CQC) — registration, inspection, enforcement",
+    "wales": "Healthcare Inspectorate Wales (HIW) — regulation and inspection of primary care",
+    "scotland": "Healthcare Improvement Scotland (HIS) — quality assurance and external review of GP practices",
+    "northern_ireland": "Regulation and Quality Improvement Authority (RQIA) — registration and inspection"
+  },
+  "responsible_role": "GP Partners (registered persons / nominated individual) + Practice Manager (day-to-day compliance and evidence collation)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "This module covers the registration, notification, and self-assessment obligations to the relevant healthcare regulator in each nation. Branch surgeries in England must be registered with CQC at the registered location level — confirm with CQC whether branch addresses require separate registration. In Wales/Scotland/NI, confirm current requirements with the relevant regulator.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-027-001",
+      "title": "Annual Statement of Purpose Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually and whenever services change materially.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review the practice's Statement of Purpose: confirm it accurately describes all regulated activities carried out, the range of services provided, the registered location(s), and the patient population served." },
+        { "step_number": 2, "nations": "england", "description": "Confirm the Statement of Purpose held by CQC is current. If any information has changed (services added or removed, premises changed, registered manager changed), notify CQC within 28 days of the change using CQC's online provider portal." },
+        { "step_number": 2, "nations": "wales", "description": "Confirm the Statement of Purpose held by HIW is current. Notify HIW of any material changes to services or premises in accordance with HIW notification requirements." },
+        { "step_number": 2, "nations": "scotland", "description": "Confirm the practice's service description held with the NHS Board and HIS is current. In Scotland, GP practices are not registered with HIS in the same way as in England — confirm current requirements with the NHS Board." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "Confirm the Statement of Purpose held by RQIA is current. Notify RQIA of any material changes in accordance with RQIA registration requirements." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the list of Regulated Activities on the registration is accurate: typically Treatment of Disease, Disorder or Injury; Diagnostic and Screening Procedures; Family Planning (where provided); Maternity and Midwifery Services (where provided)." },
+        { "step_number": 4, "nations": "all", "description": "Record: date reviewed, changes identified, notification made to regulator (yes/no, date, reference), updated statement approved by partners, reviewer name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-027-002",
+      "title": "Registered Manager Confirmation",
+      "applicable_to": ["all"],
+      "frequency": "annual_and_on_change",
+      "frequency_detail": "Annual confirmation and whenever the registered manager changes. In England, any change of registered manager must be notified to CQC.",
+      "steps": [
+        { "step_number": 1, "nations": "england", "description": "Confirm the current registered manager for CQC purposes. The registered manager must be registered with CQC. If the registered manager has changed, submit a new registered manager application via CQC's online portal. Confirm the registered manager meets the fit and proper person requirements (DBS, qualifications, references)." },
+        { "step_number": 1, "nations": "wales", "description": "Confirm the current responsible individual / manager for HIW registration purposes. Notify HIW of any changes to the responsible individual." },
+        { "step_number": 1, "nations": "scotland", "description": "Confirm the practice's current GP Lead and Practice Manager details are current with the NHS Board. HIS does not require a separately registered manager in the same way as CQC." },
+        { "step_number": 1, "nations": "northern_ireland", "description": "Confirm the current registered manager for RQIA purposes. Notify RQIA of any change. The registered manager must be fit and proper — confirm DBS and qualifications." },
+        { "step_number": 2, "nations": "all", "description": "Confirm the registered manager (or responsible individual) has completed the required induction/training for their role, including safeguarding at the required level, and that this is documented." },
+        { "step_number": 3, "nations": "all", "description": "Record: date confirmed, registered manager/responsible individual name, registration reference (if applicable), DBS status confirmed, any change notified (date and reference)." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-027-003",
+      "title": "Annual Key Lines of Enquiry / Standards Self-Assessment",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year. Use the regulator's own published assessment framework.",
+      "steps": [
+        { "step_number": 1, "nations": "england", "description": "Complete a self-assessment against the CQC Key Lines of Enquiry (KLOEs) or the current single assessment framework (as updated by CQC). Assess the five domains: Safe, Effective, Caring, Responsive, Well-Led. Identify areas where evidence is strong and areas requiring improvement." },
+        { "step_number": 1, "nations": "wales", "description": "Complete a self-assessment against HIW's quality and safety standards for primary care (Fundamentals of Care, Dignity and Essential Care standards, and HIW's primary care framework as current)." },
+        { "step_number": 1, "nations": "scotland", "description": "Complete a practice quality self-assessment using the HIS Quality Indicator Tool for general practice or equivalent current NHS Scotland framework (including the GP contract Quality and Outcomes Framework where applicable)." },
+        { "step_number": 1, "nations": "northern_ireland", "description": "Complete a self-assessment against RQIA's standards for primary care / general practice (as current). Use the RQIA self-assessment tool if published." },
+        { "step_number": 2, "nations": "all", "description": "Produce a written improvement plan for any areas where self-assessment identifies gaps. Assign responsible persons and timescales." },
+        { "step_number": 3, "nations": "all", "description": "Ensure evidence for each domain/standard is collated, current, and accessible for inspection (cross-reference with all GP compliance logbooks as evidence sources)." },
+        { "step_number": 4, "nations": "all", "description": "Present self-assessment and improvement plan to the partners/board for sign-off." },
+        { "step_number": 5, "nations": "all", "description": "Record: date completed, framework used, overall self-assessment result, number of gaps identified, improvement plan produced, partners sign-off, reviewer name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-027-004",
+      "title": "Regulatory Notification Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Record every regulatory notification at the time it is submitted.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Record every notification made to the healthcare regulator: date, type of notification, description of event/change, regulator notified, notification method (online portal, letter, email), reference number received." },
+        { "step_number": 2, "nations": "england", "description": "CQC notifications required include: death of a service user (in certain circumstances); serious injury to a service user; abuse or allegation of abuse; application to deprive a person of liberty; events that affect or may affect the ability to carry on the regulated activity safely; changes to registration (managers, locations, services, fit and proper persons). These are set out in the Care Quality Commission (Registration) Regulations 2009." },
+        { "step_number": 2, "nations": "wales", "description": "HIW notifications required include: any change to services, management, or registered persons; any serious incident affecting patient safety or wellbeing. Confirm current HIW notification requirements with the HIW website." },
+        { "step_number": 2, "nations": "scotland", "description": "NHS Board and HIS notifications as required under current NHS Scotland requirements. Serious incidents should be reported via the NHS Scotland significant adverse event review (SAER) process. Confirm current requirements with the NHS Board." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "RQIA notifications required include: changes to registration details; any serious incident affecting patient safety. Confirm current RQIA notification requirements." },
+        { "step_number": 3, "nations": "all", "description": "Keep a copy of every notification submitted and any confirmation / reference number received from the regulator." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "module_id": "GP-MOD-005",
+  "module_name": "Electrical Safety",
+  "source_school_module": "MOD-005",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Electricity at Work Regulations 1989; Health and Safety at Work Act 1974",
+    "northern_ireland": "Electricity at Work Regulations (Northern Ireland) 1991"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-005. Responsible person updated to Practice Manager. PAT is particularly important in GP practices given the volume of Class I medical and IT equipment in use.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-005-001",
+      "title": "Monthly Electrical Visual Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month. Informal visual check — not an engineering inspection.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Walk the premises and visually inspect all accessible electrical installations and equipment: sockets, switches, fused spurs, distribution boards (external condition only — do not open), extension leads, and visible wiring." },
+        { "step_number": 2, "nations": "all", "description": "Check for: damaged sockets or switches, overloaded sockets (multiple adapters or extension leads daisy-chained), visible damage to cables or plugs, signs of heat damage or burning, equipment placed near water sources." },
+        { "step_number": 3, "nations": "all", "description": "Check all extension leads and multi-way adaptors: confirm they are fused, are not coiled (fire risk), and are not used as a permanent installation.", "photo_evidence_optional": true, "photo_guidance": "Photograph any overloaded socket, damaged cable, or daisy-chained extension leads." },
+        { "step_number": 4, "nations": "all", "description": "Any defect presenting an immediate danger must be isolated and taken out of use until repaired by a competent electrician." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, areas inspected, any defects found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-005-002",
+      "title": "Annual Portable Appliance Testing (PAT)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Frequency is risk-based per IET Code of Practice. Annual is appropriate for most GP practice environments. Medical electrical equipment should follow manufacturer guidance and MHRA guidance — see GP-MOD-024 for medical devices.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange PAT with a competent person. Compile a list of all portable electrical appliances: computers, monitors, printers, kettles, fridges, hand-held equipment, extension leads, phone chargers, fan heaters." },
+        { "step_number": 2, "nations": "all", "description": "Note: Class II medical electrical devices (double-insulated, used for patient contact) are covered in GP-MOD-024 and require additional checks per MHRA guidance. Include them in the PAT record but cross-reference." },
+        { "step_number": 3, "nations": "all", "description": "Competent person carries out visual inspection and earth continuity/insulation resistance testing on Class I appliances per IET Code of Practice." },
+        { "step_number": 4, "nations": "all", "description": "Each appliance that passes is labelled with the test date and next test date. Failed appliances are removed from service and not returned until repaired and re-tested." },
+        { "step_number": 5, "nations": "all", "description": "Retain the PAT register. Record: date, tester name and competence, appliances tested, any failures, action taken." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-005-003",
+      "title": "5-Yearly Electrical Installation Condition Report (EICR)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "every_5_years",
+      "frequency_detail": "At minimum every 5 years (BS 7671 / IET Wiring Regulations recommendation for commercial premises). An EICR should also be obtained on change of occupancy.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange an EICR with a competent electrician (NICEIC, NAPIT, SELECT (Scotland), or NICEIC registered). The inspection covers the fixed wiring installation." },
+        { "step_number": 2, "nations": "all", "description": "Electrician carries out the inspection and testing to BS 7671 18th edition (or current edition). The EICR report identifies: C1 (danger present — must remedy immediately), C2 (potentially dangerous — must remedy promptly), C3 (improvement recommended)." },
+        { "step_number": 3, "nations": "all", "description": "All C1 and C2 items must be rectified by a competent electrician before the premises can continue to be used (C1) or within a reasonable period (C2 — typically within 28 days for a GP surgery)." },
+        { "step_number": 4, "nations": "all", "description": "Retain the EICR and the completion certificate for any remedial works. Record: date, electrician name and scheme, outcome (satisfactory/unsatisfactory), C1/C2/C3 codes identified, remedial works carried out, next EICR due." }
+      ]
+    }
+  ]
+}

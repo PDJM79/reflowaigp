@@ -1,0 +1,89 @@
+{
+  "module_id": "GP-MOD-007",
+  "module_name": "Health and Safety General",
+  "source_school_module": "MOD-007",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "england_wales": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999; Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013 (RIDDOR)",
+    "scotland": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999; RIDDOR 2013",
+    "northern_ireland": "Health and Safety at Work (Northern Ireland) Order 1978; Management of Health and Safety at Work Regulations (NI) 2000; RIDDOR (NI) 1997"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC ('Well-Led' and 'Safe' domains)",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager / GP Partners",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-007-001",
+      "title": "Annual Health & Safety Policy Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. Also review following any significant change to the practice (new premises, change of partners, significant staffing changes, near-miss or RIDDOR reportable incident).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the current Health & Safety Policy. Confirm it contains the three required sections: Statement of Intent (signed by the responsible GP Partner or Registered Manager), Organisation (who is responsible for what), and Arrangements (how risks are managed)." },
+        { "step_number": 2, "nations": "all", "description": "Review the Organisation section: confirm named roles are current (Practice Manager, H&S lead, fire wardens, first aiders). Update any changes." },
+        { "step_number": 3, "nations": "all", "description": "Review the Arrangements section: confirm it references all active compliance modules (fire, water, COSHH, asbestos, IPC, medicines, etc.) and that each has a designated responsible person." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the policy reflects GP-specific hazards: needle-stick/sharps injuries, clinical waste handling, lone working (home visits), patient aggression, and infection control." },
+        { "step_number": 5, "nations": "england", "description": "Confirm the policy is consistent with the CQC Fundamental Standards (Health and Social Care Act 2008 (Regulated Activities) Regulations 2014). CQC inspectors will review the H&S policy as part of 'Well-Led' and 'Safe' domains. The policy must reflect the practice's registered activities." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm the policy is consistent with HIW standards for GP practices. HIW may review the H&S policy as part of service inspection." },
+        { "step_number": 5, "nations": "scotland", "description": "Confirm the policy is consistent with HIS standards. The policy should reference NHS Scotland's Health & Safety governance framework." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm the policy is consistent with RQIA standards. Reference relevant HSCB/BSO governance requirements for GMS contract holders." },
+        { "step_number": 6, "nations": "all", "description": "Partners/Registered Manager re-signs the Statement of Intent. Record: date, policy version, signatories, changes made, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-007-002",
+      "title": "Quarterly H&S Premises Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "quarterly",
+      "frequency_detail": "Every 3 months. Cover all areas of the practice including clinical rooms, dispensary (if applicable), staff areas, and external grounds.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Walk the entire premises with an H&S inspection checklist. Areas to inspect: reception and waiting area, all consulting and treatment rooms, staff room and kitchen, dispensary (if applicable), storage areas, plant room, car park and external areas." },
+        { "step_number": 2, "nations": "all", "description": "In clinical rooms: check sharps bins are not overfilled (fill indicator visible), clinical waste bins are correctly labelled and not overfilled, hand hygiene stations are stocked (soap, paper towels or dryer, alcohol gel), surfaces are clean and free from clutter." },
+        { "step_number": 3, "nations": "all", "description": "In the dispensary (dispensing practices): check medicines storage areas are locked when unattended, Schedule 2 CD cabinet is locked, no medicines stored outside approved areas.", "photo_evidence_optional": true, "photo_guidance": "Photograph any overfilled sharps bin, unlocked medicines storage, or other significant finding." },
+        { "step_number": 4, "nations": "all", "description": "Check all general H&S items: slip/trip hazards, adequate lighting, emergency exits clear and signed, fire extinguishers in place, first aid kit stocked, accident book accessible." },
+        { "step_number": 5, "nations": "all", "description": "Record all findings. Any immediate hazards must be corrected before the next patient session." },
+        { "step_number": 6, "nations": "england", "description": "Retain inspection records as evidence for CQC 'Safe' domain inspections. CQC inspectors may walk the premises with the registered manager — use this logbook as preparation." },
+        { "step_number": 6, "nations": "wales", "description": "Retain inspection records for HIW inspection. HIW may carry out unannounced premises visits." },
+        { "step_number": 6, "nations": "scotland", "description": "Retain inspection records for HIS inspection. HIS quality visit assessors may review premises standards." },
+        { "step_number": 6, "nations": "northern_ireland", "description": "Retain inspection records for RQIA inspection. RQIA carries out announced and unannounced inspection visits." },
+        { "step_number": 7, "nations": "all", "description": "Record: date, inspector name, areas inspected, issues found, actions taken, outstanding items and target dates." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-007-003",
+      "title": "RIDDOR Accident, Incident and Near-Miss Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Record every occurrence as it happens. RIDDOR reports must be submitted within specified timeframes.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Record every accident, incident, near-miss and dangerous occurrence in the Accident/Incident Log immediately after it occurs: date, time, location, person(s) involved (staff/contractor — NOT patient clinical incidents which are recorded separately via clinical governance processes), description of what happened, injury/damage sustained." },
+        { "step_number": 2, "nations": "all", "description": "Assess whether the incident is RIDDOR-reportable. RIDDOR-reportable events include: over-7-day incapacitation injuries to workers, specified injuries (fractures, amputations, loss of consciousness, etc.), dangerous occurrences, and occupational diseases." },
+        { "step_number": 3, "nations": "england", "description": "Report RIDDOR-reportable incidents to HSE online at www.hse.gov.uk/riddor within the required timeframe: fatal/specified injuries — immediately (then written report within 10 days); over-7-day incapacitation — within 15 days. Note: CQC must also be notified of certain incidents under the duty of candour (Regulation 20) — these are typically clinical incidents managed through the practice's clinical governance process." },
+        { "step_number": 3, "nations": "wales", "description": "Report RIDDOR-reportable incidents to HSE online at www.hse.gov.uk/riddor within required timeframes. HIW must also be notified of certain adverse events under HIW reporting requirements — practice should cross-check with HIW notification obligations." },
+        { "step_number": 3, "nations": "scotland", "description": "Report RIDDOR-reportable incidents to HSE online at www.hse.gov.uk/riddor. In Scotland, HIS operates the adverse event review programme (AERP) for significant adverse events — confirm whether any incident also triggers an AERP review." },
+        { "step_number": 3, "nations": "northern_ireland", "description": "Report RIDDOR-reportable incidents to HSENI (which administers RIDDOR in NI) online at www.hseni.gov.uk. RQIA must also be notified of certain adverse events." },
+        { "step_number": 4, "nations": "all", "description": "Investigate the root cause of all reportable incidents and significant near-misses. Implement corrective actions to prevent recurrence. Update relevant risk assessments." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, time, location, persons involved, description, injury/damage, RIDDOR category (if applicable), report reference number (if submitted), investigation findings, corrective actions, review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-007-004",
+      "title": "Annual General Risk Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. Also review following any significant change to the practice.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review all general risk assessments for the practice. Confirm each significant hazard has a current assessment: slips/trips/falls, violence and aggression (patient-facing), lone working, manual handling, needle-stick/sharps injuries, clinical waste handling, infection control, stress and wellbeing (staff)." },
+        { "step_number": 2, "nations": "all", "description": "For each assessment, check: hazard is still relevant, control measures are in place and effective, residual risk rating is acceptable, responsible person is current." },
+        { "step_number": 3, "nations": "all", "description": "Update assessments where controls have changed or risks have increased. Create new assessments for any hazards not currently assessed." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all staff have been briefed on risks relevant to their role. Record training or briefing evidence." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, assessments reviewed, any updated, any new assessments created, staff briefings confirmed, next review date." }
+      ]
+    }
+  ]
+}

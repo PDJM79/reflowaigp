@@ -1,0 +1,51 @@
+{
+  "module_id": "GP-MOD-015",
+  "module_name": "Contractor Management",
+  "source_school_module": "MOD-019",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Construction (Design and Management) Regulations 2015 (CDM 2015); Management of Health and Safety at Work Regulations 1999",
+    "northern_ireland": "Construction (Design and Management) Regulations (Northern Ireland) 2016"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-019. Responsible person updated to Practice Manager. Additional note for GP practices: contractors working in clinical areas must be briefed on IPC requirements (personal protective equipment, hygiene standards) — cross-reference with GP-MOD-022 (IPC). Contractors must also be briefed on asbestos (GP-MOD-004).",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-015-001",
+      "title": "Contractor Induction and Site Access Record",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Before every contractor commences work on site.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Before any contractor starts work, verify their competence and insurances: company liability insurance certificate (minimum £5 million public liability), relevant trade accreditation (Gas Safe, NICEIC, NAPIT, etc.), method statement and risk assessment for the planned work." },
+        { "step_number": 2, "nations": "all", "description": "Carry out a site induction: brief the contractor on site rules (no smoking, access restrictions), emergency procedures (evacuation assembly point, fire alarm system), asbestos register (see GP-LB-004-003), and IPC requirements for working in clinical areas (handwashing, not entering treatment rooms during patient sessions without authorisation, appropriate PPE)." },
+        { "step_number": 3, "nations": "all", "description": "Issue a Permit to Work where required (hot works, confined space, electrical isolation). For routine maintenance work, a signed induction form is sufficient." },
+        { "step_number": 4, "nations": "all", "description": "Supervise or check on contractor progress during the work. Confirm on completion that the work area has been made safe, cleaned up, and any waste has been removed (clinical waste and medicines must not be handled by the contractor — escalate to Practice Manager)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, contractor company and individual, nature of works, induction completed, insurances verified, asbestos briefing confirmed, IPC briefing confirmed, start time, completion time." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-015-002",
+      "title": "Hot Works Permit",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Required for any work involving an ignition source: cutting, grinding, welding, soldering, use of a naked flame or heat gun.",
+      "frequency": "per_occurrence",
+      "frequency_detail": "A separate permit must be issued for every hot works activity.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Before authorising hot works, confirm the work cannot be carried out by cold methods (e.g., push-fit plumbing fittings instead of soldering). If hot works are unavoidable, proceed to issue the permit." },
+        { "step_number": 2, "nations": "all", "description": "Inspect the work area: remove or protect all combustible materials within 3 metres of the work. Confirm adequate ventilation. Confirm a fire extinguisher of the correct type is immediately available at the work location." },
+        { "step_number": 3, "nations": "all", "description": "Agree a fire watch arrangement: a responsible person must be present during the work and for at least 60 minutes after the work is completed to check for smouldering materials." },
+        { "step_number": 4, "nations": "all", "description": "Notify the fire alarm monitoring centre (if the alarm is remotely monitored) before starting work to prevent unwanted alarm response. Agree a time window and confirm with the monitoring centre when work is complete." },
+        { "step_number": 5, "nations": "all", "description": "After work is completed: fire watch person confirms no signs of fire or smouldering after 60 minutes. Reinstate fire alarm monitoring." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, work location, contractor name, nature of hot works, combustibles removed/protected, fire extinguisher present, fire watch arranged, fire watch completion time, permit authorised by, permit closed by." }
+      ]
+    }
+  ]
+}

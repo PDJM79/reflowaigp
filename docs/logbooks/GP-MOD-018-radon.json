@@ -1,0 +1,40 @@
+{
+  "module_id": "GP-MOD-018",
+  "module_name": "Radon",
+  "source_school_module": "MOD-023",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "england_wales": "Ionising Radiations Regulations 2017 (IRR17); UKHSA radon guidance; HSE radon in workplaces guidance",
+    "scotland": "Ionising Radiations Regulations 2017; Public Health Scotland radon mapping; HSE guidance",
+    "northern_ireland": "Ionising Radiations Regulations (Northern Ireland) 2017; NIEA/UKHSA radon mapping guidance"
+  },
+  "enforcing_body": {
+    "england": "HSE + UKHSA + CQC",
+    "wales": "HSE + UKHSA/PHW + HIW",
+    "scotland": "HSE + Public Health Scotland + HIS",
+    "northern_ireland": "HSENI + PHA NI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "applicable_condition": "Required only for practices in radon-affected areas. Check the UKHSA (England/Wales), Public Health Scotland, or PHA NI radon potential maps for the premises postcode.",
+  "notes": "Steps are identical to school MOD-023. Responsible person updated to Practice Manager. Note: GP practices in ground-floor or basement premises in high radon potential areas are at particular risk given the long daily occupancy hours of clinical staff.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-018-001",
+      "title": "Radon Measurement and Action Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Practices in areas with >1% probability of exceeding the Action Level per UKHSA / PHS / PHA NI radon maps.",
+      "frequency": "every_2_to_5_years",
+      "frequency_detail": "Initial measurement if not previously done. Repeat every 2–5 years, following remediation works, or following significant building changes.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check the radon potential map for the practice postcode: UKHSA (www.ukradon.org) for England/Wales, Public Health Scotland (publichealthscotland.scot/radon) for Scotland, PHA NI for Northern Ireland." },
+        { "step_number": 2, "nations": "all", "description": "If in an affected area, commission radon measurements from a UKAS-accredited radon measurement service." },
+        { "step_number": 3, "nations": "all", "description": "Place CR-39 passive detectors in ground-floor and basement rooms for a minimum 3-month measurement period.", "photo_evidence_optional": true, "photo_guidance": "Photograph the detector placement location with the room reference visible." },
+        { "step_number": 4, "nations": "all", "description": "Return detectors and obtain the measurement report." },
+        { "step_number": 5, "nations": "all", "description": "If any room exceeds 300 Bq/m³ (Action Level): notify UKHSA/relevant public health body, arrange radon remediation (positive pressurisation, sub-slab depressurisation), and retest after remediation." },
+        { "step_number": 6, "nations": "all", "description": "If levels are below 300 Bq/m³ but above 100 Bq/m³ (Target Level), consider remediation as best practice. GP practice staff spend many hours in the building daily — long-term exposure risk is elevated compared to the general population." },
+        { "step_number": 7, "nations": "all", "description": "Record: date, rooms tested, values (Bq/m³), comparison to Action Level, action taken, next measurement due date." }
+      ]
+    }
+  ]
+}

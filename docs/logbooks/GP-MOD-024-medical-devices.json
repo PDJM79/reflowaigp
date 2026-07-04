@@ -1,0 +1,66 @@
+{
+  "module_id": "GP-MOD-024",
+  "module_name": "Medical Devices and Equipment",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "all": "Medical Devices Regulations 2002 (as amended by the Medical Devices (Amendment) (Great Britain) Regulations 2023 post-Brexit); MHRA (Medicines and Healthcare products Regulatory Agency) guidance; Health and Safety at Work Act 1974; PUWER 1998 (non-medical mechanical equipment)"
+  },
+  "enforcing_body": {
+    "england": "MHRA + CQC ('Safe' domain)",
+    "wales": "MHRA + HIW",
+    "scotland": "MHRA + HIS",
+    "northern_ireland": "MHRA + RQIA (Medical Devices Regulations as applied in NI under the Windsor Framework may reference EU MDR for some purposes — check current MHRA NI guidance)"
+  },
+  "responsible_role": "Practice Manager (device register and maintenance scheduling) + Clinical Lead (clinical equipment suitability)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Medical devices used in GP practices include: blood pressure monitors (manual and electronic), pulse oximeters, peak flow meters, ECG machines, spirometers, thermometers, glucometers, AEDs, examination couches, weighing scales, ophthalmoscopes, otoscopes, and any device used for diagnostic or treatment purposes. Autoclaves/sterilisers are covered in GP-MOD-029.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-024-001",
+      "title": "Medical Device Register and Annual Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Review and update the register annually. Also update when new devices are acquired or old devices are decommissioned.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Maintain a medical device register for all devices in the practice. For each device record: device name, manufacturer, model, serial number, acquisition date, location, responsible staff member, maintenance/service schedule, last service date, next service due." },
+        { "step_number": 2, "nations": "all", "description": "Confirm all devices are registered on the practice's asset register and that each device has a unique identifier (asset tag)." },
+        { "step_number": 3, "nations": "all", "description": "Review the register for any devices past their recommended service date or end-of-manufacturer-support life. Arrange service or plan replacement." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all devices requiring periodic calibration (blood pressure monitors, weighing scales, spirometers, ECG machines, glucometers) have current calibration certificates or have been calibrated per manufacturer guidance." },
+        { "step_number": 5, "nations": "all", "description": "Report any device incidents (malfunction, device-related patient harm, near-miss) to MHRA via the Yellow Card reporting system (https://yellowcard.mhra.gov.uk). Note: post-Brexit, the MHRA process applies across GB. NI practices may need to consult current MHRA NI guidance." },
+        { "step_number": 6, "nations": "all", "description": "Record: date of review, devices added or removed, any service overdue and action taken, calibration status, any MHRA reports submitted, reviewer name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-024-002",
+      "title": "Monthly AED (Automated External Defibrillator) Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where an AED is installed.",
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Locate the AED. Confirm it is in its designated location, accessible, clearly signed, and not obscured by clutter." },
+        { "step_number": 2, "nations": "all", "description": "Check the AED status indicator: confirm the device shows a ready/operational indicator (typically a green flashing light or a tick symbol — refer to device-specific manual)." },
+        { "step_number": 3, "nations": "all", "description": "Check the AED electrode pads: confirm pads are present, within their use-by date (check date printed on the pad packaging), and sealed (not previously opened). Check any spare pads." },
+        { "step_number": 4, "nations": "all", "description": "Check the AED battery: where the device has a removable battery, confirm it is charged/in date. Many AEDs have a sealed, long-life battery — the status indicator incorporates battery check." },
+        { "step_number": 5, "nations": "all", "description": "Confirm the AED is included in the practice's MHRA device register and that the annual service/inspection is scheduled.", "photo_evidence_optional": true, "photo_guidance": "Photograph the AED status indicator. Photograph expired pads before replacement." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, AED serial number, status indicator (pass/fail), pad expiry dates, battery status, any action taken, checker name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-024-003",
+      "title": "Annual Clinical Equipment Safety Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year. Some high-risk devices (ECG machines, spirometers, AEDs) may require manufacturer service more frequently — follow manufacturer guidance.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review the medical device register. Identify all devices requiring annual safety inspection or service: ECG machine, spirometer, AED, examination couch (powered — also covered in GP-MOD-011), blood pressure monitors (check manufacturer calibration guidance), weighing scales, pulse oximeters." },
+        { "step_number": 2, "nations": "all", "description": "For devices requiring manufacturer service (typically ECG machines, spirometers with flow sensors, AEDs): arrange the annual service/inspection. Retain the service certificate." },
+        { "step_number": 3, "nations": "all", "description": "For devices not requiring specialist servicing but needing an annual check (manual sphygmomanometers, aneroid BP monitors): validate against a calibrated reference or arrange calibration check." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all single-use devices (lancets, single-use speculums, single-use proctoscopes) are clearly identified as single use and are not being reprocessed." },
+        { "step_number": 5, "nations": "all", "description": "Confirm all staff who use each device have received training or competency assessment for that device." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, devices checked, service arranged (yes/no), any devices out of service, calibration status, staff training confirmed, reviewer name." }
+      ]
+    }
+  ]
+}

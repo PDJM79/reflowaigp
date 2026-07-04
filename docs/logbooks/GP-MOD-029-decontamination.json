@@ -1,0 +1,88 @@
+{
+  "module_id": "GP-MOD-029",
+  "module_name": "Decontamination and Instrument Reprocessing",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Medical Devices Regulations 2002 (as amended); Health and Social Care Act 2008 (Regulated Activities) Regulations 2014, Regulation 12; HTM 01-05: Decontamination in Primary and Community Care Dental Practices (widely adopted as the standard for primary care instrument reprocessing); BS EN ISO 13060:2019 (small steam sterilisers); BS EN ISO 17665 (moist heat sterilisation); COSHH Regulations 2002 (chemical disinfectants)",
+    "england": "HTM 01-05 (DHSC, England); CQC 'Safe' domain: Regulation 12",
+    "wales": "HTM 01-05 as adopted by Welsh Government; HIW 'Safe' standards",
+    "scotland": "Health Facilities Scotland (HFS) guidance on decontamination in primary and community care — broadly aligned to HTM 01-05; HIS inspection standards",
+    "northern_ireland": "HTM 01-05 as adopted by HSCB/PHA NI; RQIA 'Safe' standards"
+  },
+  "enforcing_body": {
+    "england": "CQC ('Safe' domain, Regulation 12) + MHRA (medical devices) + HSE (pressure systems — autoclave covered by PSSR 2000, see GP-MOD-011)",
+    "wales": "HIW + MHRA + HSE",
+    "scotland": "HIS + MHRA + HSE",
+    "northern_ireland": "RQIA + MHRA + HSENI"
+  },
+  "responsible_role": "Practice Manager (compliance and scheduling) + IPC Lead (clinical oversight) + Named Decontamination Lead (trained in autoclave operation and validation — typically the IPC Lead or lead Practice Nurse)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "GP practices that reprocess reusable surgical instruments (e.g., speculums, proctoscopes, forceps, minor surgery instruments) must operate a validated decontamination process. HTM 01-05 recommends a move to single-use instruments wherever possible; where reusable instruments are used, a 'best practice' decontamination room (separate clean and dirty zones, washer-disinfector, steriliser) is required. A 'compliance route' (minimum standard — bench-top decontamination area) is only acceptable as a transitional arrangement. Single-use instruments must never be reprocessed — see GP-MOD-024. Autoclave pressure vessels are also subject to PSSR 2000 inspection — see GP-MOD-011.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-029-001",
+      "title": "Autoclave Cycle Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where a bench-top/vacuum autoclave is present for reprocessing reusable instruments.",
+      "frequency": "per_use",
+      "frequency_detail": "Record every cycle run at the time of use.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Before running a cycle: confirm the autoclave chamber is clean and free of debris. Check the water reservoir is filled with distilled (not tap) water to the correct level. Check the chamber seal/door gasket for damage." },
+        { "step_number": 2, "nations": "all", "description": "Load instruments correctly: instruments must be clean (decontaminated in washer-disinfector or manually cleaned and rinsed) and free of visible soil before loading. Open joints (e.g., scissors, forceps) must be open and unlocked. Do not overload the chamber." },
+        { "step_number": 3, "nations": "all", "description": "Run the appropriate sterilisation cycle: for wrapped or pouched instrument loads requiring storage, use a full post-vacuum cycle (134°C for 3 minutes holding time, or 121°C for 15 minutes, per instrument manufacturer specification). For unwrapped instruments for immediate use only, an N-class (gravity displacement) cycle may be used on the manufacturer's recommendation." },
+        { "step_number": 4, "nations": "all", "description": "At the end of each cycle: record the cycle number (printout where available), temperature reached, pressure reached, holding time, pass/fail status. For autoclaves with integral printers or data loggers: file the printout or export the data log. For autoclaves without a printer: manually record readings from the digital display or gauges." },
+        { "step_number": 5, "nations": "all", "description": "Inspect processed items: confirm pouches show correct colour change on the process indicator. Wrapped items must be labelled with the cycle date and load number. Instruments must be dry — wet packs are a decontamination failure and must be reprocessed. Check pouch integrity — any compromised pouch must be reprocessed." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, operator, cycle number, cycle type, temperature (°C), pressure (bar), holding time, pass/fail, any process indicator failures, any failed pouches reprocessed, load description." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-029-002",
+      "title": "Weekly Bowie-Dick / Helix Test Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where a vacuum (Class B/S) autoclave is present. Not applicable to N-class (non-vacuum) autoclaves.",
+      "frequency": "weekly",
+      "frequency_detail": "First thing Monday morning (or first use day of the week) before any instrument cycles.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Run a Bowie-Dick test (or Helix/tubular process challenge device test as appropriate for the autoclave type) before running any instrument loads at the start of each week. This test challenges the ability of the steam steriliser to achieve steam penetration in porous or hollow loads." },
+        { "step_number": 2, "nations": "all", "description": "Interpret the test result: the Bowie-Dick test sheet should show a uniform colour change across the entire sheet. Any uneven, blotchy, or incomplete colour change indicates a failure of steam penetration — do NOT use the autoclave for instrument loads until the fault is investigated." },
+        { "step_number": 3, "nations": "all", "description": "If the test fails: quarantine the autoclave, notify the Decontamination Lead and the Practice Manager, arrange for an engineer to investigate before the autoclave is returned to service. Retain the failed test sheet in this logbook." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, time, autoclave serial number, test type (Bowie-Dick / Helix), result (pass/fail), operator name. File the test sheet in this logbook for the current validation year." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-029-003",
+      "title": "Annual Autoclave Validation and Service Record",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where an autoclave is present.",
+      "frequency": "annual",
+      "frequency_detail": "Annual service and validation (also known as 'annual qualification') by a competent engineer.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange the annual autoclave service and performance qualification with a competent engineer (BSEN ISO 17665 qualified, or equivalent competence recognised by the autoclave manufacturer). Validation tests include: thermometric performance qualification (thermocouples in chamber to verify temperature uniformity); Bowie-Dick test; leak rate test; load penetration tests." },
+        { "step_number": 2, "nations": "all", "description": "Note: the autoclave is also subject to PSSR 2000 examination (written scheme of examination, periodic thorough inspection by a competent person) — this is covered in GP-MOD-011. The PSSR inspection and the decontamination annual validation are separate requirements and should be scheduled independently." },
+        { "step_number": 3, "nations": "all", "description": "Following the annual validation: review the validation certificate. If any parameters are outside tolerance, the autoclave must not be used for sterilisation until corrected. Obtain a written report confirming pass/fail status and any remedial actions required." },
+        { "step_number": 4, "nations": "all", "description": "Retain the annual validation certificate in this logbook. The Decontamination Lead should review the certificate and sign to confirm they have seen and understood the result." },
+        { "step_number": 5, "nations": "england", "description": "Confirm the validation record is available for CQC inspection as evidence of compliance with Regulation 12 (Safe Care and Treatment) and HTM 01-05." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm the validation record is available for HIW inspection." },
+        { "step_number": 5, "nations": "scotland", "description": "Confirm the validation record is available for HIS quality review. In Scotland, refer to HFS decontamination guidance for any Scotland-specific requirements that diverge from HTM 01-05." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm the validation record is available for RQIA inspection." },
+        { "step_number": 6, "nations": "all", "description": "Record: date of validation, engineer name and company, certificate reference, result (pass/fail), any deficiencies identified, remedial actions completed, Decontamination Lead sign-off, next annual service due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-029-004",
+      "title": "Quarterly Decontamination Room / Area Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "quarterly",
+      "frequency_detail": "Once per quarter.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inspect the decontamination room or decontamination area against HTM 01-05 requirements: confirm the dirty zone (instrument receipt, manual cleaning, washer-disinfector loading) and clean zone (drying, inspection, packaging, steriliser loading and unloading) are physically separated and the workflow is unidirectional (dirty to clean, never reverse)." },
+        { "step_number": 2, "nations": "all", "description": "Check the washer-disinfector (if present): confirm it is in service with a current annual validation, confirm the daily/weekly self-tests have been logged, check detergent and rinse-aid levels." },
+        { "step_number": 3, "nations": "all", "description": "Check the autoclave: confirm the daily Vacuum Test (if applicable to the autoclave type — Class B vacuum autoclaves require a daily vacuum leak test) is being performed and logged. Confirm weekly Bowie-Dick tests are being performed and logged." },
+        { "step_number": 4, "nations": "all", "description": "Confirm hand hygiene facilities are available in the decontamination area (liquid soap, paper towels, PPE — dedicated gloves, apron, eye protection for the dirty zone).", "photo_evidence_optional": true, "photo_guidance": "Photograph the decontamination area to evidence layout and zoning." },
+        { "step_number": 5, "nations": "all", "description": "Confirm all staff operating the autoclave and decontamination equipment have received competency-assessed training and that training records are current." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, areas inspected, zone separation maintained (yes/no), washer-disinfector in service (yes/no), daily vacuum test being logged (yes/no), weekly Bowie-Dick being logged (yes/no), any deficiencies, action taken, inspector name." }
+      ]
+    }
+  ]
+}
