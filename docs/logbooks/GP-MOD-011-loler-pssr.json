@@ -1,0 +1,80 @@
+{
+  "module_id": "GP-MOD-011",
+  "module_name": "Statutory Inspections — LOLER and PSSR",
+  "source_school_module": "MOD-011",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Lifting Operations and Lifting Equipment Regulations 1998 (LOLER); Pressure Systems Safety Regulations 2000 (PSSR); Health and Safety at Work Act 1974",
+    "northern_ireland": "Lifting Operations and Lifting Equipment Regulations (Northern Ireland) 1999 (LOLER NI); Pressure Systems Safety Regulations (Northern Ireland) 2004"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Differences from school set: REMOVED — passenger lifts (most GP premises don't have them), PE equipment, SEN hoists. ADDED — height-adjustable power-operated examination couches (LOLER), patient/bariatric transfer hoists (LOLER, where present), autoclave/benchtop steriliser (PSSR), compressed oxygen and medical gas systems (PSSR), stair lifts (LOLER, where fitted for accessibility). Autoclaves are also covered in GP-MOD-029 (Decontamination).",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-011-001",
+      "title": "6-Monthly LOLER Examination — Power-Operated Examination Couches and Hoists",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Where the practice has power-operated (electric or hydraulic) height-adjustable examination couches or patient transfer hoists.",
+      "frequency": "every_6_months",
+      "frequency_detail": "Every 6 months for equipment used to lift persons (LOLER Regulation 9(3)(a)). Manual (non-power) examination couches are not in scope for LOLER but should be maintained in accordance with manufacturer guidance.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange examination by a competent person (typically the equipment manufacturer's service engineer or an independent LOLER-competent inspector)." },
+        { "step_number": 2, "nations": "all", "description": "Inspector examines each power-operated couch or hoist: structural integrity, electrical/hydraulic systems, motor and actuator function, safety interlocks, remote controls, maximum safe working load (SWL) confirmation, emergency lowering mechanism." },
+        { "step_number": 3, "nations": "all", "description": "Inspector provides a written examination report (LOLER Regulation 10). Any defect that is a risk to persons must be remedied immediately — the equipment must not be used until repaired.", "photo_evidence_optional": true, "photo_guidance": "Photograph the examination report and any defect identified." },
+        { "step_number": 4, "nations": "all", "description": "Retain the examination reports. Record: date, equipment reference, examiner name and competence, outcome, defects found, action taken, next examination due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-011-002",
+      "title": "6-Monthly LOLER Examination — Stair Lift (if fitted)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where a stair lift is installed for accessibility (staff and/or patient use).",
+      "frequency": "every_6_months",
+      "frequency_detail": "Every 6 months — stair lifts are used to carry persons and therefore require 6-monthly LOLER thorough examination.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange thorough examination with the stair lift manufacturer's service agent or a LOLER-competent inspector." },
+        { "step_number": 2, "nations": "all", "description": "Inspector examines: carriage and seat assembly, safety edges and obstruction sensors, drive chain/rack, limit switches (top and bottom), safety cut-out device, call/send controls, SWL marking." },
+        { "step_number": 3, "nations": "all", "description": "Inspector provides a written examination report. Any defect affecting safe use must be remedied before the lift is returned to service." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, stair lift reference, examiner, outcome, defects, action taken, next examination due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-011-003",
+      "title": "PSSR Written Scheme and Annual Inspection — Autoclave / Benchtop Steriliser",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Where the practice has a benchtop autoclave / benchtop steriliser for instrument reprocessing. Where autoclaves are present, decontamination logbooks in GP-MOD-029 must also be maintained.",
+      "frequency": "annual",
+      "frequency_detail": "Annual PSSR inspection of the pressure vessel. Additionally, quarterly Bowie-Dick / helix tests are recorded in GP-MOD-029.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm a Written Scheme of Examination (WSE) is in place for the autoclave, prepared by a competent person (typically a Pressure Systems Safety Regulations-competent engineer or the equipment manufacturer). The WSE defines the scope and frequency of examinations." },
+        { "step_number": 2, "nations": "all", "description": "Arrange the annual PSSR examination per the WSE. The examiner inspects: pressure vessel integrity, safety valve function and set pressure, pressure gauge accuracy, door seal and interlocks, control system, steam trap and discharge system." },
+        { "step_number": 3, "nations": "all", "description": "In addition to the PSSR inspection, confirm the autoclave has an annual validation and annual maintenance service per HTM 01-05 (Decontamination in Primary and Community Dental Care — used as the standard for GP practices). See GP-MOD-029 for decontamination logbooks." },
+        { "step_number": 4, "nations": "all", "description": "Examiner provides a written examination report. Any defect must be remedied before the autoclave is returned to service for instrument reprocessing." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, autoclave reference and serial number, examiner name and competence, WSE reference, outcome, defects, action taken, next examination due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-011-004",
+      "title": "PSSR — Medical Gas (Oxygen) Cylinder and Manifold System",
+      "applicable_to": ["all", "dispensing"],
+      "applicable_condition": "Where the practice stores and uses compressed oxygen cylinders (e.g., for emergency use or for dispensing practices supplying domiciliary oxygen). Piped medical gas systems (if any) require a separate written scheme.",
+      "frequency": "annual",
+      "frequency_detail": "Annual check of storage, handling, and written scheme compliance for pressurised oxygen systems.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm a suitable Written Scheme of Examination is in place if the oxygen system exceeds the threshold requiring one under PSSR (most portable cylinder set-ups with a regulator fall below the PSSR threshold for a formal WSE, but good practice dictates documented procedures)." },
+        { "step_number": 2, "nations": "all", "description": "Inspect the storage area for oxygen cylinders: segregated from flammable gases and materials, secured upright (chained or in approved cylinder store), no smoking signage displayed, cylinders stored away from direct heat sources." },
+        { "step_number": 3, "nations": "all", "description": "Check each cylinder: within test date (stamped on cylinder shoulder), valve protection cap fitted when not in use, no visible damage to cylinder body or valve." },
+        { "step_number": 4, "nations": "all", "description": "Confirm regulators and flow metres are in good condition and within calibration/service date." },
+        { "step_number": 5, "nations": "all", "description": "Confirm all staff who use oxygen are trained in correct assembly, use, and emergency procedures (including what to do if a fire occurs near a cylinder)." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, cylinders inspected, storage conditions, regulator/flowmeter condition, staff training confirmed, any deficiencies, action taken." }
+      ]
+    }
+  ]
+}

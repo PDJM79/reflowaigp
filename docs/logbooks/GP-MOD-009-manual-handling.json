@@ -1,0 +1,36 @@
+{
+  "module_id": "GP-MOD-009",
+  "module_name": "Manual Handling",
+  "source_school_module": "MOD-009",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Manual Handling Operations Regulations 1992 (as amended 2002); Health and Safety at Work Act 1974",
+    "northern_ireland": "Manual Handling Operations Regulations (Northern Ireland) 1992"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Scope: this logbook covers manual handling of equipment, supplies, and materials by staff only. Patient handling (assisting patients on/off examination couches, transfers) is a clinical activity managed through a separate patient moving and handling policy under clinical governance. Common GP manual handling tasks in scope: delivery of medicines/medical supplies (dispensing practices receive large deliveries), moving IT equipment, moving filing boxes and medical records, handling waste bags and sharps boxes.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-009-001",
+      "title": "Annual Manual Handling Risk Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually, or when tasks, loads, or working environment change significantly.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all manual handling tasks carried out by staff in the practice. In scope: delivery and storage of medicines and medical consumables (dispensing practices — potentially heavy deliveries), moving medical equipment (printers, monitors, portable examination equipment), handling clinical waste bags and sharps disposal boxes, moving filing and storage items, resupply of clinical rooms." },
+        { "step_number": 2, "nations": "all", "description": "For each significant task, carry out or review the manual handling risk assessment using the TILE mnemonic: Task (what movements are required?), Individual (is the person capable?), Load (weight, shape, unpredictability?), Environment (space, floor surface, lighting?)." },
+        { "step_number": 3, "nations": "all", "description": "Apply the hierarchy of control: eliminate (avoid the manual handling task), mechanise (trolley, sack truck, lift table), improve the task (reduce load size, improve handles/grip), train and supervise." },
+        { "step_number": 4, "nations": "all", "description": "For dispensing practices: confirm that medicine deliveries over the manual handling guideline weight (25 kg for men, 16 kg for women as a general guide) have a two-person lift protocol or mechanical aid available." },
+        { "step_number": 5, "nations": "all", "description": "Confirm all staff carrying out significant manual handling tasks have received manual handling awareness training." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, tasks assessed, controls in place, any new risks identified, training confirmed, next review date." }
+      ]
+    }
+  ]
+}

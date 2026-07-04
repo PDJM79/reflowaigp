@@ -1,0 +1,74 @@
+{
+  "module_id": "GP-MOD-013",
+  "module_name": "Premises and Security",
+  "source_school_module": "MOD-014",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999; Misuse of Drugs Act 1971 (controlled drug storage security); Misuse of Drugs (Safe Custody) Regulations 1973 (as amended)",
+    "northern_ireland": "Misuse of Drugs Act 1971; Misuse of Drugs (Safe Custody) Regulations 1973 (as applied in NI)"
+  },
+  "enforcing_body": {
+    "england": "HSE / Local Police (CD storage) / CQC ('Safe' domain)",
+    "wales": "HSE / Local Police / HIW",
+    "scotland": "HSE / Local Police / HIS",
+    "northern_ireland": "HSENI / PSNI / RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-013-001",
+      "title": "Weekly Premises and Security Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "weekly",
+      "frequency_detail": "Every 7 days. Also check after any security incident.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check all external access points: perimeter gates and fences secure, external door locks and deadbolts operating correctly, car park lighting functional (if applicable)." },
+        { "step_number": 2, "nations": "all", "description": "Check internal access controls: staff-only areas (dispensary, consultation rooms, records room) are locked when unattended. Confirm restricted areas are clearly signed." },
+        { "step_number": 3, "nations": "all", "description": "Check key security: key safe/key cabinet is locked, key register is current (all keys accounted for), master key list is up to date." },
+        { "step_number": 4, "nations": "all", "description": "Check alarm systems: confirm intruder alarm panel shows no faults, panic buttons (if fitted) are accessible and functional, alarm contact list is current." },
+        { "step_number": 5, "nations": "all", "description": "Check CCTV system (if fitted): cameras operational, recording light/indicator active, monitor functioning. Do not check recorded footage as part of this routine check (only review footage when there is a specific incident to investigate)." },
+        { "step_number": 6, "nations": "all", "description": "Check the Controlled Drug cabinet (if applicable): cabinet is locked, key is held by the authorised keyholders only, exterior undamaged. Do not open the CD cabinet as part of this check — see GP-LB-013-003 for the monthly CD cabinet logbook.", "photo_evidence_optional": true, "photo_guidance": "Photograph any damaged lock, forced entry evidence, or fault indicator on alarm panel." },
+        { "step_number": 7, "nations": "all", "description": "Record: date, all check items (pass/fail), any issues found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-013-002",
+      "title": "Annual CCTV System Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where the practice has a CCTV system.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm the CCTV system is registered with the Information Commissioner's Office (ICO) if operated for crime prevention purposes (GDPR / DPA 2018 requirement). Check registration is current." },
+        { "step_number": 2, "nations": "all", "description": "Check all camera positions: confirm each camera covers the intended area, is not obscured, and is positioned to avoid capturing areas where patient privacy would be compromised (consulting rooms, examination areas, patient toilets are absolute exclusions)." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the data retention setting: CCTV footage must not be retained longer than necessary (typically 28–31 days is appropriate for a GP surgery unless a longer period is justified by a specific security incident or legal obligation)." },
+        { "step_number": 4, "nations": "all", "description": "Confirm CCTV signage is displayed at all entrance points where surveillance is in operation — signs must clearly state the purpose of CCTV and the data controller's contact details." },
+        { "step_number": 5, "nations": "england", "description": "Confirm compliance with the Surveillance Camera Code of Practice 2021 (Surveillance Camera Commissioner). CQC may review CCTV use as part of 'Safe' and confidentiality assessments." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm compliance with the Surveillance Camera Code of Practice 2021. HIW may review CCTV use." },
+        { "step_number": 5, "nations": "scotland", "description": "The Surveillance Camera Code of Practice (England and Wales) does not directly apply in Scotland; however, ICO CCTV guidance and the DPA 2018 apply fully. HIS may review CCTV governance." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm compliance with ICO CCTV guidance and DPA 2018. RQIA may review CCTV governance." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, cameras reviewed, retention settings confirmed, signage confirmed, ICO registration confirmed, any changes made, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-013-003",
+      "title": "Monthly Controlled Drug Cabinet and Safe Inspection",
+      "applicable_to": ["all", "dispensing"],
+      "applicable_condition": "All practices holding Schedule 2 Controlled Drugs (e.g., morphine, diamorphine, pethidine, fentanyl patches for emergency use); all dispensing practices.",
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month. The CD cabinet must also be checked whenever the CD register is accessed.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check the exterior of the CD cabinet/safe: confirm it is fixed to the wall or floor (not free-standing), hinges are intact, lock operates correctly, no evidence of tampering or forced entry." },
+        { "step_number": 2, "nations": "all", "description": "Open the cabinet (authorised keyholder only) and cross-reference the current stock against the CD register. Confirm the physical count matches the register balance for each CD." },
+        { "step_number": 3, "nations": "all", "description": "Confirm all CDs are in original manufacturer containers or dispensed packs with patient labels where appropriate. Confirm no expired stock is present in the cabinet." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the CD register is complete, legible, and has no gaps or unwitnessed entries for Schedule 2 drugs." },
+        { "step_number": 5, "nations": "england", "description": "In England, the practice must have a nominated Accountable Officer (AO) for CDs, appointed by NHS England. Confirm the AO is still in post and their details are current. Report any discrepancy found during the stock check to the AO immediately." },
+        { "step_number": 5, "nations": "wales", "description": "In Wales, the Accountable Officer function is managed through the NHS Wales Local Health Board CD governance arrangements. Report any discrepancy to the designated CD Accountable Officer at the Health Board." },
+        { "step_number": 5, "nations": "scotland", "description": "In Scotland, NHS Scotland Health Board CD governance arrangements apply. Report any discrepancy to the relevant Health Board CD Accountable Officer." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "In Northern Ireland, the BSO (Business Services Organisation) manages CD governance for GMS contractors. Report any discrepancy to the BSO Pharmaceutical Advisors." },
+        { "step_number": 6, "nations": "all", "description": "Lock the cabinet. Record: date, stock counts per CD drug, register balance confirmed (yes/no), any discrepancy (if yes — must be reported immediately), cabinet condition, keyholder name and signature." }
+      ]
+    }
+  ]
+}

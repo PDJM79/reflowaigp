@@ -1,0 +1,87 @@
+{
+  "module_id": "GP-MOD-022",
+  "module_name": "Infection Prevention and Control (IPC)",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "england": "Health and Social Care Act 2008 (Regulated Activities) Regulations 2014, Regulation 12 (Safe Care and Treatment); UK Health Security Agency (UKHSA) National Infection Prevention and Control Manual for England; NHS England Primary Care IPC Guidance",
+    "wales": "Health and Social Care Act 2008 (Regulated Activities) Regulations 2014; Public Health Wales (PHW) All-Wales IPC Bundle for Primary Care",
+    "scotland": "Health Care (Infection Prevention and Control) (Scotland) Act 2008; National Infection Prevention and Control Manual (NIPCM) — Healthcare Improvement Scotland / NHS Scotland",
+    "northern_ireland": "Health and Personal Social Services (Quality, Improvement and Regulation) (Northern Ireland) Order 2003; PHA NI IPC guidance; RQIA IPC standards"
+  },
+  "enforcing_body": {
+    "england": "CQC ('Safe' domain) + UKHSA",
+    "wales": "HIW + PHW",
+    "scotland": "HIS (National IPC Manual compliance) + NHS Scotland Health Boards",
+    "northern_ireland": "RQIA + PHA NI"
+  },
+  "responsible_role": "Practice Manager + IPC Lead (nominated clinical staff member — typically a GP or Practice Nurse with IPC training)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-022-001",
+      "title": "Monthly Hand Hygiene Audit",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month. The IPC Lead or a nominated auditor observes hand hygiene practice directly.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check hand hygiene facilities at each clinical handwash station and each patient-facing area: liquid soap (not bar soap) available, paper towels (not fabric towels) available and dispenser stocked, alcohol hand rub (≥60% ethanol) available at point of care. Check dispensers are not empty or clogged." },
+        { "step_number": 2, "nations": "all", "description": "Confirm staff bare-below-the-elbows (BBE) compliance in clinical areas: no wrist watches, no stoned rings, no false nails, short natural nails." },
+        { "step_number": 3, "nations": "all", "description": "Observe (or use a structured audit tool) a sample of staff performing hand hygiene: confirm the 5 moments of hand hygiene are understood and practiced (before patient contact, before aseptic tasks, after body fluid exposure risk, after patient contact, after touching patient surroundings)." },
+        { "step_number": 4, "nations": "england", "description": "Document audit results and report to the Practice Manager. If compliance is below 90%, implement a targeted improvement action. CQC will assess IPC audit evidence as part of 'Safe'." },
+        { "step_number": 4, "nations": "wales", "description": "Document audit results and report to the Practice Manager. PHW All-Wales IPC Bundle requires documented hand hygiene audits. HIW assesses IPC compliance." },
+        { "step_number": 4, "nations": "scotland", "description": "Document audit results using the NIPCM audit tool (if applicable) and report to the Health Board IPC team. HIS assesses IPC compliance as part of quality indicators." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "Document audit results and report to the Practice Manager and HSC Trust IPC team if required. RQIA assesses IPC compliance." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, areas audited, facilities checked (pass/fail per station), staff compliance observations, any deficiencies, action plan, auditor name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-022-002",
+      "title": "Monthly Clinical Environment Cleanliness Audit",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inspect all clinical rooms (consulting rooms, treatment rooms, dispensary), waiting area, and patient toilets against the practice's cleaning schedule: confirm all areas have been cleaned at the required frequency and that records are up to date." },
+        { "step_number": 2, "nations": "all", "description": "In each clinical room inspect: examination couch (couch roll replaced between patients or couch cover cleaned between patients), clinical contact surfaces cleaned (desk, keyboard, mouse, door handles), blood pressure cuff and any reusable instruments stored correctly." },
+        { "step_number": 3, "nations": "all", "description": "Check that colour-coded cleaning equipment is being used correctly (red for toilets/bathrooms, yellow for clinical/isolation areas, blue for general areas) and stored separately when not in use.", "photo_evidence_optional": true, "photo_guidance": "Photograph any area of obvious inadequate cleaning or incorrect colour-coded equipment storage." },
+        { "step_number": 4, "nations": "all", "description": "Check blood/body fluid spill kit is available and stocked (sodium hypochlorite granules or wipes at 10,000 ppm, PPE, absorbent pad, clinical waste bag, instructions)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, areas inspected, cleaning schedule compliance, any deficiencies, action taken, auditor name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-022-003",
+      "title": "Annual IPC Audit and Risk Assessment",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. The IPC Lead completes the annual audit and produces an IPC risk assessment and action plan.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "The IPC Lead completes a comprehensive annual IPC audit covering: standard precautions (hand hygiene, PPE use, respiratory hygiene), cleaning and decontamination (clinical surfaces, equipment, decontamination room — see GP-MOD-029), waste management (see GP-MOD-025), safe sharps management, laundry management." },
+        { "step_number": 2, "nations": "england", "description": "Complete the annual IPC audit using the UKHSA/NHS England recommended audit tool for primary care (available on the NHS England website). Complete the IPC self-assessment framework (previously 'Infection Prevention and Control Self-Assessment Tool for Primary Care'). Submit results as required by the local ICB (Integrated Care Board)." },
+        { "step_number": 2, "nations": "wales", "description": "Complete the PHW All-Wales IPC Bundle annual self-assessment. Submit results to the Health Board IPC team as required." },
+        { "step_number": 2, "nations": "scotland", "description": "Complete the annual IPC audit using the NHS Scotland National IPC Manual (NIPCM) audit tools. Submit results to the NHS Board IPC team as required." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "Complete the annual IPC audit using PHA NI primary care IPC audit tools. Report results to the relevant HSC Trust IPC team." },
+        { "step_number": 3, "nations": "all", "description": "Identify any gaps and produce a written action plan with timescales and responsible persons. Present the audit findings and action plan to the Practice Manager and partners." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the IPC Lead has undertaken IPC update training within the last year." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, audit tool used, overall compliance score, action plan produced, IPC Lead name and training status, next annual audit due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-022-004",
+      "title": "Outbreak / Significant Infection Incident Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Record every significant infection incident, cluster, or outbreak as it occurs.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Record the incident: date of first case, organism (if identified), affected staff or patient group, symptoms, clinical setting." },
+        { "step_number": 2, "nations": "england", "description": "Notify UKHSA (via the local Health Protection Team) of any outbreak or significant infection incident as required by the Health Protection (Notification) Regulations 2010. Notify CQC of any significant incidents under the duty of candour and CQC notification requirements." },
+        { "step_number": 2, "nations": "wales", "description": "Notify Public Health Wales (local Health Protection Team) under the Public Health (Control of Disease) Act 1984 as amended. Notify HIW of significant incidents as required." },
+        { "step_number": 2, "nations": "scotland", "description": "Notify Public Health Scotland (local Health Protection Team) under the Public Health (Scotland) Act 2008 and the Notifiable Disease regulations. Notify NHS Board and HIS as required." },
+        { "step_number": 2, "nations": "northern_ireland", "description": "Notify the Public Health Agency (PHA) NI under the Public Health Act (Northern Ireland) 1967 as amended. Notify RQIA of significant incidents as required." },
+        { "step_number": 3, "nations": "all", "description": "Implement infection control measures: enhanced cleaning, PPE for staff, patient cohorting or isolation, enhanced hand hygiene reminders, temporary closure of affected areas if necessary." },
+        { "step_number": 4, "nations": "all", "description": "Follow the investigation to conclusion. Complete a root cause analysis for any major outbreak. Update the IPC risk assessment if the outbreak identified a systemic gap." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, organism/incident type, persons affected, notification made (body, date, reference), control measures implemented, investigation outcome, lessons learned." }
+      ]
+    }
+  ]
+}

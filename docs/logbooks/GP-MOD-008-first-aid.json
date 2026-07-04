@@ -1,0 +1,53 @@
+{
+  "module_id": "GP-MOD-008",
+  "module_name": "First Aid at Work",
+  "source_school_module": "MOD-008",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Health and Safety (First Aid) Regulations 1981; Health and Safety at Work Act 1974",
+    "northern_ireland": "Health and Safety (First Aid) Regulations (Northern Ireland) 1982"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC ('Safe' domain — AED and emergency response provision reviewed)",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Key differences from school: (1) GP practices should have qualified clinical staff on premises during sessions — the first aid needs assessment must distinguish between the statutory first aid at work duty (for staff) and the clinical emergency response capability (for patient emergencies). The latter is a clinical governance matter. (2) AED provision is strongly recommended by NHS/OHID guidance. (3) CQC/HIW/HIS/RQIA assess first aid and emergency response as part of 'Safe'.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-008-001",
+      "title": "Monthly First Aid Kit Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Locate all first aid kits in the practice. In a GP surgery these are typically: reception/waiting area, staff room, dispensary (if applicable), and any branch site." },
+        { "step_number": 2, "nations": "all", "description": "Open each kit and check contents against the minimum requirements: BS 8599-1 standard workplace kit contents (or as specified in the first aid needs assessment). Remove any items that are damaged, soiled or past their expiry date." },
+        { "step_number": 3, "nations": "all", "description": "Note: clinical/medical supplies (suture kits, prescription medicines, resuscitation drugs) are not first aid kit items — they are clinical equipment managed under clinical governance. Do not include them in this kit inspection." },
+        { "step_number": 4, "nations": "all", "description": "Check the AED (Automated External Defibrillator) if one is installed: confirm the device is operational (status indicator green), pads are in date, spare pads are available, and the device location is clearly signed.", "photo_evidence_optional": true, "photo_guidance": "Photograph the AED status indicator and the first aid kit contents if items have been removed." },
+        { "step_number": 5, "nations": "all", "description": "Restock any items that have been used or have expired. Record: date, kit location, contents checked, items replaced, AED status, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-008-002",
+      "title": "Annual First Aid Needs Assessment",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Carry out the first aid needs assessment considering: number of employees and their locations; nature of work and hazards (needlestick, COSHH substances, patient aggression, manual handling); opening hours (including early morning, late evening, and any weekend sessions); presence of vulnerable persons (elderly patients, patients with disabilities) in the waiting area." },
+        { "step_number": 2, "nations": "all", "description": "Determine the minimum number and type of first aiders required: First Aid at Work (FAW, 3-day) or Emergency First Aid at Work (EFAW, 1-day). Ensure adequate cover is available across all session times, including when the clinical lead is absent." },
+        { "step_number": 3, "nations": "all", "description": "Confirm all designated first aiders hold a current certificate: FAW certificates are valid for 3 years and must be renewed before expiry." },
+        { "step_number": 4, "nations": "all", "description": "Confirm AED provision is appropriate. NHS/OHID guidance strongly recommends AED installation in GP practices given patient population (cardiac risk). If no AED is present, document the decision." },
+        { "step_number": 5, "nations": "england", "description": "Confirm first aid provision is consistent with CQC expectations under 'Safe' — CQC inspectors may check first aider certificates, AED maintenance records and emergency equipment location. Consider whether the practice's Major Incident / BLS protocol for in-surgery cardiac arrest is documented (clinical governance, but informed by first aid needs assessment)." },
+        { "step_number": 5, "nations": "wales", "description": "Confirm first aid provision meets HSE requirements and HIW standards. HIW inspectors may check first aider and AED records." },
+        { "step_number": 5, "nations": "scotland", "description": "Confirm first aid provision meets HSE requirements and HIS standards. HIS quality assessors may check emergency response provision." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Confirm first aid provision meets HSENI requirements and RQIA standards. RQIA may check first aider qualifications and emergency equipment." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, assessment completed by, first aiders identified, certificate expiry dates, AED provision decision, any gaps identified, actions taken, next review date." }
+      ]
+    }
+  ]
+}

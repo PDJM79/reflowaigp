@@ -1,0 +1,67 @@
+{
+  "module_id": "GP-MOD-014",
+  "module_name": "Vehicle Safety",
+  "source_school_module": "MOD-015",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Road Traffic Act 1988; Road Vehicles (Construction and Use) Regulations 1986; Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999"
+  },
+  "enforcing_body": {
+    "england": "DVSA + HSE + CQC (driving for work is within 'Safe' scope)",
+    "wales": "DVSA + HSE + HIW",
+    "scotland": "DVSA + HSE + HIS",
+    "northern_ireland": "DVA NI + HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["dispensing", "branch"],
+  "applicable_condition": "Only required where the practice operates practice-owned or leased vehicles for home visits, specimen transport, or dispensing deliveries. Practices where staff use their own vehicles for home visits (grey fleet) should have a separate grey fleet policy — this logbook covers practice-owned vehicles.",
+  "notes": "Differences from school: vehicles are primarily used for home visits (clinical staff) and dispensing deliveries (dispensing practices). Branch surgery specimen transport may also be in scope. School minibus-specific requirements removed.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-014-001",
+      "title": "Daily Pre-Use Vehicle Check",
+      "applicable_to": ["dispensing", "branch"],
+      "frequency": "daily",
+      "frequency_detail": "Before every occasion a practice vehicle is used. Driver completes the check.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check lights: headlights (dipped and main beam), sidelights, brake lights, indicators (front and rear), hazard lights, reversing lights. Confirm all operational." },
+        { "step_number": 2, "nations": "all", "description": "Check tyres: visual inspection for obvious damage, cuts, bulges, or objects embedded in the tyre. Check tyre pressures are within the correct range (refer to vehicle handbook). Minimum legal tread depth is 1.6 mm across the central 3/4 of the tyre." },
+        { "step_number": 3, "nations": "all", "description": "Check fluid levels (weekly or when low): engine oil, coolant, washer fluid, brake fluid (if accessible). If any fluid is below minimum, do not use the vehicle until topped up." },
+        { "step_number": 4, "nations": "all", "description": "Check windscreen and mirrors: no chips or cracks in the driver's field of vision, all mirrors correctly adjusted. Check windscreen wipers functional." },
+        { "step_number": 5, "nations": "all", "description": "For dispensing delivery vehicles: confirm the cargo area is clean, secure, and appropriate temperature (cold-chain medicines must be transported in an insulated/temperature-monitored bag or box)." },
+        { "step_number": 6, "nations": "all", "description": "Confirm the vehicle MOT, tax, and insurance documents are current (either in vehicle or on file). Confirm the driver holds a current valid driving licence appropriate for the vehicle." },
+        { "step_number": 7, "nations": "all", "description": "Record: date, vehicle registration, driver name, all check items (pass/fail), any issues, action taken." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-014-002",
+      "title": "Annual Vehicle MOT, Service and Documentation Check",
+      "applicable_to": ["dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year (or per vehicle MOT/service cycle).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm MOT certificate is current and will remain valid for at least the next 3 months. If due within 3 months, arrange in advance." },
+        { "step_number": 2, "nations": "all", "description": "Confirm the annual service has been carried out per the manufacturer's service schedule. Retain the service record." },
+        { "step_number": 3, "nations": "all", "description": "Confirm vehicle tax/road fund licence (VED) is current — check via DVLA online." },
+        { "step_number": 4, "nations": "all", "description": "Confirm motor insurance policy is current, covers business use (home visits/deliveries), and that the sum insured is appropriate. Retain a copy of the insurance schedule on file." },
+        { "step_number": 5, "nations": "all", "description": "For dispensing delivery vehicles: confirm the vehicle is suitable for medicines cold-chain transport where required, and that the temperature-monitoring log (if applicable) is maintained." },
+        { "step_number": 6, "nations": "northern_ireland", "description": "In Northern Ireland, vehicle roadworthiness testing is carried out by the DVA (Driver and Vehicle Agency) rather than DVSA. The test is equivalent to the MOT." },
+        { "step_number": 7, "nations": "all", "description": "Record: date, vehicle registration, MOT expiry, service date, VED expiry, insurance expiry, any defects noted, actions taken." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-014-003",
+      "title": "Annual Driver Licence and Endorsement Check",
+      "applicable_to": ["dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year for all staff authorised to drive practice vehicles.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Request permission from each authorised driver to carry out an online DVLA licence check (or DVA for NI). Send the driver the DVLA 'View Driving Licence' link (www.gov.uk/view-driving-licence) and ask them to generate a share code." },
+        { "step_number": 2, "nations": "all", "description": "Review the licence check: confirm the licence is valid, covers the category of vehicle being driven, and confirm any endorsements. Refer any driver with 6 or more points to the Practice Manager for risk assessment before authorising further practice vehicle use." },
+        { "step_number": 3, "nations": "all", "description": "Confirm each authorised driver has adequate motor insurance for business use (including use of grey fleet vehicles where relevant — drivers using personal cars for home visits must have business use on their personal policy)." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "In Northern Ireland, licence checking is via the DVA online service rather than DVLA. The process is equivalent." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, driver name, licence number, check completed (yes), any endorsements noted, authorised to drive (yes/no), next check due." }
+      ]
+    }
+  ]
+}

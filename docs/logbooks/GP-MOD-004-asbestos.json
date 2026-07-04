@@ -1,0 +1,62 @@
+{
+  "module_id": "GP-MOD-004",
+  "module_name": "Asbestos Management",
+  "source_school_module": "MOD-004",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Control of Asbestos Regulations 2012; Health and Safety at Work Act 1974",
+    "northern_ireland": "Control of Asbestos Regulations (Northern Ireland) 2012"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager (Dutyholder under Regulation 4)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-004. Responsible person terminology updated to Practice Manager. Regulation 4 duty applies equally to GP premises.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-004-001",
+      "title": "Annual Asbestos Management Plan (AMP) Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually, or following any building works, change of tenancy, or discovery of previously unknown ACMs.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the current Asbestos Management Plan (AMP) and Asbestos Register. Confirm the Register lists all known and presumed Asbestos-Containing Materials (ACMs) in the premises, including their location, type, condition rating, and management action." },
+        { "step_number": 2, "nations": "all", "description": "Walk the premises and compare against the Register. Confirm there are no newly disturbed or damaged ACMs. Confirm no areas have been opened up (e.g., during maintenance) without checking the Register first." },
+        { "step_number": 3, "nations": "all", "description": "Review all ACM condition ratings. Any ACMs rated Poor or that have deteriorated since the last inspection must be referred to a licensed asbestos contractor for remediation or removal." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the AMP is communicated to: all staff, contractors working on the premises (see contractor notification logbook GP-LB-004-003), and any new staff or contractors who have not been briefed." },
+        { "step_number": 5, "nations": "all", "description": "Update the AMP with findings. Record: date of review, reviewer name, any changes to Register, remedial actions taken or planned, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-004-002",
+      "title": "Termly ACM Condition Monitoring",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "termly",
+      "frequency_detail": "Three times per year (approximately every 4 months). More frequent monitoring required for ACMs rated as Poor or where disturbance risk is elevated.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the ACM schedule from the Asbestos Register. Note each ACM's current condition rating and location." },
+        { "step_number": 2, "nations": "all", "description": "Visually inspect each accessible ACM: look for damage, delamination, crumbling, exposed fibres, water damage, or evidence of disturbance. Do not touch or disturb ACMs during inspection." },
+        { "step_number": 3, "nations": "all", "description": "If any ACM shows deterioration compared to the previous inspection, or evidence of disturbance, immediately isolate the area, prevent access, and contact a licensed asbestos contractor for assessment.", "photo_evidence_optional": true, "photo_guidance": "Photograph any ACM showing damage or deterioration without disturbing it." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, ACM reference, location, condition observed, change from previous inspection (if any), action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-004-003",
+      "title": "Contractor Asbestos Notification Record",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Before any contractor commences intrusive work on the premises.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Before any contractor begins work that involves opening up the fabric of the building (drilling, cutting, fitting, rewiring, plumbing), brief them on the contents of the Asbestos Register." },
+        { "step_number": 2, "nations": "all", "description": "Provide the contractor with: a copy of or access to the Asbestos Register relevant to their work area; the location of any ACMs in or adjacent to the work area; the instruction that all work must stop and the Practice Manager must be informed immediately if any unexpected ACM is encountered." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the contractor has a suitable asbestos awareness training record (Category A minimum) for work that could disturb ACMs." },
+        { "step_number": 4, "nations": "all", "description": "Contractor (or supervisor) signs to confirm they have received the briefing and will comply with the AMP requirements." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, contractor company and name, nature of works, areas covered, confirmation of briefing, any ACMs in the work area, contractor signature." }
+      ]
+    }
+  ]
+}

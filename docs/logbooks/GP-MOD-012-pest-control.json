@@ -1,0 +1,34 @@
+{
+  "module_id": "GP-MOD-012",
+  "module_name": "Pest Control",
+  "source_school_module": "MOD-013",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Prevention of Damage by Pests Act 1949; Health and Safety at Work Act 1974; Food Safety Act 1990 (staff kitchen areas); Environmental Protection Act 1990"
+  },
+  "enforcing_body": {
+    "england": "Local Authority Environmental Health + CQC",
+    "wales": "Local Authority Environmental Health + HIW",
+    "scotland": "Local Authority Environmental Health + HIS",
+    "northern_ireland": "Local Authority / District Council Environmental Health + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-013. Responsible person updated to Practice Manager. Pest control is particularly important in GP practices given medicines storage (dispensing practices — rodents in dispensary present a significant risk) and clinical waste storage areas.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-012-001",
+      "title": "Quarterly Pest Control Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "quarterly",
+      "frequency_detail": "Every 3 months by a professional pest control contractor (BPCA or RSPH qualified). Dispensing practices should consider a higher frequency (monthly) given the risk of rodent access to medicines storage.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange quarterly visit with a professional pest control contractor (BPCA-registered or equivalent). Confirm they hold relevant insurance and are trained in use of rodenticides." },
+        { "step_number": 2, "nations": "all", "description": "Contractor inspects all areas: dispensary and medicines storage (dispensing practices — check for rodent evidence: droppings, gnaw marks, nesting material), clinical waste storage area (external), staff kitchen and food storage, bin store." },
+        { "step_number": 3, "nations": "all", "description": "Contractor checks and services all bait stations and rodent traps: replenish bait, record activity, replace damaged traps." },
+        { "step_number": 4, "nations": "all", "description": "Any evidence of active infestation must be escalated immediately. Affected areas (particularly medicines storage) must be assessed for contamination risk — contaminated medicines must be quarantined and not dispensed pending investigation.", "photo_evidence_optional": true, "photo_guidance": "Photograph any evidence of pest activity or damaged bait stations." },
+        { "step_number": 5, "nations": "all", "description": "Contractor provides a written service report. Record: date, areas inspected, pest activity observed (yes/no), bait replenished, any recommendations, any immediate actions required, next visit date." }
+      ]
+    }
+  ]
+}

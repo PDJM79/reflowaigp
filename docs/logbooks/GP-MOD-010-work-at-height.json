@@ -1,0 +1,63 @@
+{
+  "module_id": "GP-MOD-010",
+  "module_name": "Work at Height",
+  "source_school_module": "MOD-010",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "all": "Work at Height Regulations 2005; Health and Safety at Work Act 1974",
+    "northern_ireland": "Work at Height Regulations (Northern Ireland) 2005"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-010. Responsible person updated to Practice Manager. Common WAH tasks in GP practices: changing ceiling light bulbs and fluorescent tubes, reaching high shelving in store rooms and dispensary, cleaning high-level surfaces and windows, external maintenance tasks.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-010-001",
+      "title": "Monthly Ladder and Steps Pre-Use Inspection Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Monthly formal record. Staff must also visually check equipment immediately before each use.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Locate all WAH equipment in the practice: step ladders, hop-ups, platform steps, extension ladders (if any)." },
+        { "step_number": 2, "nations": "all", "description": "For each item inspect: stiles (no bends, cracks or damage), rungs/treads (all present, firm, no damage, non-slip surface intact), feet (rubber feet present and intact, anti-slip pads in good condition), locking mechanism (for stepladders: confirm spreader bar locks open fully), labels and ratings legible.", "photo_evidence_optional": true, "photo_guidance": "Photograph any damaged rung, foot, or locking mechanism." },
+        { "step_number": 3, "nations": "all", "description": "Any WAH equipment with a defect must be taken out of service immediately, tagged 'Do Not Use', and either repaired or disposed of. Do not return to service until defect is rectified." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all WAH equipment is stored correctly (flat or hanging, not leant against a wall unsecured)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, equipment reference, condition (pass/fail per item), defects found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-010-002",
+      "title": "Annual WAH Equipment Formal Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year. Annual inspection to be carried out by a competent person (may be the Practice Manager or Site Manager if trained) per PUWER / WAH Regulations.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Compile a register of all WAH equipment on site. Confirm each item is marked with a unique reference." },
+        { "step_number": 2, "nations": "all", "description": "Carry out a detailed formal inspection of each item: check all structural components, joints, hinges, fixings, non-slip surfaces, and markings. Compare against manufacturer guidance for inspection criteria." },
+        { "step_number": 3, "nations": "all", "description": "Record the condition of each item, with a recommendation: continue in service / monitor / remove from service." },
+        { "step_number": 4, "nations": "all", "description": "Any item failing the formal inspection must be removed from service, tagged, and either repaired by a competent person or replaced." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, all equipment reference numbers, inspection findings per item, any removed from service, inspector name and competence, next formal inspection due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-010-003",
+      "title": "Annual Work at Height Risk Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all tasks in the practice that require work at height: changing light fittings, accessing high shelving (dispensary, store room), external gutter or roof access, window cleaning above ground floor." },
+        { "step_number": 2, "nations": "all", "description": "Apply the WAH hierarchy for each task: avoid (can the task be redesigned?), collective prevention (scaffolding, mobile elevated platform), personal prevention (harness), and as a last resort, mitigation (nets, air bags). For GP practices, step ladders and hop-ups are typically sufficient for internal tasks." },
+        { "step_number": 3, "nations": "all", "description": "Confirm that fragile surfaces (roofs, ceiling panels, any glazed surfaces overhead) are clearly identified and that a prohibition is in place for staff accessing these without specialist contractor involvement." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all staff who use WAH equipment are trained in safe use (buddy system, three points of contact, correct angle for leaning ladders)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, tasks identified, controls reviewed and confirmed, training confirmed, any changes to assessment, next review date." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "module_id": "GP-MOD-019",
+  "module_name": "Display Screen Equipment (DSE)",
+  "source_school_module": "MOD-024",
+  "comparison_status": "IDENTICAL",
+  "primary_legislation": {
+    "england_wales": "Health and Safety (Display Screen Equipment) Regulations 1992 (as amended 2002)",
+    "scotland": "Health and Safety (Display Screen Equipment) Regulations 1992 (as amended 2002)",
+    "northern_ireland": "Health and Safety (Display Screen Equipment) Regulations (Northern Ireland) 1992"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Steps are identical to school MOD-024. GP practices typically have a high proportion of defined DSE users: GPs, nurses, admin staff, and dispensers all use screens for the majority of their working day. Branch surgeries must also be included in the assessment.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-019-001",
+      "title": "Annual DSE Self-Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. Also review if a DSE user changes workstation, changes role, or reports discomfort.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all 'defined users' — staff who use display screen equipment as a significant part of their normal work (typically 1 hour or more continuously per day). In a GP practice this includes: GPs (clinical system, electronic prescribing), practice nurses (clinical system), reception and admin staff, dispensers (dispensing practices)." },
+        { "step_number": 2, "nations": "all", "description": "Issue or make available a DSE self-assessment checklist to each defined user — covering: screen position and height, keyboard and mouse position, chair adjustment, lighting and glare, posture awareness." },
+        { "step_number": 3, "nations": "all", "description": "Each defined user completes the self-assessment, notes any issues and returns it to the Practice Manager or H&S lead." },
+        { "step_number": 4, "nations": "all", "description": "Review completed assessments — arrange any adjustments needed (chair adjustment, monitor riser, footrest, wrist rest, alternative keyboard/mouse). For clinical staff using laptops during home visits, a separate portable device assessment may be needed." },
+        { "step_number": 5, "nations": "all", "description": "Remind defined users of their entitlement to an eyesight test at the employer's expense (the practice must pay for a standard eye test for any defined DSE user who requests one)." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, list of defined users, assessment completed (yes/no), issues identified, adjustments made, eye test referrals issued, reviewer name." }
+      ]
+    }
+  ]
+}
