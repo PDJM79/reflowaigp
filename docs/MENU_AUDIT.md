@@ -96,3 +96,34 @@ visible error or empty state (no crash), so they are not user-trapping.
   commits" rule).
 - **Legacy admin routes removed** rather than repaired: they duplicate working
   pages and aren't linked in the nav.
+
+## Post-fix status + corrections (verified against a fresh bundle)
+
+**Correction:** `/dashboards/workforce` is **NOT a crash** — the initial blank
+reading was a 2-second-wait timing false positive. With a proper wait it renders a
+real empty state via the employees/training API (WORKS). No fix needed.
+
+**Fixed and verified in-browser (manager, seeded data):**
+| Route | Before | After |
+|---|---|---|
+| `/task-templates` | ERROR "Failed to load templates"; creation silently failed (title/name) | WORKS — both seeded templates listed; create/edit/delete/duplicate via process-templates API |
+| `/fridge-temps` (logs) | ERROR "Failed to load logs" (phantom temp_logs) | WORKS — logs section renders readings via fridge-readings API |
+| `/incidents` | EMPTY (RLS-dead) | WORKS — seeded incident shown (Open 1 / Amber 1) |
+| `/admin/reports`, `/admin/calendar` | ERROR (legacy dupes) | REMOVED (routes + pages) |
+
+**Staff (GP) walk — no leakage:** GP nav shows only permitted items; **Logbooks**
+and **User Management** are hidden; a GP `POST logbook-selections` returns **403**
+(server-side gate), confirming manager-only enforcement beyond nav gating.
+
+**Deferred (documented, not user-trapping — visible empty/error state, no crash).**
+All are direct-Supabase reads; each needs a **new Express route + storage method**
+(no existing endpoint) before the client can be migrated, so they were batched out
+of this pass to keep commits small and verified:
+- `/medical-requests`, `/ipc` (ipc_audits), `/month-end` (scripts), `/claims`,
+  `/risk-register`, `/room-assessments`, `/processes`, `/dashboards/governance`.
+- **Role-catalog system** (`/staff-roles`, `/role-management`): backed by
+  `practice_roles`/`role_catalog`/`user_practice_roles` (Supabase-native RBAC) —
+  needs a dedicated routes+storage layer; larger (M/L).
+- `/complaints`, `/policies` (+review-history), `/hr`: existing routes exist
+  (complaints/policies/employees/training) — cheap client-only swaps, next batch.
+- `/fridge-temps` PDF **export** still reads `temp_logs` (export-only, not page load).
