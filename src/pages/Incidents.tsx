@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { IncidentReportDialog } from '@/components/incidents/IncidentReportDialog';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,15 +27,16 @@ export default function Incidents() {
     try {
       if (!user?.practiceId) return;
 
-      const { data, error } = await supabase
-        .from('incidents')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('incident_date', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setIncidents(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/incidents`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load incidents');
+      const data = await res.json();
+      // API returns Drizzle camelCase; map the one field the render reads as snake_case.
+      const mapped = (Array.isArray(data) ? data : []).map((i: any) => ({
+        ...i,
+        incident_date: i.incidentDate ?? i.dateOccurred ?? i.createdAt,
+      }));
+      mapped.sort((a, b) => new Date(b.incident_date || 0).getTime() - new Date(a.incident_date || 0).getTime());
+      setIncidents(mapped);
     } catch (error) {
       console.error('Error fetching incidents:', error);
     } finally {
