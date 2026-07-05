@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { statusMeta, statusLabel, isCompletedStatus } from '@/lib/taskStatus';
 import { Calendar, ChevronLeft, ChevronRight, Clock, User, AlertTriangle, RefreshCw } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,7 @@ type Task = {
   assignee_name?: string;
 };
 
-const COMPLETED = new Set(['complete', 'closed', 'submitted']);
+const COMPLETED = new Set(['complete', 'closed']);
 
 export default function Schedule() {
   const { user } = useAuth();
@@ -97,10 +98,9 @@ export default function Schedule() {
   };
 
   const getStatusColor = (status: string) => {
-    if (COMPLETED.has(status)) return 'bg-green-500';
-    if (status === 'overdue' || status === 'missed') return 'bg-red-500';
-    if (status === 'in_progress') return 'bg-blue-500';
-    return 'bg-gray-500';
+    const rag = statusMeta(status).rag;
+    if (status === 'submitted_for_review') return 'bg-blue-500';
+    return rag === 'green' ? 'bg-green-500' : rag === 'red' ? 'bg-red-500' : 'bg-amber-500';
   };
 
   const renderCalendarView = () => {
@@ -188,8 +188,8 @@ export default function Schedule() {
                           </div>
                         </div>
                       </div>
-                      <Badge variant={COMPLETED.has(task.status) ? 'default' : task.status === 'overdue' || task.status === 'missed' ? 'destructive' : 'secondary'}>
-                        {task.status}
+                      <Badge variant={isCompletedStatus(task.status) ? 'default' : statusMeta(task.status).rag === 'red' ? 'destructive' : 'secondary'}>
+                        {statusLabel(task.status)}
                       </Badge>
                     </div>
                   ))}

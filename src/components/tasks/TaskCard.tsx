@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { statusMeta, statusLabel, isEffectivelyOverdue } from '@/lib/taskStatus';
 
 interface TaskCardProps {
   task: {
@@ -22,6 +23,7 @@ interface TaskCardProps {
     due_at: string;
     assigned_to_user_id: string;
     requires_photo: boolean;
+    rejected_reason?: string | null;
     assignedUser?: {
       name: string;
     } | null;
@@ -74,24 +76,21 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'complete':
+      case 'closed':
         return <CheckCircle className="h-4 w-4 text-success" />;
       case 'in_progress':
+      case 'submitted_for_review':
         return <Clock className="h-4 w-4 text-warning" />;
+      case 'rejected':
+      case 'overdue':
+      case 'missed':
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
       default:
         return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'complete':
-        return 'green';
-      case 'in_progress':
-        return 'amber';
-      default:
-        return 'red';
-    }
-  };
+  const getStatusColor = (status: string) => statusMeta(status).rag;
 
   const getPriorityVariant = (priority: string) => {
     switch (priority) {
@@ -104,7 +103,7 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
     }
   };
 
-  const isOverdue = task.status !== 'complete' && new Date(task.due_at) < new Date();
+  const isOverdue = isEffectivelyOverdue(task.status, task.due_at);
   const dueDate = new Date(task.due_at);
   const daysUntilDue = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
@@ -141,9 +140,20 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            {isOverdue && (
-              <Badge className="bg-destructive text-destructive-foreground text-xs mb-1">OVERDUE</Badge>
-            )}
+            <div className="flex flex-wrap gap-1 mb-1">
+              {isOverdue && task.status !== 'missed' && (
+                <Badge className="bg-destructive text-destructive-foreground text-xs">OVERDUE</Badge>
+              )}
+              {task.status === 'missed' && (
+                <Badge className="bg-neutral-500 text-white text-xs">MISSED</Badge>
+              )}
+              {task.status === 'submitted_for_review' && (
+                <Badge className="bg-blue-600 text-white text-xs">SUBMITTED FOR REVIEW</Badge>
+              )}
+              {task.status === 'rejected' && (
+                <Badge className="bg-destructive text-destructive-foreground text-xs">REJECTED — REDO</Badge>
+              )}
+            </div>
             <CardTitle className="text-lg line-clamp-2">{task.title}</CardTitle>
           </div>
           <RAGBadge status={getStatusColor(task.status)} />
@@ -169,8 +179,14 @@ export function TaskCard({ task, isMyTask, onRefresh }: TaskCardProps) {
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             {getStatusIcon(task.status)}
-            <span className="capitalize">{task.status.replace('_', ' ')}</span>
+            <span>{statusLabel(task.status)}</span>
           </div>
+
+          {task.status === 'rejected' && task.rejected_reason && (
+            <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+              <span className="font-medium">Rejected: </span>{task.rejected_reason}
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />

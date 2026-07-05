@@ -13,6 +13,7 @@ import { Plus, Search, Filter, Calendar, AlertCircle, Loader2, RefreshCw, Chevro
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TASK_STATUS_FILTER_OPTIONS, isCompletedStatus, isEffectivelyOverdue } from '@/lib/taskStatus';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { triggerHaptic } from '@/lib/haptics';
 
@@ -27,6 +28,7 @@ interface Task {
   assigned_to_user_id: string;
   assigned_to_role: string;
   requires_photo: boolean;
+  rejected_reason?: string | null;
   created_at: string;
   completed_at?: string;
   is_auditable?: boolean;
@@ -112,7 +114,7 @@ export default function TasksList() {
   // Reset page when activeTab changes
   useEffect(() => { setPage(1); }, [activeTab]);
 
-  const COMPLETED_STATUSES = new Set(['complete', 'closed', 'submitted']);
+  // submitted_for_review is NOT completed — it is awaiting review.
 
   const fetchTasks = async () => {
     try {
@@ -148,6 +150,7 @@ export default function TasksList() {
         assigned_to_user_id: t.assigneeId,
         assigned_to_role: '',
         requires_photo: false,
+        rejected_reason: t.rejectedReason ?? t.rejected_reason ?? null,
         created_at: t.createdAt || '',
         completed_at: t.completedAt || undefined,
         assignedUser: t.assigneeId
@@ -165,8 +168,8 @@ export default function TasksList() {
           if (selectedStatus !== 'all' && t.status !== selectedStatus) return false;
           if (selectedPriority !== 'all' && t.priority !== selectedPriority) return false;
           if (tabIsMine && t.assigned_to_user_id !== user.id) return false;
-          if (tabIsCompleted && !COMPLETED_STATUSES.has(t.status)) return false;
-          if (tabIsUrgent && (COMPLETED_STATUSES.has(t.status) || !t.due_at || new Date(t.due_at) >= now)) return false;
+          if (tabIsCompleted && !isCompletedStatus(t.status)) return false;
+          if (tabIsUrgent && (isCompletedStatus(t.status) || t.status === 'submitted_for_review' || !isEffectivelyOverdue(t.status, t.due_at))) return false;
           if (query && !`${t.title} ${t.description} ${t.module}`.toLowerCase().includes(query)) return false;
           return true;
         })
@@ -298,11 +301,9 @@ export default function TasksList() {
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
+                {TASK_STATUS_FILTER_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
