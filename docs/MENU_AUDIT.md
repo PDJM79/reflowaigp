@@ -127,3 +127,48 @@ of this pass to keep commits small and verified:
 - `/complaints`, `/policies` (+review-history), `/hr`: existing routes exist
   (complaints/policies/employees/training) — cheap client-only swaps, next batch.
 - `/fridge-temps` PDF **export** still reads `temp_logs` (export-only, not page load).
+
+## Batch (a) recovery — deferred-page migration (fix/deferred-pages)
+
+**Migrated to the Express API and verified in-browser with seeded data** (fresh
+bundle `index-Czgtez8Y`, manager; GP spot-check = no leakage):
+| Route | Before | After | Commit | Proof |
+|---|---|---|---|---|
+| `/complaints` | EMPTY (RLS-dead `complaints`) | WORKS — "Jane Doe" complaint shown; error state + retry | `bf389c6` | browser innerText |
+| `/policies` | EMPTY (RLS-dead `policy_documents`) | WORKS — "Infection Control Policy" shown; acks degrade (no route) | `663deaa` | browser innerText |
+| `/hr` | EMPTY (13 RLS-dead reads) | WORKS (core) — "Alice Nurse" staff + training via API; appraisals/leave/DBS degrade | `718bc80` | browser innerText |
+| `/fridge-temps` (PDF export) | export read phantom `temp_logs` | export reads fridge-readings API; page now fully Supabase-free | `ceca00b` | code + page verified |
+
+**Audit corrections (already working — over-flagged in the first walk):**
+- `/risk-register` — uses the tasks + users API; renders (High Risk view). WORKS.
+- `/room-assessments` — static page, no data reads. WORKS.
+- `/processes` — uses the process-templates API. WORKS.
+
+**Deferred with reasons (genuine blockers, per the "no schema changes" rule):**
+- `/ipc` — **page↔Drizzle drift**: the page reads `period_month`/`period_year`/
+  `location_scope` but the Drizzle `ipc_audits` defines `audit_date`/`audit_type`/
+  `sections`. Needs a canonical-schema decision or a full page+detail rewrite —
+  not a clean swap. **Needs your decision** on which shape is authoritative.
+- `/medical-requests`, `/month-end`, `/dashboards/governance` — underlying tables
+  (`medical_requests`, `month_end_scripts`, `governance_approvals`) exist in the
+  live Supabase migrations but are **absent from the Drizzle schema**, so they
+  don't exist in a `drizzle-kit push` DB and can't get storage methods without
+  adding Drizzle table definitions = a schema-layer change (out of scope).
+- `/claims` — reads `script_claim_runs`, not present in the Drizzle schema nor
+  found in the migrations grep; same blocker.
+- Governance additionally needs a `governance_approvals` **aggregation API**
+  (its `useGovernanceApprovals` hook cross-reads several tables) — M/L.
+- `/hr` mutations (DBS import, appraisal/training create) still use Supabase —
+  they need `dbs_checks`/`appraisals`/`training_types` routes (those tables also
+  absent from Drizzle). Page-load is migrated; write-paths deferred.
+
+**Out of this batch's scope (not in the deferred-11, still direct-Supabase):**
+`/settings` (MFA status read), `TaskDetail`/`StepExecution` (task-execution flow,
+`process_instances`/`step_instances`), and the role-catalog batch
+(`/staff-roles`, `/role-management`).
+
+**Recommendation:** the remaining pages are blocked on schema-layer work (adding
+Drizzle definitions for existing live tables) + one IPC schema decision. Suggest a
+follow-up that (1) adds Drizzle defs for `medical_requests`, `month_end_scripts`,
+`script_claim_runs`, `governance_approvals`, `dbs_checks`, `appraisals`,
+`training_types` (describing existing live tables), then (2) builds their routes.
