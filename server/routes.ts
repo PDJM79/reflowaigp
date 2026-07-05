@@ -859,6 +859,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- batch (c) data routes ---
+  app.get("/api/practices/:practiceId/medical-requests", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getMedicalRequests(req.params.practiceId as string)); }
+    catch (e) { console.error("GET medical-requests", e); res.status(500).json({ error: "Failed to fetch medical requests" }); }
+  });
+  app.post("/api/practices/:practiceId/medical-requests", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createMedicalRequest({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
+    catch (e) { console.error("POST medical-requests", e); res.status(500).json({ error: "Failed to create medical request" }); }
+  });
+  app.patch("/api/practices/:practiceId/medical-requests/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const row = await storage.updateMedicalRequest(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!row) return res.status(404).json({ error: "Medical request not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH medical-requests", e); res.status(500).json({ error: "Failed to update medical request" }); }
+  });
+
+  app.get("/api/practices/:practiceId/governance-approvals", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getGovernanceApprovals(req.params.practiceId as string)); }
+    catch (e) { console.error("GET governance-approvals", e); res.status(500).json({ error: "Failed to fetch governance approvals" }); }
+  });
+  app.post("/api/practices/:practiceId/governance-approvals", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createGovernanceApproval({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
+    catch (e) { console.error("POST governance-approvals", e); res.status(500).json({ error: "Failed to create governance approval" }); }
+  });
+  app.patch("/api/practices/:practiceId/governance-approvals/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const row = await storage.updateGovernanceApproval(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!row) return res.status(404).json({ error: "Governance approval not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH governance-approvals", e); res.status(500).json({ error: "Failed to update governance approval" }); }
+  });
+  app.delete("/api/practices/:practiceId/governance-approvals/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try { await storage.deleteGovernanceApproval(req.params.id as string, req.params.practiceId as string); res.json({ ok: true }); }
+    catch (e) { console.error("DELETE governance-approvals", e); res.status(500).json({ error: "Failed to delete governance approval" }); }
+  });
+
+  app.get("/api/practices/:practiceId/month-end-scripts", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getMonthEndScripts(req.params.practiceId as string)); }
+    catch (e) { console.error("GET month-end-scripts", e); res.status(500).json({ error: "Failed to fetch month-end scripts" }); }
+  });
+  app.post("/api/practices/:practiceId/month-end-scripts", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createMonthEndScript({ ...stripPracticeId(req.body), practiceId: req.params.practiceId, createdBy: req.session.userId } as any)); }
+    catch (e) { console.error("POST month-end-scripts", e); res.status(500).json({ error: "Failed to create month-end script" }); }
+  });
+
+  app.get("/api/practices/:practiceId/claim-runs", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getClaimRuns(req.params.practiceId as string)); }
+    catch (e) { console.error("GET claim-runs", e); res.status(500).json({ error: "Failed to fetch claim runs" }); }
+  });
+
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));

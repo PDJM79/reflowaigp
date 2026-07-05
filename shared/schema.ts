@@ -772,6 +772,57 @@ export const userPracticeRoles = pgTable("user_practice_roles", {
   userRoleUnique: uniqueIndex("user_practice_roles_user_id_practice_role_id_key").on(t.userId, t.practiceRoleId),
 }));
 
+// --- Read-descriptions of existing Supabase-native tables (batch c; no ALTER) ---
+export const medicalRequests = pgTable("medical_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  requestType: text("request_type").notNull(),
+  receivedAt: timestamp("received_at").notNull(),
+  emisHash: text("emis_hash"),
+  assignedGpId: uuid("assigned_gp_id"),
+  sentAt: timestamp("sent_at"),
+  status: text("status").default('received'),
+  notes: text("notes"),
+  evidenceIds: uuid("evidence_ids").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const governanceApprovals = pgTable("governance_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  entityName: text("entity_name").notNull(),
+  approvalType: text("approval_type").notNull().default('sign_off'),
+  decision: text("decision").notNull().default('pending'),
+  requestedBy: uuid("requested_by"),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  digitalSignature: text("digital_signature"),
+  reviewerTitle: text("reviewer_title"),
+  urgency: text("urgency").default('medium'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const monthEndScripts = pgTable("month_end_scripts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  month: date("month").notNull(),
+  issueDate: date("issue_date").notNull(),
+  emisHash: text("emis_hash").notNull(),
+  drugCode: text("drug_code").notNull(),
+  drugName: text("drug_name").notNull(),
+  quantity: decimal("quantity").notNull(),
+  prescriber: text("prescriber").notNull(),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const riskRegister = pgTable("risk_register", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),

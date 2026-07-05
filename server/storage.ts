@@ -927,6 +927,58 @@ export class DatabaseStorage implements IStorage {
     for (const o of overrides) caps.add(o.capability);
     return Array.from(caps);
   }
+
+  // --- batch (c) data tables (existing Supabase-native, described in Drizzle) ---
+
+  async getMedicalRequests(practiceId: string) {
+    return db.select().from(schema.medicalRequests)
+      .where(eq(schema.medicalRequests.practiceId, practiceId))
+      .orderBy(desc(schema.medicalRequests.receivedAt));
+  }
+  async createMedicalRequest(data: typeof schema.medicalRequests.$inferInsert) {
+    const [row] = await db.insert(schema.medicalRequests).values(data).returning();
+    return row;
+  }
+  async updateMedicalRequest(id: string, practiceId: string, data: Partial<typeof schema.medicalRequests.$inferInsert>) {
+    const [row] = await db.update(schema.medicalRequests).set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.medicalRequests.id, id), eq(schema.medicalRequests.practiceId, practiceId))).returning();
+    return row;
+  }
+
+  async getGovernanceApprovals(practiceId: string) {
+    return db.select().from(schema.governanceApprovals)
+      .where(eq(schema.governanceApprovals.practiceId, practiceId))
+      .orderBy(desc(schema.governanceApprovals.createdAt));
+  }
+  async createGovernanceApproval(data: typeof schema.governanceApprovals.$inferInsert) {
+    const [row] = await db.insert(schema.governanceApprovals).values(data).returning();
+    return row;
+  }
+  async updateGovernanceApproval(id: string, practiceId: string, data: Partial<typeof schema.governanceApprovals.$inferInsert>) {
+    const [row] = await db.update(schema.governanceApprovals).set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.governanceApprovals.id, id), eq(schema.governanceApprovals.practiceId, practiceId))).returning();
+    return row;
+  }
+  async deleteGovernanceApproval(id: string, practiceId: string) {
+    await db.delete(schema.governanceApprovals)
+      .where(and(eq(schema.governanceApprovals.id, id), eq(schema.governanceApprovals.practiceId, practiceId)));
+  }
+
+  async getMonthEndScripts(practiceId: string) {
+    return db.select().from(schema.monthEndScripts)
+      .where(eq(schema.monthEndScripts.practiceId, practiceId))
+      .orderBy(desc(schema.monthEndScripts.createdAt));
+  }
+  async createMonthEndScript(data: typeof schema.monthEndScripts.$inferInsert) {
+    const [row] = await db.insert(schema.monthEndScripts).values(data).returning();
+    return row;
+  }
+
+  async getClaimRuns(practiceId: string) {
+    return db.select().from(schema.claimRuns)
+      .where(eq(schema.claimRuns.practiceId, practiceId))
+      .orderBy(desc(schema.claimRuns.periodStart));
+  }
 }
 
 export const storage = new DatabaseStorage();

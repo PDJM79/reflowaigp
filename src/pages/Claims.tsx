@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,15 +34,9 @@ export default function Claims() {
 
       setPracticeId(user.practiceId);
 
-      const { data, error } = await supabase
-        .from('script_claim_runs')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('run_date', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setClaimRuns(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/claim-runs`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch claims (${res.status})`);
+      setClaimRuns(await res.json() || []);
     } catch (error) {
       console.error('Error fetching claims:', error);
     } finally {

@@ -18,7 +18,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   REQUEST_TYPES,
@@ -55,12 +54,9 @@ export function RequestDetailDialog({
   }, [request?.assigned_gp_id]);
 
   const fetchGPName = async (gpId: string) => {
-    const { data } = await supabase
-      .from('employees')
-      .select('name')
-      .eq('id', gpId)
-      .single();
-    setGpName(data?.name || null);
+    const res = await fetch(`/api/practices/${request?.practice_id}/employees`, { credentials: 'include' });
+    const rows = res.ok ? await res.json() as any[] : [];
+    setGpName(rows.find((e) => e.id === gpId)?.name || null);
   };
 
   const handleMarkAsSent = async () => {
@@ -68,16 +64,13 @@ export function RequestDetailDialog({
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('medical_requests')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', request.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${request.practice_id}/medical-requests/${request.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent', sentAt: new Date().toISOString() }),
+      });
+      if (!res.ok) throw new Error(`Failed to update request (${res.status})`);
 
       toast({ title: 'Request marked as sent' });
       onSuccess();

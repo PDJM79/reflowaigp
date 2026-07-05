@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterUser } from '@/hooks/useMasterUser';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -74,12 +73,8 @@ export default function MedicalRequests() {
       setPracticeId(pid);
 
       // Fetch practice name
-      const { data: practiceData } = await supabase
-        .from('practices')
-        .select('name')
-        .eq('id', pid)
-        .single();
-
+      const practiceRes = await fetch(`/api/practices/${pid}`, { credentials: 'include' });
+      const practiceData = practiceRes.ok ? await practiceRes.json() : null;
       setPracticeName(practiceData?.name || 'Practice');
       await fetchRequests(pid);
     } catch (error) {
@@ -90,14 +85,17 @@ export default function MedicalRequests() {
   const fetchRequests = async (pid: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('medical_requests')
-        .select('*')
-        .eq('practice_id', pid)
-        .order('received_at', { ascending: false });
-
-      if (error) throw error;
-      setRequests((data as MedicalRequest[]) || []);
+      const res = await fetch(`/api/practices/${pid}/medical-requests`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch requests (${res.status})`);
+      const rows = await res.json() as any[];
+      setRequests(rows.map((r) => ({
+        ...r,
+        request_type: r.requestType ?? r.request_type,
+        received_at: r.receivedAt ?? r.received_at,
+        assigned_gp_id: r.assignedGpId ?? r.assigned_gp_id,
+        sent_at: r.sentAt ?? r.sent_at,
+        evidence_ids: r.evidenceIds ?? r.evidence_ids,
+      })) as MedicalRequest[]);
     } catch (error) {
       console.error('Error fetching medical requests:', error);
       toast({
