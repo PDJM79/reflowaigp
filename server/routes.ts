@@ -407,11 +407,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Role assignments (role -> user) for the Schedule Editor's role-assignee picker.
   app.get("/api/practices/:practiceId/role-assignments", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const rows = await storage.getRoleAssignments(req.params.practiceId as string);
+      // ?detailed=1 → admin management UI (full rows + contact email).
+      // Default shape is unchanged (scheduler picker consumers rely on it).
+      const rows = req.query.detailed === "1"
+        ? await storage.getRoleAssignmentsDetailed(req.params.practiceId as string)
+        : await storage.getRoleAssignments(req.params.practiceId as string);
       res.json(rows);
     } catch (error) {
       console.error("GET role-assignments error:", error);
       res.status(500).json({ error: "Failed to fetch role assignments" });
+    }
+  });
+
+  // Scheduler role-assignment management (manager-only). role_assignments drives
+  // Phase-2 default-assignee resolution; this only moves the UI's access path.
+  app.post("/api/practices/:practiceId/role-assignments", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { assignedName, role, assignedEmail } = req.body as { assignedName?: string; role?: string; assignedEmail?: string };
+      if (!assignedName || !role) return res.status(400).json({ error: "assignedName and role are required" });
+      const id = await storage.createRoleAssignment(req.params.practiceId as string, assignedName, role);
+      if (assignedEmail) await storage.setRoleAssignmentContact(id, assignedEmail);
+      res.status(201).json({ id });
+    } catch (error) {
+      console.error("POST role-assignments error:", error);
+      res.status(500).json({ error: "Failed to create role assignment" });
+    }
+  });
+  app.post("/api/practices/:practiceId/role-assignments/:id/contact", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { assignedEmail } = req.body as { assignedEmail?: string };
+      if (!assignedEmail) return res.status(400).json({ error: "assignedEmail is required" });
+      await storage.setRoleAssignmentContact(req.params.id as string, assignedEmail);
+      res.status(201).json({ ok: true });
+    } catch (error) {
+      console.error("POST role-assignment contact error:", error);
+      res.status(500).json({ error: "Failed to set contact" });
+    }
+  });
+  app.delete("/api/practices/:practiceId/role-assignments/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const ok = await storage.deleteRoleAssignment(req.params.id as string, req.params.practiceId as string);
+      if (!ok) return res.status(404).json({ error: "Role assignment not found" });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("DELETE role-assignments error:", error);
+      res.status(500).json({ error: "Failed to delete role assignment" });
     }
   });
 

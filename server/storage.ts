@@ -769,6 +769,43 @@ export class DatabaseStorage implements IStorage {
     return rows as any;
   }
 
+  // Detailed role assignments (with contact email) for the admin management UI.
+  // Distinct from getRoleAssignments (the scheduler picker) — that shape is unchanged.
+  async getRoleAssignmentsDetailed(practiceId: string) {
+    const rows = await db
+      .select({ ra: schema.roleAssignments, email: schema.roleAssignmentContacts.assignedEmail })
+      .from(schema.roleAssignments)
+      .leftJoin(schema.roleAssignmentContacts, eq(schema.roleAssignments.id, schema.roleAssignmentContacts.assignmentId))
+      .where(eq(schema.roleAssignments.practiceId, practiceId))
+      .orderBy(schema.roleAssignments.assignedName);
+    return rows.map(({ ra, email }) => ({
+      id: ra.id,
+      practice_id: ra.practiceId,
+      role: ra.role,
+      assigned_name: ra.assignedName,
+      assigned_email: ra.assignedEmail ?? email ?? null,
+      user_id: ra.userId,
+      created_at: ra.createdAt,
+    }));
+  }
+  async createRoleAssignment(practiceId: string, assignedName: string, role: string): Promise<string> {
+    const [row] = await db.insert(schema.roleAssignments)
+      .values({ practiceId, assignedName, role: role as any })
+      .returning({ id: schema.roleAssignments.id });
+    return row.id;
+  }
+  async setRoleAssignmentContact(assignmentId: string, assignedEmail: string) {
+    await db.insert(schema.roleAssignmentContacts)
+      .values({ assignmentId, assignedEmail })
+      .onConflictDoUpdate({ target: schema.roleAssignmentContacts.assignmentId, set: { assignedEmail, updatedAt: new Date() } });
+  }
+  async deleteRoleAssignment(id: string, practiceId: string): Promise<boolean> {
+    const result = await db.delete(schema.roleAssignments)
+      .where(and(eq(schema.roleAssignments.id, id), eq(schema.roleAssignments.practiceId, practiceId)))
+      .returning({ id: schema.roleAssignments.id });
+    return result.length > 0;
+  }
+
   // --- RBAC catalog (moved off client Supabase onto the API; see docs/RBAC_MAP.md) ---
   // Returns are shaped snake_case with nested `role_catalog` to match what the client
   // transforms already expect, so page transforms stay untouched.

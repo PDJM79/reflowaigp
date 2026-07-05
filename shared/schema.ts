@@ -716,6 +716,14 @@ export const roleAssignments = pgTable("role_assignments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Contact email for a role assignment (1:1). Read-def of existing table.
+export const roleAssignmentContacts = pgTable("role_assignment_contacts", {
+  assignmentId: uuid("assignment_id").primaryKey().references(() => roleAssignments.id, { onDelete: "cascade" }),
+  assignedEmail: text("assigned_email").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // The 37 capability enum values, mirrored from src/types/roles.ts for server use.
 export const ALL_CAPABILITIES: string[] = [
   'view_policies', 'ack_policies', 'manage_policies', 'approve_policies', 'manage_redactions',

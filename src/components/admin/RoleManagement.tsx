@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -69,14 +68,9 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('role_assignments')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('assigned_name');
-
-      if (error) throw error;
-      setRoleAssignments(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/role-assignments?detailed=1`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to load role assignments (${res.status})`);
+      setRoleAssignments(await res.json() || []);
     } catch (error) {
       console.error('Error fetching role assignments:', error);
       toast.error('Failed to load role assignments');
@@ -96,28 +90,18 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
       
       if (!user?.practiceId) throw new Error('User practice not found');
 
-      // Insert role assignment
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('role_assignments')
-        .insert({
-          assigned_name: newAssignment.name,
-          role: newAssignment.role as UserRole,
-          practice_id: user.practiceId
-        })
-        .select()
-        .single();
-
-      if (assignmentError) throw assignmentError;
-
-      // Insert email in separate table
-      const { error: contactError } = await supabase
-        .from('role_assignment_contacts')
-        .insert({
-          assignment_id: assignmentData.id,
-          assigned_email: newAssignment.email
-        });
-
-      if (contactError) throw contactError;
+      // Create the assignment (+ contact email) via the API
+      const res = await fetch(`/api/practices/${user.practiceId}/role-assignments`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignedName: newAssignment.name,
+          role: newAssignment.role,
+          assignedEmail: newAssignment.email,
+        }),
+      });
+      if (!res.ok) throw new Error(`Failed to add role assignment (${res.status})`);
 
       toast.success('Role assignment added successfully');
       setNewAssignment({ name: '', email: '', role: '' });
@@ -132,12 +116,11 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
 
   const deleteRoleAssignment = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('role_assignments')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${user!.practiceId}/role-assignments/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`Failed to delete role assignment (${res.status})`);
 
       toast.success('Role assignment deleted');
       fetchRoleAssignments();
