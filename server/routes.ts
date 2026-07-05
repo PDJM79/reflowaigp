@@ -12,7 +12,8 @@ import {
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
   insertPolicyDocumentSchema, insertTrainingRecordSchema, insertNotificationSchema,
   insertProcessTemplateSchema, insertFridgeUnitSchema, insertFridgeReadingSchema,
-  insertCleaningZoneSchema, insertCleaningTaskSchema, insertCleaningLogSchema
+  insertCleaningZoneSchema, insertCleaningTaskSchema, insertCleaningLogSchema,
+  ALL_CAPABILITIES
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -404,6 +405,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("GET role-assignments error:", error);
       res.status(500).json({ error: "Failed to fetch role assignments" });
+    }
+  });
+
+  // --- RBAC catalog (moved off client Supabase; see docs/RBAC_MAP.md) ---
+  // Enforcement is unchanged: these gates read users.role/is_practice_manager via
+  // storage.getUser, NOT the RBAC tables. Client migration cannot regress the 403s.
+
+  // Global role catalog (read-only, any authenticated user).
+  app.get("/api/role-catalog", isAuthenticated, async (_req, res) => {
+    try {
+      res.json(await storage.getRoleCatalog());
+    } catch (error) {
+      console.error("GET role-catalog error:", error);
+      res.status(500).json({ error: "Failed to fetch role catalog" });
+    }
+  });
+
+  // A practice's enabled roles (with catalog join).
+  app.get("/api/practices/:practiceId/practice-roles", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      res.json(await storage.getPracticeRoles(req.params.practiceId as string));
+    } catch (error) {
+      console.error("GET practice-roles error:", error);
+      res.status(500).json({ error: "Failed to fetch practice roles" });
+    }
+  });
+
+  // Enable a catalog role for this practice (manager-only).
+  app.post("/api/practices/:practiceId/practice-roles", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { roleCatalogId } = req.body as { roleCatalogId?: string };
+      if (!roleCatalogId) return res.status(400).json({ error: "roleCatalogId is required" });
+      const id = await storage.enablePracticeRole(req.params.practiceId as string, roleCatalogId);
+      res.status(201).json({ id });
+    } catch (error) {
+      console.error("POST practice-roles error:", error);
+      res.status(500).json({ error: "Failed to enable role" });
+    }
+  });
+
+  // Toggle a practice role active/inactive (manager-only).
+  app.patch("/api/practices/:practiceId/practice-roles/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { isActive } = req.body as { isActive?: boolean };
+      if (typeof isActive !== "boolean") return res.status(400).json({ error: "isActive (boolean) is required" });
+      const ok = await storage.setPracticeRoleActive(req.params.id as string, req.params.practiceId as string, isActive);
+      if (!ok) return res.status(404).json({ error: "Practice role not found" });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("PATCH practice-roles error:", error);
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  });
+
+  // Capability overrides for a practice role (manager-only).
+  app.post("/api/practices/:practiceId/practice-roles/:id/capabilities", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { capability } = req.body as { capability?: string };
+      if (!capability) return res.status(400).json({ error: "capability is required" });
+      await storage.addCapabilityOverride(req.params.id as string, capability);
+      res.status(201).json({ ok: true });
+    } catch (error) {
+      console.error("POST capability override error:", error);
+      res.status(500).json({ error: "Failed to add capability" });
+    }
+  });
+
+  app.delete("/api/practices/:practiceId/practice-roles/:id/capabilities/:capability", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      await storage.removeCapabilityOverride(req.params.id as string, req.params.capability as string);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("DELETE capability override error:", error);
+      res.status(500).json({ error: "Failed to remove capability" });
+    }
+  });
+
+  // User↔role assignments. GET is read (any same-practice user); ?userId filters.
+  app.get("/api/practices/:practiceId/user-practice-roles", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const userId = typeof req.query.userId === "string" ? req.query.userId : undefined;
+      res.json(await storage.getUserPracticeRoles(req.params.practiceId as string, userId));
+    } catch (error) {
+      console.error("GET user-practice-roles error:", error);
+      res.status(500).json({ error: "Failed to fetch user roles" });
+    }
+  });
+
+  // Assign a role to a user (manager-only).
+  app.post("/api/practices/:practiceId/user-practice-roles", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { userId, practiceRoleId } = req.body as { userId?: string; practiceRoleId?: string };
+      if (!userId || !practiceRoleId) return res.status(400).json({ error: "userId and practiceRoleId are required" });
+      await storage.assignUserPracticeRole(req.params.practiceId as string, userId, practiceRoleId);
+      res.status(201).json({ ok: true });
+    } catch (error) {
+      console.error("POST user-practice-roles error:", error);
+      res.status(500).json({ error: "Failed to assign role" });
+    }
+  });
+
+  // Unassign a role from a user (manager-only).
+  app.delete("/api/practices/:practiceId/user-practice-roles", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { userId, practiceRoleId } = req.body as { userId?: string; practiceRoleId?: string };
+      if (!userId || !practiceRoleId) return res.status(400).json({ error: "userId and practiceRoleId are required" });
+      await storage.unassignUserPracticeRole(userId, practiceRoleId);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("DELETE user-practice-roles error:", error);
+      res.status(500).json({ error: "Failed to unassign role" });
+    }
+  });
+
+  // Staff + their roles, for the /staff-roles assignment table.
+  app.get("/api/practices/:practiceId/staff-roles", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const [users, roles] = await Promise.all([
+        storage.getUsersByPractice(practiceId),
+        storage.getUserPracticeRoles(practiceId),
+      ]);
+      const byUser = new Map<string, typeof roles>();
+      for (const r of roles) {
+        const list = byUser.get(r.user_id) ?? [];
+        list.push(r);
+        byUser.set(r.user_id, list);
+      }
+      res.json(users.map((u) => ({
+        ...sanitizeUser(u),
+        user_practice_roles: byUser.get(u.id) ?? [],
+      })));
+    } catch (error) {
+      console.error("GET staff-roles error:", error);
+      res.status(500).json({ error: "Failed to fetch staff roles" });
+    }
+  });
+
+  // Current session user's computed capabilities (for client nav gating).
+  app.get("/api/capabilities", isAuthenticated, async (req, res) => {
+    try {
+      const practiceId = req.session.practiceId as string;
+      const userId = req.session.userId as string;
+      const currentUser = await storage.getUser(userId, practiceId);
+      if (!currentUser) return res.status(404).json({ error: "User not found" });
+      // Practice managers get all capabilities (mirrors the prior client fallback).
+      if (currentUser.isPracticeManager) {
+        return res.json({ isPracticeManager: true, capabilities: ALL_CAPABILITIES, userRoles: [] });
+      }
+      const [capabilities, userRoles] = await Promise.all([
+        storage.getUserCapabilities(practiceId, userId),
+        storage.getUserPracticeRoles(practiceId, userId),
+      ]);
+      res.json({ isPracticeManager: false, capabilities, userRoles });
+    } catch (error) {
+      console.error("GET capabilities error:", error);
+      res.status(500).json({ error: "Failed to fetch capabilities" });
     }
   });
 

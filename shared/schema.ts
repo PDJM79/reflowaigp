@@ -716,6 +716,62 @@ export const roleAssignments = pgTable("role_assignments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// The 37 capability enum values, mirrored from src/types/roles.ts for server use.
+export const ALL_CAPABILITIES: string[] = [
+  'view_policies', 'ack_policies', 'manage_policies', 'approve_policies', 'manage_redactions',
+  'manage_cleaning', 'complete_cleaning', 'manage_ipc', 'run_ipc_audit', 'manage_fire', 'run_fire_checks',
+  'manage_hs', 'run_risk_assessment', 'manage_rooms', 'run_room_assessment',
+  'manage_training', 'view_training', 'upload_certificate', 'manage_appraisals', 'run_appraisal', 'collect_360',
+  'report_incident', 'manage_incident', 'log_complaint', 'manage_complaint',
+  'record_script', 'manage_claims', 'manage_medical_requests', 'manage_fridges', 'record_fridge_temp',
+  'manage_qof', 'run_reports', 'view_dashboards', 'manage_users', 'assign_roles', 'configure_practice', 'configure_notifications',
+];
+
+// --- RBAC catalog (read-descriptions of existing Supabase-native tables) ---
+// The `capability` values are modelled as text (reads return the same strings;
+// no enum needed for the read/write access path). See docs/RBAC_MAP.md.
+export const roleCatalog = pgTable("role_catalog", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  roleKey: text("role_key").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  category: text("category").notNull(),
+  defaultCapabilities: text("default_capabilities").array().notNull().default([]),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const practiceRoles = pgTable("practice_roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  roleCatalogId: uuid("role_catalog_id").references(() => roleCatalog.id, { onDelete: "restrict" }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  practiceRoleUnique: uniqueIndex("practice_roles_practice_id_role_catalog_id_key").on(t.practiceId, t.roleCatalogId),
+}));
+
+export const practiceRoleCapabilities = pgTable("practice_role_capabilities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceRoleId: uuid("practice_role_id").references(() => practiceRoles.id, { onDelete: "cascade" }).notNull(),
+  capability: text("capability").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  capabilityUnique: uniqueIndex("practice_role_capabilities_practice_role_id_capability_key").on(t.practiceRoleId, t.capability),
+}));
+
+export const userPracticeRoles = pgTable("user_practice_roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  practiceRoleId: uuid("practice_role_id").references(() => practiceRoles.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  userRoleUnique: uniqueIndex("user_practice_roles_user_id_practice_role_id_key").on(t.userId, t.practiceRoleId),
+}));
+
 export const riskRegister = pgTable("risk_register", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),

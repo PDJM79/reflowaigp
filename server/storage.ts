@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, isNull, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, isNull, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import type {
@@ -679,6 +679,155 @@ export class DatabaseStorage implements IStorage {
       assignedName: schema.roleAssignments.assignedName,
     }).from(schema.roleAssignments).where(eq(schema.roleAssignments.practiceId, practiceId));
     return rows as any;
+  }
+
+  // --- RBAC catalog (moved off client Supabase onto the API; see docs/RBAC_MAP.md) ---
+  // Returns are shaped snake_case with nested `role_catalog` to match what the client
+  // transforms already expect, so page transforms stay untouched.
+
+  private mapCatalog(r: typeof schema.roleCatalog.$inferSelect) {
+    return {
+      id: r.id,
+      role_key: r.roleKey,
+      display_name: r.displayName,
+      category: r.category,
+      default_capabilities: r.defaultCapabilities ?? [],
+      description: r.description,
+      created_at: r.createdAt,
+      updated_at: r.updatedAt,
+    };
+  }
+
+  async getRoleCatalog() {
+    const rows = await db.select().from(schema.roleCatalog)
+      .orderBy(schema.roleCatalog.category, schema.roleCatalog.displayName);
+    return rows.map((r) => this.mapCatalog(r));
+  }
+
+  async getPracticeRoles(practiceId: string) {
+    const rows = await db
+      .select({ pr: schema.practiceRoles, cat: schema.roleCatalog })
+      .from(schema.practiceRoles)
+      .leftJoin(schema.roleCatalog, eq(schema.practiceRoles.roleCatalogId, schema.roleCatalog.id))
+      .where(eq(schema.practiceRoles.practiceId, practiceId));
+    return rows.map(({ pr, cat }) => ({
+      id: pr.id,
+      practice_id: pr.practiceId,
+      role_catalog_id: pr.roleCatalogId,
+      is_active: pr.isActive,
+      created_at: pr.createdAt,
+      updated_at: pr.updatedAt,
+      role_catalog: cat ? this.mapCatalog(cat) : null,
+    }));
+  }
+
+  async enablePracticeRole(practiceId: string, roleCatalogId: string) {
+    const [existing] = await db.select().from(schema.practiceRoles)
+      .where(and(
+        eq(schema.practiceRoles.practiceId, practiceId),
+        eq(schema.practiceRoles.roleCatalogId, roleCatalogId),
+      ));
+    if (existing) {
+      if (!existing.isActive) {
+        await db.update(schema.practiceRoles)
+          .set({ isActive: true, updatedAt: new Date() })
+          .where(eq(schema.practiceRoles.id, existing.id));
+      }
+      return existing.id;
+    }
+    const [created] = await db.insert(schema.practiceRoles)
+      .values({ practiceId, roleCatalogId, isActive: true })
+      .returning({ id: schema.practiceRoles.id });
+    return created.id;
+  }
+
+  async setPracticeRoleActive(id: string, practiceId: string, isActive: boolean) {
+    const result = await db.update(schema.practiceRoles)
+      .set({ isActive, updatedAt: new Date() })
+      .where(and(eq(schema.practiceRoles.id, id), eq(schema.practiceRoles.practiceId, practiceId)))
+      .returning({ id: schema.practiceRoles.id });
+    return result.length > 0;
+  }
+
+  async getPracticeRoleCapabilities(practiceRoleIds: string[]) {
+    if (practiceRoleIds.length === 0) return [];
+    const rows = await db.select({
+      practice_role_id: schema.practiceRoleCapabilities.practiceRoleId,
+      capability: schema.practiceRoleCapabilities.capability,
+    }).from(schema.practiceRoleCapabilities)
+      .where(inArray(schema.practiceRoleCapabilities.practiceRoleId, practiceRoleIds));
+    return rows;
+  }
+
+  async addCapabilityOverride(practiceRoleId: string, capability: string) {
+    await db.insert(schema.practiceRoleCapabilities)
+      .values({ practiceRoleId, capability })
+      .onConflictDoNothing();
+  }
+
+  async removeCapabilityOverride(practiceRoleId: string, capability: string) {
+    await db.delete(schema.practiceRoleCapabilities)
+      .where(and(
+        eq(schema.practiceRoleCapabilities.practiceRoleId, practiceRoleId),
+        eq(schema.practiceRoleCapabilities.capability, capability),
+      ));
+  }
+
+  async getUserPracticeRoles(practiceId: string, userId?: string) {
+    const conditions = [eq(schema.userPracticeRoles.practiceId, practiceId)];
+    if (userId) conditions.push(eq(schema.userPracticeRoles.userId, userId));
+    const rows = await db
+      .select({ upr: schema.userPracticeRoles, pr: schema.practiceRoles, cat: schema.roleCatalog })
+      .from(schema.userPracticeRoles)
+      .leftJoin(schema.practiceRoles, eq(schema.userPracticeRoles.practiceRoleId, schema.practiceRoles.id))
+      .leftJoin(schema.roleCatalog, eq(schema.practiceRoles.roleCatalogId, schema.roleCatalog.id))
+      .where(and(...conditions));
+    return rows.map(({ upr, pr, cat }) => ({
+      id: upr.id,
+      practice_id: upr.practiceId,
+      user_id: upr.userId,
+      practice_role_id: upr.practiceRoleId,
+      created_at: upr.createdAt,
+      updated_at: upr.updatedAt,
+      practice_role: pr ? {
+        id: pr.id,
+        practice_id: pr.practiceId,
+        role_catalog_id: pr.roleCatalogId,
+        is_active: pr.isActive,
+        created_at: pr.createdAt,
+        updated_at: pr.updatedAt,
+        role_catalog: cat ? this.mapCatalog(cat) : null,
+      } : null,
+    }));
+  }
+
+  async assignUserPracticeRole(practiceId: string, userId: string, practiceRoleId: string) {
+    await db.insert(schema.userPracticeRoles)
+      .values({ practiceId, userId, practiceRoleId })
+      .onConflictDoNothing();
+  }
+
+  async unassignUserPracticeRole(userId: string, practiceRoleId: string) {
+    await db.delete(schema.userPracticeRoles)
+      .where(and(
+        eq(schema.userPracticeRoles.userId, userId),
+        eq(schema.userPracticeRoles.practiceRoleId, practiceRoleId),
+      ));
+  }
+
+  // Compute a single user's capability set: catalog defaults of active roles + overrides.
+  async getUserCapabilities(practiceId: string, userId: string): Promise<string[]> {
+    const roles = await this.getUserPracticeRoles(practiceId, userId);
+    const active = roles.filter((r) => r.practice_role?.is_active);
+    const caps = new Set<string>();
+    for (const r of active) {
+      for (const c of r.practice_role?.role_catalog?.default_capabilities ?? []) caps.add(c);
+    }
+    const overrides = await this.getPracticeRoleCapabilities(
+      active.map((r) => r.practice_role_id),
+    );
+    for (const o of overrides) caps.add(o.capability);
+    return Array.from(caps);
   }
 }
 
