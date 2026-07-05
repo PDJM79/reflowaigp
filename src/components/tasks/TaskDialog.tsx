@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,15 +63,17 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
     try {
       if (!user?.practiceId) return;
 
-      const [templatesData, usersRes] = await Promise.all([
-        supabase
-          .from('task_templates')
-          .select('*')
-          .eq('practice_id', user.practiceId),
+      const [templatesRes, usersRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/process-templates`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
       ]);
 
-      setTemplates(templatesData.data || []);
+      // process_templates uses `name`; this dialog expects `title`.
+      const templatesJson = templatesRes.ok ? await templatesRes.json() : [];
+      setTemplates((Array.isArray(templatesJson) ? templatesJson : []).map((t: any) => ({
+        ...t,
+        title: t.title ?? t.name,
+      })));
 
       if (!usersRes.ok) throw new Error('Failed to fetch users');
       const usersData = await usersRes.json();

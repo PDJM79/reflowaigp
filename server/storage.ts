@@ -329,6 +329,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateFridgeReading(id: string, practiceId: string, data: Partial<InsertFridgeReading>): Promise<FridgeReading | undefined> {
+    const [updated] = await db.update(schema.fridgeReadings).set(data).where(
+      and(eq(schema.fridgeReadings.id, id), eq(schema.fridgeReadings.practiceId, practiceId))
+    ).returning();
+    return updated;
+  }
+
   async getIncident(id: string, practiceId: string): Promise<Incident | undefined> {
     const [incident] = await db.select().from(schema.incidents).where(
       and(eq(schema.incidents.id, id), eq(schema.incidents.practiceId, practiceId))

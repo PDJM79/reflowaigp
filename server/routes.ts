@@ -991,6 +991,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/practices/:practiceId/fridge-readings/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const reading = await storage.updateFridgeReading(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!reading) return res.status(404).json({ error: "Fridge reading not found" });
+      res.json(reading);
+    } catch (error) {
+      console.error("PATCH fridge-reading error:", error);
+      res.status(500).json({ error: "Failed to update fridge reading" });
+    }
+  });
+
   app.post("/api/practices/:practiceId/fridge-readings", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const practiceId = req.params.practiceId as string;
