@@ -101,19 +101,15 @@ export function BaselineComparatorCard({ practiceId }: BaselineComparatorCardPro
 
   const fetchBaselines = async () => {
     try {
-      const { data, error } = await supabase
-        .from('baseline_snapshots')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      const res = await fetch(`/api/practices/${practiceId}/baseline-snapshots`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch baselines (${res.status})`);
+      const data = await res.json() as any[];
 
-      if (error) throw error;
-
-      const mappedData = (data || []).map((b: any) => ({
+      // (baseline_snapshots has no 'status' column; all snapshots are current.)
+      const mappedData = data.map((b: any) => ({
         ...b,
-        driver_details: Array.isArray(b.driver_details) ? b.driver_details : [],
-        red_flags: Array.isArray(b.red_flags) ? b.red_flags : [],
+        driver_details: Array.isArray(b.driverDetails ?? b.driver_details) ? (b.driverDetails ?? b.driver_details) : [],
+        red_flags: Array.isArray(b.redFlags ?? b.red_flags) ? (b.redFlags ?? b.red_flags) : [],
       }));
 
       setBaselines(mappedData);

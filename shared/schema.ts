@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index, date, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index, date, uniqueIndex, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql, relations } from "drizzle-orm";
@@ -820,6 +820,36 @@ export const monthEndScripts = pgTable("month_end_scripts", {
   prescriber: text("prescriber").notNull(),
   notes: text("notes"),
   createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const baselineSnapshots = pgTable("baseline_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  baselineName: text("baseline_name").notNull().default('Baseline'),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  complianceScore: decimal("compliance_score", { precision: 5, scale: 2 }).notNull(),
+  fitForAuditScore: decimal("fit_for_audit_score", { precision: 5, scale: 2 }).notNull(),
+  driverDetails: jsonb("driver_details").notNull().default([]),
+  redFlags: jsonb("red_flags").notNull().default([]),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const baselineDocuments = pgTable("baseline_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  baselineId: uuid("baseline_id"),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  storagePath: text("storage_path").notNull(),
+  fileHash: text("file_hash").notNull(),
+  fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
+  processingStatus: text("processing_status").notNull().default('pending'),
+  processingError: text("processing_error"),
+  extractedData: jsonb("extracted_data"),
+  uploadedBy: uuid("uploaded_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

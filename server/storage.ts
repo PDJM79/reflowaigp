@@ -1104,6 +1104,23 @@ export class DatabaseStorage implements IStorage {
     await db.delete(schema.evidence).where(eq(schema.evidence.id, id));
     return true;
   }
+
+  // --- baseline (table access only; edge-function compute stays on Supabase) ---
+  async getBaselineSnapshots(practiceId: string) {
+    return db.select().from(schema.baselineSnapshots)
+      .where(eq(schema.baselineSnapshots.practiceId, practiceId))
+      .orderBy(desc(schema.baselineSnapshots.createdAt));
+  }
+  async createBaselineDocument(data: typeof schema.baselineDocuments.$inferInsert) {
+    const [row] = await db.insert(schema.baselineDocuments).values(data).returning();
+    return row;
+  }
+  async deleteBaselineDocument(id: string, practiceId: string): Promise<boolean> {
+    const result = await db.delete(schema.baselineDocuments)
+      .where(and(eq(schema.baselineDocuments.id, id), eq(schema.baselineDocuments.practiceId, practiceId)))
+      .returning({ id: schema.baselineDocuments.id });
+    return result.length > 0;
+  }
 }
 
 export const storage = new DatabaseStorage();

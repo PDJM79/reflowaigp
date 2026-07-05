@@ -93,21 +93,22 @@ export function BaselineCreateDialog({
 
         if (uploadError) throw uploadError;
 
-        // Create document record
-        const { error: insertError } = await supabase
-          .from('baseline_documents')
-          .insert({
+        // Create document record via the API
+        const insertRes = await fetch(`/api/practices/${practiceId}/baseline-documents`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             id: docId,
-            practice_id: practiceId,
-            file_name: file.name,
-            file_type: file.type,
-            storage_path: storagePath,
-            file_hash: hashHex,
-            file_size_bytes: file.size,
-            uploaded_by: user?.id,
-          });
-
-        if (insertError) throw insertError;
+            fileName: file.name,
+            fileType: file.type,
+            storagePath,
+            fileHash: hashHex,
+            fileSizeBytes: file.size,
+            uploadedBy: user?.id,
+          }),
+        });
+        if (!insertRes.ok) throw new Error(`Failed to create document record (${insertRes.status})`);
 
         setUploadedDocs(prev => 
           prev.map(d => d.id === docId ? { ...d, status: 'uploaded' as const } : d)
@@ -134,8 +135,11 @@ export function BaselineCreateDialog({
     if (!doc) return;
 
     try {
-      // Delete from storage and database
-      await supabase.from('baseline_documents').delete().eq('id', docId);
+      // Delete the document record via the API
+      await fetch(`/api/practices/${practiceId}/baseline-documents/${docId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
     } catch (error) {
       console.error('Error removing document:', error);
     }

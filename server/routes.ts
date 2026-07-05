@@ -988,6 +988,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try { res.json(await storage.getDbsChecks(req.params.practiceId as string)); }
     catch (e) { console.error("GET dbs-checks", e); res.status(500).json({ error: "Failed to fetch DBS checks" }); }
   });
+
+  app.get("/api/practices/:practiceId/baseline-snapshots", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getBaselineSnapshots(req.params.practiceId as string)); }
+    catch (e) { console.error("GET baseline-snapshots", e); res.status(500).json({ error: "Failed to fetch baseline snapshots" }); }
+  });
+  app.post("/api/practices/:practiceId/baseline-documents", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createBaselineDocument({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
+    catch (e) { console.error("POST baseline-documents", e); res.status(500).json({ error: "Failed to create baseline document" }); }
+  });
+  app.delete("/api/practices/:practiceId/baseline-documents/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const ok = await storage.deleteBaselineDocument(req.params.id as string, req.params.practiceId as string);
+      if (!ok) return res.status(404).json({ error: "Baseline document not found" });
+      res.json({ ok: true });
+    } catch (e) { console.error("DELETE baseline-documents", e); res.status(500).json({ error: "Failed to delete baseline document" }); }
+  });
   app.post("/api/practices/:practiceId/dbs-checks", isAuthenticated, requireSamePractice, async (req, res) => {
     try { res.status(201).json(await storage.createDbsCheck({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
     catch (e) { console.error("POST dbs-checks", e); res.status(500).json({ error: "Failed to create DBS check" }); }
