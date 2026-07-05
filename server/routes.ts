@@ -928,6 +928,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     catch (e) { console.error("GET ipc-actions", e); res.status(500).json({ error: "Failed to fetch IPC actions" }); }
   });
 
+  app.get("/api/practices/:practiceId/dbs-checks", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getDbsChecks(req.params.practiceId as string)); }
+    catch (e) { console.error("GET dbs-checks", e); res.status(500).json({ error: "Failed to fetch DBS checks" }); }
+  });
+  app.post("/api/practices/:practiceId/dbs-checks", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createDbsCheck({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
+    catch (e) { console.error("POST dbs-checks", e); res.status(500).json({ error: "Failed to create DBS check" }); }
+  });
+
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));

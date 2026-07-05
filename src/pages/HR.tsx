@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -83,12 +82,14 @@ export default function HR() {
       // employees + training-records have routes; appraisals / leave_requests /
       // dbs_checks do NOT yet — those sections degrade to empty and are deferred
       // to a follow-up (they need dedicated routes + storage).
-      const [empRes, trainRes] = await Promise.all([
+      const [empRes, trainRes, dbsRes] = await Promise.all([
         fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/dbs-checks`, { credentials: 'include' }),
       ]);
       const employeesAll: any[] = empRes.ok ? await empRes.json() : [];
       const trainingAll: any[] = trainRes.ok ? await trainRes.json() : [];
+      const dbsAll: any[] = dbsRes.ok ? await dbsRes.json() : [];
 
       // Only real HR employees that have a role assigned (matches prior filter).
       const withRole = employeesAll.filter((e) => e.role != null);
@@ -110,10 +111,17 @@ export default function HR() {
         }));
       setTrainingRecords(training);
 
-      // Deferred sections (no route yet): render empty rather than error.
+      // DBS checks now via API; map to the snake_case the table renders.
+      setDbsChecks(dbsAll.map((d) => ({
+        ...d,
+        employee_id: d.employeeId ?? d.employee_id,
+        check_date: d.checkDate ?? d.check_date,
+        certificate_number: d.certificateNumber ?? d.certificate_number,
+        next_review_due: d.nextReviewDue ?? d.next_review_due,
+      })));
+      // Appraisals / leave_requests still have no route: render empty.
       setAppraisals([]);
       setLeaveRequests([]);
-      setDbsChecks([]);
     } catch (error) {
       console.error('Error fetching HR data:', error);
     } finally {
@@ -186,30 +194,32 @@ export default function HR() {
           continue;
         }
 
-        // Find employee by name
-        const { data: employee } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('practice_id', practiceId)
-          .ilike('name', `%${employeeName}%`)
-          .single();
+        // Find employee by name (fetch the list once per practice would be nicer,
+        // but keep the per-row match to preserve the existing import semantics).
+        const empRes = await fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' });
+        const employees = empRes.ok ? await empRes.json() as any[] : [];
+        const employee = employees.find((e) => e.name?.toLowerCase().includes(employeeName.toLowerCase()));
 
         if (!employee) {
           skipped++;
           continue;
         }
 
-        // Insert DBS check
-        const { error } = await supabase.from('dbs_checks').insert({
-          employee_id: employee.id,
-          practice_id: practiceId,
-          check_date: new Date(checkDate).toISOString().split('T')[0],
-          certificate_number: certificateNumber || null,
-          next_review_due: nextReviewDue ? new Date(nextReviewDue).toISOString().split('T')[0] : null,
+        // Insert DBS check via the API
+        const res = await fetch(`/api/practices/${practiceId}/dbs-checks`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            checkDate: new Date(checkDate).toISOString(),
+            certificateNumber: certificateNumber || null,
+            nextReviewDue: nextReviewDue ? new Date(nextReviewDue).toISOString() : null,
+          }),
         });
 
-        if (error) {
-          console.error('Import error for row:', i, error);
+        if (!res.ok) {
+          console.error('Import error for row:', i, res.status);
           skipped++;
         } else {
           imported++;
@@ -269,21 +279,16 @@ export default function HR() {
               try {
                 if (!user?.practiceId) throw new Error('User data not found');
 
-                const { data: employeesData } = await supabase
-                  .from('employees')
-                  .select('*')
-                  .eq('practice_id', user.practiceId);
+                const [empRes, trainRes] = await Promise.all([
+                  fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
+                  fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
+                ]);
+                const employeesData = empRes.ok ? await empRes.json() : [];
+                const trainingRecordsData = trainRes.ok ? await trainRes.json() : [];
+                // training_types has no backing table (phantom) — pass an empty set.
+                const trainingTypesData: any[] = [];
 
-                const { data: trainingTypesData } = await supabase
-                  .from('training_types')
-                  .select('*')
-                  .eq('practice_id', user.practiceId);
-                
-                const { data: trainingRecordsData } = await supabase
-                  .from('training_records')
-                  .select('*');
-
-                if (employeesData && trainingTypesData && trainingRecordsData) {
+                if (employeesData && trainingRecordsData) {
                   generateTrainingMatrixPDF({
                     practiceName: user.practice?.name || 'Unknown Practice',
                     employees: employeesData,
@@ -307,16 +312,11 @@ export default function HR() {
             className="min-h-[44px]"
             onClick={async () => {
               try {
-                const { data: practice } = await supabase
-                  .from('practices')
-                  .select('name')
-                  .eq('id', practiceId)
-                  .single();
-                
-                const { data: employeesData } = await supabase
-                  .from('employees')
-                  .select('*')
-                  .eq('practice_id', practiceId);
+                const practiceRes = await fetch(`/api/practices/${practiceId}`, { credentials: 'include' });
+                const practice = practiceRes.ok ? await practiceRes.json() : null;
+
+                const empRes = await fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' });
+                const employeesData = empRes.ok ? await empRes.json() : [];
 
                 if (dbsChecks && employeesData) {
                   generateDBSRegisterPDF({

@@ -997,6 +997,16 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(schema.ipcActions)
       .where(eq(schema.ipcActions.practiceId, practiceId));
   }
+
+  async getDbsChecks(practiceId: string) {
+    return db.select().from(schema.dbsChecks)
+      .where(eq(schema.dbsChecks.practiceId, practiceId))
+      .orderBy(desc(schema.dbsChecks.checkDate));
+  }
+  async createDbsCheck(data: typeof schema.dbsChecks.$inferInsert) {
+    const [row] = await db.insert(schema.dbsChecks).values(data).returning();
+    return row;
+  }
 }
 
 export const storage = new DatabaseStorage();
