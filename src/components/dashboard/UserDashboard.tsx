@@ -11,7 +11,6 @@ import { useCapabilities } from '@/hooks/useCapabilities';
 import { RAGBadge, RAGStatus } from './RAGBadge';
 import { RoleManagement } from '@/components/admin/RoleManagement';
 import { ReadyForAudit } from '@/components/dashboard/ReadyForAudit';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
@@ -41,12 +40,13 @@ export function UserDashboard() {
                             (canViewDashboards ? 'Manager' : 'Staff');
         setUserRole(displayRole);
 
-        const { data: templates } = await supabase
-          .from('process_templates')
-          .select('name, responsible_role, frequency')
-          .eq('practice_id', effectivePracticeId);
-
-        setAllProcessesByRole(templates || []);
+        const res = await fetch(`/api/practices/${effectivePracticeId}/process-templates`, { credentials: 'include' });
+        const templates = res.ok ? (await res.json() as any[]).map((t) => ({
+          name: t.name,
+          responsible_role: t.responsibleRole ?? t.responsible_role,
+          frequency: t.frequency,
+        })) : [];
+        setAllProcessesByRole(templates);
       } catch (error) {
         console.error('Error fetching process templates:', error);
       }
@@ -89,17 +89,9 @@ export function UserDashboard() {
       }
 
       // Find the practice manager via the is_practice_manager flag.
-      // (The former user_practice_roles/role_catalog lookup was RLS-dead under
-      // session auth and always fell through to this flag — see docs/RBAC_MAP.md.)
-      const { data: fallbackPM } = await supabase
-        .from('users')
-        .select('id')
-        .eq('practice_id', practiceId)
-        .eq('is_practice_manager', true)
-        .limit(1)
-        .maybeSingle();
-
-      const practiceManagerId: string | null = fallbackPM?.id || null;
+      const usersRes = await fetch(`/api/practices/${practiceId}/users`, { credentials: 'include' });
+      const allUsers = usersRes.ok ? await usersRes.json() as any[] : [];
+      const practiceManagerId: string | null = allUsers.find((u) => u.isPracticeManager)?.id || null;
 
       if (!practiceManagerId) {
         toast.error('No practice manager found');
@@ -107,13 +99,14 @@ export function UserDashboard() {
       }
 
       // Update the task to assign it to the practice manager
-      const { error } = await supabase
-        .from('process_instances')
-        .update({ assignee_id: practiceManagerId })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('Error passing task:', error);
+      const res = await fetch(`/api/practices/${practiceId}/process-instances/${taskId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigneeId: practiceManagerId }),
+      });
+      if (!res.ok) {
+        console.error('Error passing task:', res.status);
         toast.error('Failed to pass task to practice manager');
         return;
       }

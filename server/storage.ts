@@ -261,6 +261,38 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Process instances with template + assignee joined, shaped snake_case with the
+  // nested `process_templates` / `users` objects the client task views expect.
+  async getProcessInstancesWithDetails(practiceId: string): Promise<any[]> {
+    const rows = await db
+      .select({ pi: schema.processInstances, tpl: schema.processTemplates, assignee: schema.users })
+      .from(schema.processInstances)
+      .leftJoin(schema.processTemplates, eq(schema.processInstances.templateId, schema.processTemplates.id))
+      .leftJoin(schema.users, eq(schema.processInstances.assigneeId, schema.users.id))
+      .where(eq(schema.processInstances.practiceId, practiceId))
+      .orderBy(desc(schema.processInstances.createdAt));
+    return rows.map(({ pi, tpl, assignee }) => ({
+      id: pi.id,
+      template_id: pi.templateId,
+      practice_id: pi.practiceId,
+      assignee_id: pi.assigneeId,
+      status: (pi as any).status,
+      period_start: pi.periodStart,
+      period_end: pi.periodEnd,
+      due_at: pi.dueAt,
+      started_at: pi.startedAt,
+      completed_at: pi.completedAt,
+      created_at: pi.createdAt,
+      process_templates: tpl ? {
+        name: tpl.name,
+        responsible_role: tpl.responsibleRole,
+        steps: tpl.steps,
+        sla_hours: tpl.slaHours,
+      } : null,
+      users: assignee ? { id: assignee.id, name: assignee.name } : null,
+    }));
+  }
+
   async getTask(id: string, practiceId: string): Promise<Task | undefined> {
     const [task] = await db.select().from(schema.tasks).where(
       and(eq(schema.tasks.id, id), eq(schema.tasks.practiceId, practiceId))

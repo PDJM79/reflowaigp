@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useMasterUser } from './useMasterUser';
 
@@ -34,74 +33,41 @@ export function useTaskData() {
 
 
       // Get practice manager for default assignment via the is_practice_manager flag.
-      // (The former user_practice_roles/role_catalog lookup was RLS-dead under
-      // session auth and always fell through to this flag — see docs/RBAC_MAP.md.)
-      const { data: fallbackPM } = await supabase
-        .from('users')
-        .select('id, name')
-        .eq('practice_id', targetPracticeId)
-        .eq('is_practice_manager', true)
-        .limit(1)
-        .maybeSingle();
-
-      const practiceManager: { id: string; name: string } | null = fallbackPM;
+      const usersRes = await fetch(`/api/practices/${targetPracticeId}/users`, { credentials: 'include' });
+      const allUsers = usersRes.ok ? await usersRes.json() as any[] : [];
+      const pm = allUsers.find((u) => u.isPracticeManager);
+      const practiceManager: { id: string; name: string } | null = pm ? { id: pm.id, name: pm.name } : null;
 
 
-      // Get ALL process instances for the target practice with template info
-      const { data: processInstances, error: processError } = await supabase
-        .from('process_instances')
-        .select(`
-          *,
-          process_templates!inner (
-            name,
-            responsible_role,
-            steps,
-            sla_hours
-          ),
-          users!assignee_id (
-            id,
-            name
-          )
-        `)
-        .eq('practice_id', targetPracticeId);
+      // Get ALL process instances for the target practice with template + assignee info
+      const fetchInstances = async () => {
+        const r = await fetch(`/api/practices/${targetPracticeId}/process-instances?details=1`, { credentials: 'include' });
+        return r.ok ? await r.json() as any[] : null;
+      };
 
+      const processInstances = await fetchInstances();
       if (!processInstances) {
         return;
       }
 
-      // Auto-assign unassigned processes to practice manager
+      // Auto-assign unassigned processes to the practice manager
       const unassignedProcesses = processInstances.filter(p => !p.assignee_id);
-      
-      if (unassignedProcesses.length > 0 && practiceManager) {
-        const { error: assignError } = await supabase
-          .from('process_instances')
-          .update({ assignee_id: practiceManager.id })
-          .in('id', unassignedProcesses.map(p => p.id));
 
-        if (assignError) {
-          console.error('Error auto-assigning to practice manager:', assignError);
-        } else {
-          // Refresh data after assignment
-          const { data: updatedProcessInstances } = await supabase
-            .from('process_instances')
-            .select(`
-              *,
-              process_templates!inner (
-                name,
-                responsible_role,
-                steps,
-                sla_hours
-              ),
-              users!assignee_id (
-                id,
-                name
-              )
-            `)
-            .eq('practice_id', targetPracticeId);
-          
+      if (unassignedProcesses.length > 0 && practiceManager) {
+        try {
+          await Promise.all(unassignedProcesses.map(p =>
+            fetch(`/api/practices/${targetPracticeId}/process-instances/${p.id}`, {
+              method: 'PATCH',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ assigneeId: practiceManager.id }),
+            })));
+          const updatedProcessInstances = await fetchInstances();
           if (updatedProcessInstances) {
             processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
           }
+        } catch (assignError) {
+          console.error('Error auto-assigning to practice manager:', assignError);
         }
       }
 

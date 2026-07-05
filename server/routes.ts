@@ -614,6 +614,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Process instances (logbook process occurrences). `?details=1` joins template + assignee.
+  app.get("/api/practices/:practiceId/process-instances", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const rows = req.query.details === "1"
+        ? await storage.getProcessInstancesWithDetails(practiceId)
+        : await storage.getProcessInstancesByPractice(practiceId);
+      res.json(rows);
+    } catch (error) {
+      console.error("GET process-instances error:", error);
+      res.status(500).json({ error: "Failed to fetch process instances" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/process-instances/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const instance = await storage.getProcessInstance(req.params.id as string, req.params.practiceId as string);
+      if (!instance) return res.status(404).json({ error: "Process instance not found" });
+      res.json(instance);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch process instance" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/process-instances", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const created = await storage.createProcessInstance({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any);
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("POST process-instances error:", error);
+      res.status(500).json({ error: "Failed to create process instance" });
+    }
+  });
+
+  app.patch("/api/practices/:practiceId/process-instances/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const updated = await storage.updateProcessInstance(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      if (!updated) return res.status(404).json({ error: "Process instance not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("PATCH process-instances error:", error);
+      res.status(500).json({ error: "Failed to update process instance" });
+    }
+  });
+
   app.get("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const module = typeof req.query.module === 'string' ? req.query.module : undefined;
