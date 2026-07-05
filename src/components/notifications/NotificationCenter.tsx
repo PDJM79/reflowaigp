@@ -9,7 +9,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -36,31 +35,38 @@ export function NotificationCenter() {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id || !user?.practiceId) return [];
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return data as Notification[];
+      const res = await fetch(
+        `/api/practices/${user.practiceId}/users/${user.id}/notifications`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error(`Failed to fetch notifications (${res.status})`);
+      const rows = await res.json() as any[];
+      // Map API camelCase (read_at timestamp) -> this component's shape.
+      return rows.map((n) => ({
+        id: n.id,
+        notification_type: n.notificationType ?? n.notification_type,
+        priority: n.priority,
+        title: n.title,
+        message: n.message,
+        action_url: n.actionUrl ?? n.action_url ?? null,
+        is_read: !!(n.readAt ?? n.read_at),
+        created_at: n.createdAt ?? n.created_at,
+      })) as Notification[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!user?.practiceId,
     refetchInterval: 60000, // Refetch every minute
   });
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
+      const res = await fetch(
+        `/api/practices/${user!.practiceId}/notifications/${notificationId}/read`,
+        { method: 'PATCH', credentials: 'include' },
+      );
+      if (!res.ok) throw new Error(`Failed to mark read (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -70,15 +76,12 @@ export function NotificationCenter() {
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.id) return;
-
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
+      if (!user?.id || !user?.practiceId) return;
+      const res = await fetch(
+        `/api/practices/${user.practiceId}/users/${user.id}/notifications/read-all`,
+        { method: 'PATCH', credentials: 'include' },
+      );
+      if (!res.ok) throw new Error(`Failed to mark all read (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

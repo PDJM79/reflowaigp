@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, isNull, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, isNull, sql, inArray, or, ilike } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import type {
@@ -334,6 +334,55 @@ export class DatabaseStorage implements IStorage {
       and(eq(schema.fridgeReadings.id, id), eq(schema.fridgeReadings.practiceId, practiceId))
     ).returning();
     return updated;
+  }
+
+  // Paginated, filtered audit log with the acting user's name joined in.
+  async getAuditLogs(practiceId: string, opts: {
+    entityType?: string; action?: string; search?: string;
+    startDate?: Date; endDate?: Date; page: number; pageSize: number;
+  }): Promise<{ rows: any[]; total: number }> {
+    const conds = [eq(schema.auditLogs.practiceId, practiceId)];
+    if (opts.entityType && opts.entityType !== 'all') conds.push(eq(schema.auditLogs.entityType, opts.entityType));
+    if (opts.action && opts.action !== 'all') conds.push(eq(schema.auditLogs.action, opts.action));
+    if (opts.search) {
+      const like = `%${opts.search}%`;
+      conds.push(or(
+        ilike(schema.auditLogs.entityType, like),
+        sql`${schema.auditLogs.entityId}::text ILIKE ${like}`,
+      )!);
+    }
+    if (opts.startDate) conds.push(gte(schema.auditLogs.createdAt, opts.startDate));
+    if (opts.endDate) conds.push(lte(schema.auditLogs.createdAt, opts.endDate));
+    const where = and(...conds);
+
+    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(schema.auditLogs).where(where);
+
+    const rows = await db.select({ log: schema.auditLogs, userName: schema.users.name })
+      .from(schema.auditLogs)
+      .leftJoin(schema.users, eq(schema.auditLogs.userId, schema.users.id))
+      .where(where)
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize);
+
+    return {
+      total: count,
+      rows: rows.map(({ log, userName }) => ({
+        id: log.id,
+        practice_id: log.practiceId,
+        user_id: log.userId,
+        entity_type: log.entityType,
+        entity_id: log.entityId,
+        action: log.action,
+        before_data: log.beforeData,
+        after_data: log.afterData,
+        ip_address: log.ipAddress,
+        user_agent: (log as any).userAgent ?? null,
+        created_at: log.createdAt,
+        user_name: userName ?? null,
+      })),
+    };
   }
 
   async getIncident(id: string, practiceId: string): Promise<Incident | undefined> {

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Loader2 } from 'lucide-react';
@@ -23,14 +22,17 @@ export function PracticeScoresCard() {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const { data: tasks, error } = await supabase
-        .from('tasks')
-        .select('status, due_at, completed_at, is_auditable')
-        .eq('practice_id', practiceId)
-        .gte('due_at', thirtyDaysAgo.toISOString())
-        .lte('due_at', now.toISOString());
+      const res = await fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' });
+      if (!res.ok) return null;
+      const tasks = (await res.json() as any[]).map((t) => ({
+        status: t.status,
+        due_at: t.dueAt ?? t.due_at,
+        completed_at: t.completedAt ?? t.completed_at,
+        is_auditable: t.isAuditable ?? t.is_auditable,
+      })).filter((t) =>
+        t.due_at && new Date(t.due_at) >= thirtyDaysAgo && new Date(t.due_at) <= now);
 
-      if (error || !tasks || tasks.length === 0) return null;
+      if (tasks.length === 0) return null;
 
       const total = tasks.length;
       const closedOnTime = tasks.filter(

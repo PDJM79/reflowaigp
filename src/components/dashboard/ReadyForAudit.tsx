@@ -6,7 +6,6 @@ import { AlertCircle, Target, CheckCircle2, AlertTriangle, Sparkles, Loader2, In
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ScoreData {
   section_key: string;
@@ -189,14 +188,17 @@ export function ReadyForAudit() {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const { data: tasks, error } = await supabase
-        .from('tasks')
-        .select('status, due_at, completed_at, module')
-        .eq('practice_id', practiceId)
-        .gte('due_at', thirtyDaysAgo.toISOString())
-        .lte('due_at', now.toISOString());
+      const res = await fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' });
+      if (!res.ok) return [];
+      const tasks = (await res.json() as any[]).map((t) => ({
+        status: t.status,
+        due_at: t.dueAt ?? t.due_at,
+        completed_at: t.completedAt ?? t.completed_at,
+        module: t.module,
+      })).filter((t) =>
+        t.due_at && new Date(t.due_at) >= thirtyDaysAgo && new Date(t.due_at) <= now);
 
-      if (error || !tasks || tasks.length === 0) return [];
+      if (tasks.length === 0) return [];
 
       // Group by module
       const groups: Record<string, typeof tasks> = {};

@@ -794,6 +794,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/practices/:practiceId/audit-logs", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const q = req.query;
+      const page = Math.max(1, parseInt((q.page as string) || "1", 10));
+      const pageSize = Math.min(100, Math.max(1, parseInt((q.pageSize as string) || "25", 10)));
+      const result = await storage.getAuditLogs(req.params.practiceId as string, {
+        entityType: typeof q.entityType === "string" ? q.entityType : undefined,
+        action: typeof q.action === "string" ? q.action : undefined,
+        search: typeof q.search === "string" ? q.search : undefined,
+        startDate: typeof q.startDate === "string" ? new Date(q.startDate) : undefined,
+        endDate: typeof q.endDate === "string" ? new Date(q.endDate) : undefined,
+        page, pageSize,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("GET audit-logs error:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));
