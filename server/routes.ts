@@ -38,6 +38,13 @@ function sanitizeUser<T extends { passwordHash?: string | null }>(user: T): Omit
   return safe;
 }
 
+// Drizzle timestamp columns need Date objects; clients send ISO strings.
+function coerceDates<T extends Record<string, any>>(body: T, keys: string[]): T {
+  const out: any = { ...body };
+  for (const k of keys) if (typeof out[k] === "string") out[k] = new Date(out[k]);
+  return out;
+}
+
 const USER_MANAGER_ROLES = new Set(['practice_manager', 'cd_lead_gp']);
 
 // Only practice managers (or CD lead GPs) may create or modify user accounts
@@ -650,13 +657,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/practices/:practiceId/process-instances/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const updated = await storage.updateProcessInstance(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      const body = coerceDates(stripPracticeId(req.body), ["startedAt", "completedAt", "periodStart", "periodEnd", "dueAt"]);
+      const updated = await storage.updateProcessInstance(req.params.id as string, req.params.practiceId as string, body);
       if (!updated) return res.status(404).json({ error: "Process instance not found" });
       res.json(updated);
     } catch (error) {
       console.error("PATCH process-instances error:", error);
       res.status(500).json({ error: "Failed to update process instance" });
     }
+  });
+
+  // Step instances (logbook steps within a process instance)
+  app.get("/api/practices/:practiceId/process-instances/:piid/step-instances", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      res.json(await storage.getStepInstances(req.params.practiceId as string, req.params.piid as string));
+    } catch (e) { console.error("GET step-instances", e); res.status(500).json({ error: "Failed to fetch step instances" }); }
+  });
+  app.post("/api/practices/:practiceId/process-instances/:piid/step-instances", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const steps = (req.body?.steps ?? []) as { stepIndex: number; title: string; status?: string }[];
+      const created = await storage.createStepInstances(req.params.practiceId as string, req.params.piid as string, steps);
+      if (created === null) return res.status(404).json({ error: "Process instance not found" });
+      res.status(201).json(created);
+    } catch (e) { console.error("POST step-instances", e); res.status(500).json({ error: "Failed to create step instances" }); }
+  });
+  app.patch("/api/practices/:practiceId/step-instances/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const body = coerceDates(stripPracticeId(req.body), ["serverTimestamp", "deviceTimestamp"]);
+      const updated = await storage.updateStepInstance(req.params.id as string, req.params.practiceId as string, body);
+      if (!updated) return res.status(404).json({ error: "Step instance not found" });
+      res.json(updated);
+    } catch (e) { console.error("PATCH step-instances", e); res.status(500).json({ error: "Failed to update step instance" }); }
+  });
+
+  // Evidence for a step (DB records; file bytes live in Supabase Storage)
+  app.get("/api/practices/:practiceId/step-instances/:id/evidence", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      res.json(await storage.getEvidenceByStep(req.params.practiceId as string, req.params.id as string));
+    } catch (e) { console.error("GET evidence", e); res.status(500).json({ error: "Failed to fetch evidence" }); }
+  });
+  app.post("/api/practices/:practiceId/step-instances/:id/evidence", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const row = await storage.createEvidence(req.params.practiceId as string, {
+        ...stripPracticeId(req.body),
+        stepInstanceId: req.params.id,
+        userId: req.body.userId ?? req.session.userId,
+      } as any);
+      if (row === null) return res.status(404).json({ error: "Step instance not found" });
+      res.status(201).json(row);
+    } catch (e) { console.error("POST evidence", e); res.status(500).json({ error: "Failed to create evidence" }); }
+  });
+  app.delete("/api/practices/:practiceId/evidence/:id", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const ok = await storage.deleteEvidence(req.params.id as string, req.params.practiceId as string);
+      if (!ok) return res.status(404).json({ error: "Evidence not found" });
+      res.json({ ok: true });
+    } catch (e) { console.error("DELETE evidence", e); res.status(500).json({ error: "Failed to delete evidence" }); }
   });
 
   app.get("/api/practices/:practiceId/tasks", isAuthenticated, requireSamePractice, async (req, res) => {

@@ -62,96 +62,76 @@ export default function StepExecution() {
 
     const fetchStepData = async () => {
       try {
-        // Fetch process template first
-        const { data: processInstance } = await supabase
-          .from('process_instances')
-          .select('template_id')
-          .eq('id', taskId)
-          .single();
+        const pid = user.practiceId;
+        // Fetch process instance (for its template id) then the template
+        const piRes = await fetch(`/api/practices/${pid}/process-instances/${taskId}`, { credentials: 'include' });
+        const processInstance = piRes.ok ? await piRes.json() : null;
 
         if (processInstance) {
-          const { data: template } = await supabase
-            .from('process_templates')
-            .select('*')
-            .eq('id', processInstance.template_id)
-            .single();
+          const templateId = processInstance.templateId ?? processInstance.template_id;
+          const tplRes = await fetch(`/api/practices/${pid}/process-templates/${templateId}`, { credentials: 'include' });
+          const template = tplRes.ok ? await tplRes.json() : null;
 
           setProcessTemplate(template);
 
-          // Fetch step instance
-          const { data: step } = await supabase
-            .from('step_instances')
-            .select('*')
-            .eq('process_instance_id', taskId)
-            .eq('step_index', currentStepIndex)
-            .single();
+          // Fetch step instances for this process instance
+          const stepsRes = await fetch(`/api/practices/${pid}/process-instances/${taskId}/step-instances`, { credentials: 'include' });
+          const allSteps = stepsRes.ok ? await stepsRes.json() as any[] : [];
+          const step = allSteps.find((s) => s.step_index === currentStepIndex);
 
           if (step) {
             setStepInstance(step);
             setNotes(step.notes || '');
-            
+
             // Fetch evidence for this step
-            const { data: evidenceData } = await supabase
-              .from('evidence')
-              .select('*')
-              .eq('step_instance_id', step.id)
-              .order('created_at', { ascending: false });
-            
-            setEvidence(evidenceData || []);
+            const evRes = await fetch(`/api/practices/${pid}/step-instances/${step.id}/evidence`, { credentials: 'include' });
+            setEvidence(evRes.ok ? await evRes.json() : []);
           } else if (template) {
             // No step instances exist yet - create them automatically
-            
-            // Parse steps from template
             let stepsArray: any[] = [];
             if (template.steps) {
               if (Array.isArray(template.steps)) {
                 stepsArray = template.steps;
               } else if (typeof template.steps === 'object' && template.steps !== null) {
-                // Convert object to array if it contains array-like data
                 const stepsObj = template.steps as any;
                 if (Array.isArray(stepsObj)) {
                   stepsArray = stepsObj;
                 } else {
-                  // If it's an object but not array-like, try to extract values
-                  stepsArray = Object.values(stepsObj).filter(step => 
+                  stepsArray = Object.values(stepsObj).filter(step =>
                     step && typeof step === 'object' && (step as any).title
                   );
                 }
               }
             }
-            
+
             if (Array.isArray(stepsArray) && stepsArray.length > 0) {
-              // Create all step instances
               const stepsToCreate = stepsArray.map((step: any, index: number) => ({
-                process_instance_id: taskId,
-                step_index: index,
+                stepIndex: index,
                 title: step.title || step.description || `Step ${index + 1}`,
-                status: 'pending' as const
+                status: 'pending' as const,
               }));
 
-              const { data: createdSteps, error: createError } = await supabase
-                .from('step_instances')
-                .insert(stepsToCreate)
-                .select()
-                .order('step_index', { ascending: true });
-
-              if (createError) {
-                console.error('Error creating step instances:', createError);
-              } else if (createdSteps && createdSteps[currentStepIndex]) {
-                // Set the current step instance
-                const currentStepInstance = createdSteps[currentStepIndex];
-                setStepInstance(currentStepInstance);
-                setNotes('');
-                
-                // Also update the process to started
-                await supabase
-                  .from('process_instances')
-                  .update({ 
-                    status: 'in_progress',
-                    started_at: new Date().toISOString()
-                  })
-                  .eq('id', taskId);
-                  
+              const createRes = await fetch(`/api/practices/${pid}/process-instances/${taskId}/step-instances`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ steps: stepsToCreate }),
+              });
+              if (!createRes.ok) {
+                console.error('Error creating step instances:', createRes.status);
+              } else {
+                const createdSteps = await createRes.json() as any[];
+                if (createdSteps[currentStepIndex]) {
+                  setStepInstance(createdSteps[currentStepIndex]);
+                  setNotes('');
+                  // Also update the process to started
+                  await fetch(`/api/practices/${pid}/process-instances/${taskId}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'in_progress', startedAt: new Date().toISOString() }),
+                  });
+                }
               }
             }
           }
@@ -185,21 +165,17 @@ export default function StepExecution() {
     setSubmitting(true);
     try {
       // Update step instance and verify the update succeeded
-      const { data: updatedStep, error: updateError } = await supabase
-        .from('step_instances')
-        .update({
-          status: 'complete' as const,
-          notes,
-          server_timestamp: new Date().toISOString()
-        })
-        .eq('id', stepIdToComplete)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('Error updating step:', updateError);
+      const updateRes = await fetch(`/api/practices/${user!.practiceId}/step-instances/${stepIdToComplete}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'complete', notes, serverTimestamp: new Date().toISOString() }),
+      });
+      if (!updateRes.ok) {
+        console.error('Error updating step:', updateRes.status);
         throw new Error('Failed to update step status');
       }
+      const updatedStep = await updateRes.json();
 
       // Verify the update was actually applied
       if (updatedStep?.status !== 'complete') {
@@ -224,16 +200,14 @@ export default function StepExecution() {
       
       if (stepIndexToComplete + 1 >= stepCount) {
         // Complete the entire process
-        const { error: processError } = await supabase
-          .from('process_instances')
-          .update({
-            status: 'complete' as const,
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', taskId);
-
-        if (processError) {
-          console.error('Error completing process:', processError);
+        const processRes = await fetch(`/api/practices/${user!.practiceId}/process-instances/${taskId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'complete', completedAt: new Date().toISOString() }),
+        });
+        if (!processRes.ok) {
+          console.error('Error completing process:', processRes.status);
         }
 
         toast({
@@ -262,14 +236,12 @@ export default function StepExecution() {
     if (!stepInstance) return;
 
     try {
-      await supabase
-        .from('step_instances')
-        .update({
-          status: 'pending' as const,
-          notes,
-          server_timestamp: new Date().toISOString()
-        })
-        .eq('id', stepInstance.id);
+      await fetch(`/api/practices/${user!.practiceId}/step-instances/${stepInstance.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending', notes, serverTimestamp: new Date().toISOString() }),
+      });
 
       toast({
         title: "Draft Saved",
@@ -307,24 +279,19 @@ export default function StepExecution() {
         return;
       }
 
-      // Save evidence record to database
-      const { data: evidenceData, error: evidenceError } = await supabase
-        .from('evidence')
-        .insert({
-          step_instance_id: stepInstance.id,
-          user_id: user.id,
-          type: 'photo',
-          storage_path: filename,
-          mime_type: 'image/jpeg'
-        })
-        .select()
-        .single();
-
-      if (evidenceError) {
-        console.error('Evidence error:', evidenceError);
+      // Save evidence record to database via the API
+      const evRes = await fetch(`/api/practices/${user.practiceId}/step-instances/${stepInstance.id}/evidence`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'photo', storagePath: filename, mimeType: 'image/jpeg', userId: user.id }),
+      });
+      if (!evRes.ok) {
+        console.error('Evidence error:', evRes.status);
         toast.error('Failed to save evidence record');
         return;
       }
+      const evidenceData = await evRes.json();
 
       // Update evidence list
       setEvidence(prev => [evidenceData, ...prev]);
@@ -359,24 +326,19 @@ export default function StepExecution() {
         return;
       }
 
-      // Save evidence record to database
-      const { data: evidenceData, error: evidenceError } = await supabase
-        .from('evidence')
-        .insert({
-          step_instance_id: stepInstance.id,
-          user_id: user.id,
-          type: 'note', // Use 'note' for file uploads since we only have photo/note/signature
-          storage_path: filename,
-          mime_type: file.type
-        })
-        .select()
-        .single();
-
-      if (evidenceError) {
-        console.error('Evidence error:', evidenceError);
+      // Save evidence record to database via the API
+      const evRes = await fetch(`/api/practices/${user.practiceId}/step-instances/${stepInstance.id}/evidence`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'note', storagePath: filename, mimeType: file.type, userId: user.id }),
+      });
+      if (!evRes.ok) {
+        console.error('Evidence error:', evRes.status);
         toast.error('Failed to save evidence record');
         return;
       }
+      const evidenceData = await evRes.json();
 
       // Update evidence list
       setEvidence(prev => [evidenceData, ...prev]);
@@ -399,14 +361,13 @@ export default function StepExecution() {
         console.error('Storage deletion error:', storageError);
       }
 
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('evidence')
-        .delete()
-        .eq('id', evidenceId);
-
-      if (dbError) {
-        console.error('Database deletion error:', dbError);
+      // Delete from database via the API
+      const delRes = await fetch(`/api/practices/${user!.practiceId}/evidence/${evidenceId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!delRes.ok) {
+        console.error('Database deletion error:', delRes.status);
         toast.error('Failed to delete evidence');
         return;
       }

@@ -1007,6 +1007,103 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db.insert(schema.dbsChecks).values(data).returning();
     return row;
   }
+
+  // --- step_instances + evidence (logbook completion flow) ---
+  // step_instances/evidence carry no practice_id; scope via the parent
+  // process_instance. Shaped snake_case to match the client interfaces.
+  private mapStep(s: typeof schema.stepInstances.$inferSelect) {
+    return {
+      id: s.id,
+      process_instance_id: s.processInstanceId,
+      step_index: s.stepIndex,
+      title: s.title,
+      status: s.status,
+      notes: s.notes,
+      device_timestamp: s.deviceTimestamp,
+      server_timestamp: s.serverTimestamp,
+      three_words: s.threeWords,
+      created_at: s.createdAt,
+      updated_at: s.updatedAt,
+    };
+  }
+  private mapEvidence(e: typeof schema.evidence.$inferSelect) {
+    return {
+      id: e.id,
+      step_instance_id: e.stepInstanceId,
+      user_id: e.userId,
+      type: e.type,
+      storage_path: e.storagePath,
+      mime_type: e.mimeType,
+      created_at: e.createdAt,
+    };
+  }
+
+  async getStepInstances(practiceId: string, processInstanceId: string) {
+    const pi = await this.getProcessInstance(processInstanceId, practiceId);
+    if (!pi) return [];
+    const rows = await db.select().from(schema.stepInstances)
+      .where(eq(schema.stepInstances.processInstanceId, processInstanceId))
+      .orderBy(schema.stepInstances.stepIndex);
+    return rows.map((r) => this.mapStep(r));
+  }
+
+  async createStepInstances(practiceId: string, processInstanceId: string,
+    steps: { stepIndex: number; title: string; status?: string }[]) {
+    const pi = await this.getProcessInstance(processInstanceId, practiceId);
+    if (!pi) return null;
+    const values = steps.map((s) => ({
+      processInstanceId,
+      stepIndex: s.stepIndex,
+      title: s.title,
+      status: (s.status ?? 'pending') as any,
+    }));
+    const created = await db.insert(schema.stepInstances).values(values).returning();
+    return created.sort((a, b) => a.stepIndex - b.stepIndex).map((r) => this.mapStep(r));
+  }
+
+  // Verify a step belongs to the practice via its process_instance.
+  private async stepBelongsToPractice(stepInstanceId: string, practiceId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ pid: schema.processInstances.practiceId })
+      .from(schema.stepInstances)
+      .leftJoin(schema.processInstances, eq(schema.stepInstances.processInstanceId, schema.processInstances.id))
+      .where(eq(schema.stepInstances.id, stepInstanceId));
+    return !!row && row.pid === practiceId;
+  }
+
+  async updateStepInstance(id: string, practiceId: string, data: Partial<typeof schema.stepInstances.$inferInsert>) {
+    if (!(await this.stepBelongsToPractice(id, practiceId))) return undefined;
+    const [updated] = await db.update(schema.stepInstances)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.stepInstances.id, id)).returning();
+    return updated ? this.mapStep(updated) : undefined;
+  }
+
+  async getEvidenceByStep(practiceId: string, stepInstanceId: string) {
+    if (!(await this.stepBelongsToPractice(stepInstanceId, practiceId))) return [];
+    const rows = await db.select().from(schema.evidence)
+      .where(eq(schema.evidence.stepInstanceId, stepInstanceId))
+      .orderBy(desc(schema.evidence.createdAt));
+    return rows.map((r) => this.mapEvidence(r));
+  }
+
+  async createEvidence(practiceId: string, data: typeof schema.evidence.$inferInsert) {
+    if (!(await this.stepBelongsToPractice(data.stepInstanceId, practiceId))) return null;
+    const [row] = await db.insert(schema.evidence).values(data).returning();
+    return this.mapEvidence(row);
+  }
+
+  async deleteEvidence(id: string, practiceId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ pid: schema.processInstances.practiceId })
+      .from(schema.evidence)
+      .leftJoin(schema.stepInstances, eq(schema.evidence.stepInstanceId, schema.stepInstances.id))
+      .leftJoin(schema.processInstances, eq(schema.stepInstances.processInstanceId, schema.processInstances.id))
+      .where(eq(schema.evidence.id, id));
+    if (!row || row.pid !== practiceId) return false;
+    await db.delete(schema.evidence).where(eq(schema.evidence.id, id));
+    return true;
+  }
 }
 
 export const storage = new DatabaseStorage();
