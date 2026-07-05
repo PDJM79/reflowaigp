@@ -116,3 +116,46 @@ production-login recheck.
 Plus `supabase.rpc`/`functions.invoke` (edge functions, distinct from the `.from(` gate)
 remain in: OrganizationSetup, baseline×2, MFASetupDialog, DisableMFADialog,
 useGovernanceNotifications, Policies.
+
+---
+
+## FINAL RESULTS — the remaining 7 completed (this session)
+
+**Table-read gate: `grep -rn "supabase.from(" src/` → ZERO.** Every direct table
+read/write in the app is gone. (StepExecution's 3 remaining `.from('evidence')` are
+`supabase.storage.from('evidence')` — file buckets, not tables.)
+
+### Per-item (commits 11f1460 … fb38769)
+| Item | Before | After | Verified |
+|------|--------|-------|----------|
+| StepExecution + TaskDetail | step_instances/evidence/process_instances direct | new step-instances + evidence routes/storage (practice-scoped via parent PI); process-instances routes | **round-trip**: complete step w/ note → persists on reload → process auto-completes; evidence create/delete; cross-practice PATCH→403 |
+| baseline ×2 | baseline_snapshots/documents direct + rpc | read-defs + routes; table reads migrated | typecheck; compute edge-fns deferred (documented) |
+| admin/RoleManagement | role_assignments/contacts direct | access-path-only routes (?detailed=1, POST/DELETE, contact) | **scheduler suite 47/47 green** (behaviour unchanged) |
+| MFA ×3 | client read `mfa_secret` + edge fn | server-only verify/enable/disable; secret never leaves server | enable→verify(valid)→wrong-code(invalid)→wrong-pw(401)→disable, audited |
+| OrganizationSetup | 8 table writes + 3 provisioning edge fns | `POST /api/setup/provision` (signup-context) | **signup E2E**: register→provision→practice+manager+RBAC+templates+instances+setup_completed→manager logs in→reaches /logbooks |
+
+### Gates
+- **Table reads:** ZERO `supabase.from(`. ✓
+- **Scheduler:** 47/47 (cadence 21 + schedulerCore 26). ✓
+- **Round-trip:** logbook step completion persists + process completes. ✓
+- **MFA:** secret server-only; verify/enable/disable proven. ✓
+- **Signup:** full provisioning E2E; new practice appears in the login dropdown. ✓
+- **Real-login recheck (cookie-race question):** RESOLVED. The empty-data pages seen
+  under the vite-dev-proxy were a **dev-proxy artifact** — the proxy serves SPA-fallback
+  HTML for the initial `/api` request burst, so `res.json()` throws. On **Express
+  single-origin** (production-equivalent), `/api/practices` returns JSON and
+  `/medical-requests` renders both seeded rows (New 1 / Assigned 1 / Total 2). Not a
+  code defect. **No app-code retry/guard added** (per instruction — don't mask with retries).
+
+### STOP-condition (OrganizationSetup): did NOT fire
+Express session-auth signup (`/api/auth/register`) already exists, so provisioning moved
+to a signup-context route with no auth-model redesign. Deliberate skips: `auto-provision-practice`
+(best-effort edge seed), `user_contact_details` (absent from all migrations; email already on `users`).
+
+## Remaining (NOT `supabase.from(` — separate concerns, honestly out of this gate)
+- **`supabase.functions.invoke` (9):** email/AI-compute edge SERVICES — Policies review/
+  escalation emails (4), governance approval emails (2), baseline create/process/compute (3).
+  The Express server has **no email/AI/Supabase connectivity**; faithful replication needs
+  that infra. **Not stubbed** — a no-op would silently break notifications. Separate edge-port effort.
+- **`supabase.storage` (file buckets):** StepExecution/Cleaning/baseline photo+file uploads.
+  File-storage infra, distinct from the DB-reads gate.
