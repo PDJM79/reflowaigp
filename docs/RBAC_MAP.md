@@ -98,3 +98,65 @@ built** ("only if the UI genuinely edits it today" — it does not).
 2. **Migrate the 8 readers** onto the routes with loading/empty/error states. Role
    assign/unassign gets a **confirmation dialog** + an **audit event** (existing pattern).
 3. **Verification gate + zero-direct-reads grep proof.**
+
+---
+
+## 6. RESULTS (post-implementation)
+
+### Routes added (all under the existing `requireManager`/`requireSamePractice` gates)
+`GET /api/role-catalog` · `GET/POST /api/practices/:pid/practice-roles` ·
+`PATCH /api/practices/:pid/practice-roles/:id` ·
+`POST/DELETE /api/practices/:pid/practice-roles/:id/capabilities` ·
+`GET/POST/DELETE /api/practices/:pid/user-practice-roles` ·
+`GET /api/practices/:pid/staff-roles` · `GET /api/capabilities`.
+PATCH-role-metadata was **not** built (no UI edits catalog metadata).
+
+### Files migrated (7 of 8 readers)
+`useCapabilities`, `useRoleCatalog` (+`useUserRoleAssignment`),
+`StaffRoleAssignmentTable`, `UserManagementDialog`, `RolePicker` — moved to the API.
+`useTaskData` / `UserDashboard` — the RLS-dead `user_practice_roles` PM lookup was
+removed (always fell through to the `is_practice_manager` flag; behaviour unchanged).
+
+### 1 reader deliberately NOT migrated — **OrganizationSetup.tsx**
+It is the **signup/provisioning** flow: it writes `practice_roles` / `user_practice_roles`
+as part of an atomic practice-creation transaction that runs **before any manager
+session exists** and is coupled to Supabase edge functions + non-RBAC tables. Routing
+its RBAC writes through the manager-gated API would **403 during signup**. It is also
+the repo's #1 churn hotspot / prior-defect biomarker. Migrating it belongs to a dedicated
+onboarding effort, not role-catalog recovery. **It retains its `role_catalog` /
+`practice_roles` / `user_practice_roles` reads** (documented, deliberate).
+
+### Enforcement regression check — PASS
+`requireManager`/`requireUserManager` read `users.role`/`is_practice_manager` via
+`storage.getUser`; they never touched the RBAC tables, so the migration cannot regress
+them. Verified live: GP → **403** on assign/unassign and on `POST /practice-roles`
+and `POST /users`; GP reads (`GET /role-catalog`) → 200; existing `POST /logbook-selections`
+→ **403** (unchanged). Manager assign/unassign write DB rows **and** audit rows
+(via the existing `auditLogger` middleware — assign/unassign now return an `id` so the
+middleware records them). Phase-2 scheduler `GET /role-assignments` route untouched → 200.
+
+### Browser verification (fresh bundle `index-Bltq-dYU.js`, throwaway DB)
+`/staff-roles`: all staff + role badges + capability coverage from the API; role edit →
+**confirmation dialog** ("Add: Reception … recorded in the audit log") → confirm → DB row
++ audit row + UI badge. `/role-management`: "3 roles enabled / 5 available", categories
+correct. GP visiting `/role-management` is **redirected home** (client nav gating via the
+migrated `useCapabilities`, caps=0).
+
+### Zero-direct-reads status — HONEST
+- **RBAC catalog tables** (`role_catalog`, `practice_roles`, `practice_role_capabilities`,
+  `user_practice_roles`): **zero** direct client reads remain **except** the documented
+  OrganizationSetup signup skip. Both target pages (`/staff-roles`, `/role-management`) are
+  fully clean.
+- **App-wide "zero `supabase.from()` anywhere"** is **NOT** achieved and was not achievable
+  in this batch: a large **non-RBAC** direct-read surface remains, outside role-catalog
+  scope. It includes the batch-(a) deferred pages (`Claims`, `IPC`, `MedicalRequests`,
+  `MonthEndScripts`, `GovernanceDashboard`, `Settings`/MFA, `StepExecution`, `TaskDetail`,
+  `HR` mutations) plus `Cleaning`, `usePracticeSelection` (`practices`), `useAuditLogs`,
+  `NotificationCenter`, various dialogs, and `admin/RoleManagement.tsx` (the **scheduler**
+  `role_assignments` system — see §4). These read non-RBAC tables and are a separate
+  migration.
+
+### §4 follow-up flagged for Phil (unchanged, not actioned)
+`role_assignments` (scheduler) vs `user_practice_roles` (RBAC) remain **parallel systems**.
+`src/components/admin/RoleManagement.tsx` still drives the scheduler `role_assignments`
+table directly — a candidate to fold into the same consolidation decision.
