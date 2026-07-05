@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { IPCAuditCard } from "@/components/ipc/IPCAuditCard";
@@ -35,25 +34,20 @@ export default function IPC() {
         return;
       }
 
-      const userData = { practice_id: user.practiceId };
+      const pid = user.practiceId;
 
-      // Fetch audits
-      const { data: auditsData, error: auditsError } = await supabase
-        .from('ipc_audits')
-        .select('*')
-        .eq('practice_id', userData.practice_id)
-        .order('period_year', { ascending: false })
-        .order('period_month', { ascending: false });
-
-      if (auditsError) throw auditsError;
-
-      // Fetch actions for stats
-      const { data: actionsData, error: actionsError } = await supabase
-        .from('ipc_actions')
-        .select('status')
-        .eq('practice_id', userData.practice_id);
-
-      if (actionsError) throw actionsError;
+      // Fetch audits + actions via the API. NB: the real ipc_audits table uses
+      // audit_date (not period_month/year); map completed_at for the UI.
+      const [auditsRes, actionsRes] = await Promise.all([
+        fetch(`/api/practices/${pid}/ipc-audits`, { credentials: 'include' }),
+        fetch(`/api/practices/${pid}/ipc-actions`, { credentials: 'include' }),
+      ]);
+      const auditsData = (auditsRes.ok ? await auditsRes.json() as any[] : []).map((a) => ({
+        ...a,
+        completed_at: a.completedAt ?? a.completed_at,
+        audit_date: a.auditDate ?? a.audit_date,
+      }));
+      const actionsData = actionsRes.ok ? await actionsRes.json() as any[] : [];
 
       setAudits(auditsData || []);
       setStats({
@@ -78,23 +72,20 @@ export default function IPC() {
 
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
-      
+
       // IPC audits are May (5) or December (12) only
       const nextAuditMonth = currentMonth <= 5 ? 5 : 12;
       const nextAuditYear = currentMonth > 12 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
-      
-      const { data, error} = await supabase
-        .from('ipc_audits')
-        .insert([{
-          practice_id: userData.practice_id,
-          period_month: nextAuditMonth,
-          period_year: nextAuditYear,
-          location_scope: 'whole_practice'
-        }])
-        .select()
-        .single();
+      const auditDate = new Date(nextAuditYear, nextAuditMonth - 1, 1).toISOString();
 
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${userData.practice_id}/ipc-audits`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditDate, auditType: 'six_monthly' }),
+      });
+      if (!res.ok) throw new Error(`Failed to create audit (${res.status})`);
+      const data = await res.json();
 
       toast.success('IPC audit created successfully');
       navigate(`/ipc/audit/${data.id}`);
@@ -110,17 +101,12 @@ export default function IPC() {
 
       const userData = { practice_id: user.practiceId };
 
-      const { data: practiceData } = await supabase
-        .from('practices')
-        .select('name')
-        .eq('id', userData.practice_id)
-        .single();
+      const practiceRes = await fetch(`/api/practices/${userData.practice_id}`, { credentials: 'include' });
+      const practiceData = practiceRes.ok ? await practiceRes.json() : null;
 
       const completedAudits = audits.filter(a => a.completed_at !== null);
-      const { data: actionsData } = await supabase
-        .from('ipc_actions')
-        .select('*')
-        .eq('practice_id', userData.practice_id);
+      const actionsRes = await fetch(`/api/practices/${userData.practice_id}/ipc-actions`, { credentials: 'include' });
+      const actionsData = actionsRes.ok ? await actionsRes.json() : [];
 
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);

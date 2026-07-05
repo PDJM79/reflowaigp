@@ -910,6 +910,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     catch (e) { console.error("GET claim-runs", e); res.status(500).json({ error: "Failed to fetch claim runs" }); }
   });
 
+  app.get("/api/practices/:practiceId/rooms", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getRoomsByPractice(req.params.practiceId as string)); }
+    catch (e) { console.error("GET rooms", e); res.status(500).json({ error: "Failed to fetch rooms" }); }
+  });
+
+  app.get("/api/practices/:practiceId/ipc-audits", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getIpcAudits(req.params.practiceId as string)); }
+    catch (e) { console.error("GET ipc-audits", e); res.status(500).json({ error: "Failed to fetch IPC audits" }); }
+  });
+  app.post("/api/practices/:practiceId/ipc-audits", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.status(201).json(await storage.createIpcAudit({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
+    catch (e) { console.error("POST ipc-audits", e); res.status(500).json({ error: "Failed to create IPC audit" }); }
+  });
+  app.get("/api/practices/:practiceId/ipc-actions", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getIpcActions(req.params.practiceId as string)); }
+    catch (e) { console.error("GET ipc-actions", e); res.status(500).json({ error: "Failed to fetch IPC actions" }); }
+  });
+
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));

@@ -9,7 +9,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotificationPreferences, type EmailFrequency } from '@/hooks/useNotificationPreferences';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { MFASetupDialog } from '@/components/auth/MFASetupDialog';
 import { DisableMFADialog } from '@/components/auth/DisableMFADialog';
 import { Badge } from '@/components/ui/badge';
@@ -111,14 +110,10 @@ export default function Settings() {
   const fetchMfaStatus = async () => {
     setMfaLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, mfa_enabled')
-        .eq('id', user?.id)
-        .single();
-
-      if (error) throw error;
-      setMfaEnabled(data?.mfa_enabled || false);
+      const res = await fetch(`/api/practices/${user?.practiceId}/users/${user?.id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch MFA status (${res.status})`);
+      const data = await res.json();
+      setMfaEnabled((data?.mfaEnabled ?? data?.mfa_enabled) || false);
       setUserData({ id: data.id, email: user?.email || '' });
     } catch (error) {
       console.error('Error fetching MFA status:', error);

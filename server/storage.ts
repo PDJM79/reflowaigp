@@ -979,6 +979,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.claimRuns.practiceId, practiceId))
       .orderBy(desc(schema.claimRuns.periodStart));
   }
+
+  async getRoomsByPractice(practiceId: string) {
+    return db.select().from(schema.rooms).where(eq(schema.rooms.practiceId, practiceId));
+  }
+
+  async getIpcAudits(practiceId: string) {
+    return db.select().from(schema.ipcAudits)
+      .where(eq(schema.ipcAudits.practiceId, practiceId))
+      .orderBy(desc(schema.ipcAudits.auditDate));
+  }
+  async createIpcAudit(data: typeof schema.ipcAudits.$inferInsert) {
+    const [row] = await db.insert(schema.ipcAudits).values(data).returning();
+    return row;
+  }
+  async getIpcActions(practiceId: string) {
+    return db.select().from(schema.ipcActions)
+      .where(eq(schema.ipcActions.practiceId, practiceId));
+  }
 }
 
 export const storage = new DatabaseStorage();
