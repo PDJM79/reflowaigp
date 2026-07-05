@@ -47,6 +47,7 @@ import EmailReportsSettings from "./pages/EmailReportsSettings";
 // Role Management
 import RoleManagement from "./pages/RoleManagement";
 import ReviewQueue from "./pages/ReviewQueue";
+import MyDay from "./pages/MyDay";
 import StaffRoleAssignment from "./pages/StaffRoleAssignment";
 
 // Phase 3 Dashboards
@@ -105,6 +106,7 @@ const App = () => (
                   <Route path="/task-templates" element={<TaskTemplates />} />
                   <Route path="/tasks" element={<TasksList />} />
                   <Route path="/review-queue" element={<ReviewQueue />} />
+                  <Route path="/my-day" element={<MyDay />} />
                   <Route path="/logbooks" element={<Logbooks />} />
                   <Route path="/schedule" element={<Schedule />} />
                   <Route path="/month-end" element={<MonthEndScripts />} />

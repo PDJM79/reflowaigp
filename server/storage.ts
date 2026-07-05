@@ -750,6 +750,58 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  // My Day: a single per-user queue of what needs doing now — overdue, rejected,
+  // and due-today/soon items across all sources, urgency-ranked. Respects
+  // visible_from (far-future items with visible_from in the future are hidden).
+  async getMyDay(practiceId: string, userId: string) {
+    const now = new Date();
+    const endOfTomorrow = new Date(now); endOfTomorrow.setHours(23, 59, 59, 999); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+    const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
+
+    const rows = await db.select().from(schema.tasks).where(and(
+      eq(schema.tasks.practiceId, practiceId),
+      eq(schema.tasks.assigneeId, userId),
+    ));
+
+    // Exclude submitted_for_review — the assignee has done their part; it's now in
+    // a manager's Review Queue, not actionable in the assignee's My Day.
+    const active = rows.filter((t) => t.status !== 'complete' && t.status !== 'closed' && t.status !== 'submitted_for_review');
+    const items = active
+      .map((t) => {
+        const due = t.dueAt ? new Date(t.dueAt) : null;
+        const visibleFrom = t.visibleFrom ? new Date(t.visibleFrom) : null;
+        const overdue = t.status === 'overdue' || t.status === 'missed' || (due != null && due < startOfToday);
+        const rejected = t.status === 'rejected';
+        const dueToday = due != null && due >= startOfToday && due <= endOfToday;
+        const soon = due != null && due <= endOfTomorrow;
+        // Hide items not yet visible (far-future early-start window not reached).
+        if (visibleFrom && visibleFrom > now) return null;
+        // Scope: overdue, rejected, or due today/soon.
+        if (!overdue && !rejected && !dueToday && !soon) return null;
+        const rank = overdue ? 0 : rejected ? 1 : dueToday ? 2 : 3;
+        return {
+          id: t.id, title: t.title, module: t.module, status: t.status,
+          priority: t.priority, importance: t.importance, source_type: t.sourceType,
+          due_at: t.dueAt, rejected_reason: t.rejectedReason,
+          process_instance_id: (t.metadata as any)?.processInstanceId ?? null,
+          rank,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => a.rank - b.rank || (new Date(a.due_at ?? 0).getTime() - new Date(b.due_at ?? 0).getTime()));
+    return items;
+  }
+
+  // Count of practice-wide overdue (not-complete, past-due or flagged) tasks.
+  async getPracticeOverdueCount(practiceId: string): Promise<number> {
+    const rows = await db.select({ status: schema.tasks.status, dueAt: schema.tasks.dueAt })
+      .from(schema.tasks).where(eq(schema.tasks.practiceId, practiceId));
+    const now = Date.now();
+    return rows.filter((t) => t.status !== 'complete' && t.status !== 'closed' &&
+      (t.status === 'overdue' || t.status === 'missed' || (t.dueAt != null && new Date(t.dueAt).getTime() < now))).length;
+  }
+
   // Tasks awaiting manager review, with assignee name + linked process instance.
   async getReviewQueue(practiceId: string) {
     const rows = await db

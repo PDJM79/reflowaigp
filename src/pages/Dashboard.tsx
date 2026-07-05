@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
@@ -181,6 +181,29 @@ function ProgressRing({ percent, size = 110 }: { percent: number; size?: number 
   );
 }
 
+// Phase 4: practice-wide overdue banner shown on the manager dashboard.
+function OverdueBanner({ practiceId }: { practiceId?: string }) {
+  const [count, setCount] = useState<number>(0);
+  useEffect(() => {
+    if (!practiceId) return;
+    fetch(`/api/practices/${practiceId}/overdue-count`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { count: 0 }))
+      .then((d) => setCount(d.count ?? 0))
+      .catch(() => setCount(0));
+  }, [practiceId]);
+  if (count <= 0) return null;
+  return (
+    <Link to="/tasks" className="block">
+      <div className="flex items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 hover:bg-destructive/10 transition-colors">
+        <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+        <span className="text-sm font-medium text-destructive">
+          {count} overdue {count === 1 ? 'task' : 'tasks'} across the practice — review now.
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { loading: capabilitiesLoading } = useCapabilities();
@@ -229,11 +252,10 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [user, isManager]);
 
-  // Cleaner / reception: show a dedicated welcome page instead of the
-  // task-manager dashboard. Rendered early (before loading check) so
-  // the cleaning data fetch runs independently.
-  if (user && (user.role === 'reception' || user.role === 'cleaner')) {
-    return <CleanerHome practiceId={user.practiceId} name={user.name} />;
+  // Phase 4: non-managers land on My Day — a single urgency-ranked queue across
+  // all sources. (Replaces the old cleaner/reception CleanerHome → /cleaning path.)
+  if (user && !isManager) {
+    return <Navigate to="/my-day" replace />;
   }
 
   if (loading || capabilitiesLoading) {
@@ -379,6 +401,8 @@ export default function Dashboard() {
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl">
+
+      <OverdueBanner practiceId={user?.practiceId} />
 
       {/* ── Manager header: clean white layout ── */}
       {isManager ? (

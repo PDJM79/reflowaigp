@@ -795,6 +795,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Phase 4: My Day — the session user's urgency-ranked queue. Managers also get
+  // the practice-wide overdue count.
+  app.get("/api/practices/:practiceId/my-day", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const userId = req.session.userId!;
+      const items = await storage.getMyDay(practiceId, userId);
+      const currentUser = await storage.getUser(userId, practiceId);
+      const isManager = !!currentUser?.isPracticeManager || USER_MANAGER_ROLES.has(currentUser?.role ?? '');
+      const practiceOverdueCount = isManager ? await storage.getPracticeOverdueCount(practiceId) : undefined;
+      res.json({ items, practiceOverdueCount });
+    } catch (error) {
+      console.error("GET my-day error:", error);
+      res.status(500).json({ error: "Failed to fetch My Day" });
+    }
+  });
+
+  // Practice-wide overdue count (for the dashboard banner).
+  app.get("/api/practices/:practiceId/overdue-count", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      res.json({ count: await storage.getPracticeOverdueCount(req.params.practiceId as string) });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch overdue count" });
+    }
+  });
+
   // Phase 4: review queue (manager-only, server-enforced).
   app.get("/api/practices/:practiceId/review-queue", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
     try {
