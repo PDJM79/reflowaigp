@@ -79,32 +79,41 @@ export default function HR() {
     try {
       if (!user?.practiceId) return;
 
-      // Get employee count (only real HR employees that have a role assigned)
-      const { count: empCount } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', user.practiceId)
-        .not('role', 'is', null);
-
-      setEmployeeTotalCount(empCount || 0);
-
-      // Get paginated employees
-      const from = (employeePage - 1) * employeePageSize;
-      const to = from + employeePageSize - 1;
-
-      const [employeesData, appraisalsData, trainingData, leaveData, dbsData] = await Promise.all([
-        supabase.from('employees').select('*').eq('practice_id', user.practiceId).not('role', 'is', null).range(from, to),
-        supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
-        supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
-        supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('dbs_checks').select('*').eq('practice_id', user.practiceId).order('check_date', { ascending: false }),
+      // Core HR data via the Express API (direct-Supabase was RLS-dead).
+      // employees + training-records have routes; appraisals / leave_requests /
+      // dbs_checks do NOT yet — those sections degrade to empty and are deferred
+      // to a follow-up (they need dedicated routes + storage).
+      const [empRes, trainRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
       ]);
+      const employeesAll: any[] = empRes.ok ? await empRes.json() : [];
+      const trainingAll: any[] = trainRes.ok ? await trainRes.json() : [];
 
-      setEmployees(employeesData.data || []);
-      setAppraisals(appraisalsData.data || []);
-      setTrainingRecords(trainingData.data || []);
-      setLeaveRequests(leaveData.data || []);
-      setDbsChecks(dbsData.data || []);
+      // Only real HR employees that have a role assigned (matches prior filter).
+      const withRole = employeesAll.filter((e) => e.role != null);
+      setEmployeeTotalCount(withRole.length);
+      const from = (employeePage - 1) * employeePageSize;
+      setEmployees(withRole.slice(from, from + employeePageSize));
+
+      // Join employee names onto training records for display.
+      const nameById = new Map(employeesAll.map((e: any) => [e.id, e.name]));
+      const training = [...trainingAll]
+        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+        .slice(0, 10)
+        .map((t: any) => ({
+          ...t,
+          completion_date: t.completedAt,
+          course_name: t.courseName,
+          expiry_date: t.expiryDate,
+          employees: { name: nameById.get(t.employeeId) },
+        }));
+      setTrainingRecords(training);
+
+      // Deferred sections (no route yet): render empty rather than error.
+      setAppraisals([]);
+      setLeaveRequests([]);
+      setDbsChecks([]);
     } catch (error) {
       console.error('Error fetching HR data:', error);
     } finally {
