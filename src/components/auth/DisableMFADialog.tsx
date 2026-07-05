@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ShieldOff, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ReauthenticationDialog } from './ReauthenticationDialog';
 
@@ -64,23 +63,17 @@ export function DisableMFADialog({
 
     setLoading(true);
     try {
-      // Call the secure edge function to disable MFA
-      const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
-        body: {
-          action: 'disable',
-          userId: userId,
-          password: verifiedPassword,
-          totpCode: code,
-        },
+      // Call the secure server route to disable MFA
+      const res = await fetch('/api/auth/mfa/disable', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password: verifiedPassword, totpCode: code }),
       });
+      const data = await res.json().catch(() => ({}));
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to disable MFA');
-      }
-
-      if (data?.error) {
-        if (data.error.includes('verification code')) {
+      if (!res.ok || data?.error) {
+        if (typeof data?.error === 'string' && data.error.includes('verification code')) {
           toast.error('Invalid verification code');
           setCode('');
           setLoading(false);

@@ -716,6 +716,15 @@ export const roleAssignments = pgTable("role_assignments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// MFA secret + phone (server-only; never sent to the client). Read-def.
+export const userAuthSensitive = pgTable("user_auth_sensitive", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  mfaSecret: text("mfa_secret"),
+  phoneNumber: text("phone_number"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Contact email for a role assignment (1:1). Read-def of existing table.
 export const roleAssignmentContacts = pgTable("role_assignment_contacts", {
   assignmentId: uuid("assignment_id").primaryKey().references(() => roleAssignments.id, { onDelete: "cascade" }),

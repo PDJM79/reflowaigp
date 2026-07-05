@@ -4,9 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Shield } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import * as OTPAuth from 'otpauth';
 
 interface MFAVerificationDialogProps {
   open: boolean;
@@ -36,32 +34,16 @@ export function MFAVerificationDialog({
 
     setLoading(true);
     try {
-      // Fetch the MFA secret from user_auth_sensitive
-      const { data: mfaData, error: fetchError } = await supabase
-        .from('user_auth_sensitive')
-        .select('mfa_secret')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError || !mfaData?.mfa_secret) {
-        toast.error('MFA not configured for this account');
-        setLoading(false);
-        return;
-      }
-
-      // Verify the TOTP code
-      const totp = new OTPAuth.TOTP({
-        issuer: 'ReflowAI GP',
-        label: userEmail,
-        algorithm: 'SHA1',
-        digits: 6,
-        period: 30,
-        secret: OTPAuth.Secret.fromBase32(mfaData.mfa_secret),
+      // Verify the code server-side (the secret never leaves the server).
+      const res = await fetch('/api/auth/mfa/verify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, code }),
       });
+      const result = res.ok ? await res.json() : { valid: false };
 
-      const delta = totp.validate({ token: code, window: 1 });
-      
-      if (delta === null) {
+      if (!result.valid) {
         toast.error('Invalid verification code');
         setCode('');
         setLoading(false);

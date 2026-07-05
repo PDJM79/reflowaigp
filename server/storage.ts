@@ -1158,6 +1158,25 @@ export class DatabaseStorage implements IStorage {
       .returning({ id: schema.baselineDocuments.id });
     return result.length > 0;
   }
+
+  // --- MFA (server-only secret handling) ---
+  async getUserById(id: string) {
+    const [u] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+    return u;
+  }
+  async getMfaSecret(userId: string): Promise<string | null> {
+    const [row] = await db.select({ s: schema.userAuthSensitive.mfaSecret })
+      .from(schema.userAuthSensitive).where(eq(schema.userAuthSensitive.userId, userId));
+    return row?.s ?? null;
+  }
+  async setMfaSecret(userId: string, secret: string | null) {
+    await db.insert(schema.userAuthSensitive)
+      .values({ userId, mfaSecret: secret })
+      .onConflictDoUpdate({ target: schema.userAuthSensitive.userId, set: { mfaSecret: secret, updatedAt: new Date() } });
+  }
+  async insertAuditLog(row: typeof schema.auditLogs.$inferInsert) {
+    await db.insert(schema.auditLogs).values(row);
+  }
 }
 
 export const storage = new DatabaseStorage();

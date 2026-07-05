@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Copy, Check, QrCode, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import * as OTPAuth from 'otpauth';
@@ -134,24 +133,21 @@ export function MFASetupDialog({ open, onOpenChange, userEmail, userId, onSucces
         targetUserId = sessionUser.id;
       }
 
-      // Call the secure edge function to enable MFA
-      const { data, error } = await supabase.functions.invoke('manage-mfa-settings', {
-        body: {
-          action: 'enable',
+      // Call the secure server route to enable MFA
+      const res = await fetch('/api/auth/mfa/enable', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           userId: targetUserId,
           password: verifiedPassword,
           mfaSecret: secret,
           totpCode: verificationCode,
-        },
+        }),
       });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to enable MFA');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || 'Failed to enable MFA');
       }
 
       toast.success('MFA enabled successfully! You will receive a confirmation email.');

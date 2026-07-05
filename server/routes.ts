@@ -16,6 +16,19 @@ import {
   ALL_CAPABILITIES
 } from "@shared/schema";
 import { z } from "zod";
+import * as OTPAuth from "otpauth";
+import bcrypt from "bcryptjs";
+
+function makeTotp(secret: string, email?: string | null) {
+  return new OTPAuth.TOTP({
+    issuer: "ReflowAI GP",
+    label: email || "user",
+    algorithm: "SHA1",
+    digits: 6,
+    period: 30,
+    secret: OTPAuth.Secret.fromBase32(secret),
+  });
+}
 
 // Ensures the authenticated user can only access their own practice's data
 const requireSamePractice: RequestHandler = (req, res, next) => {
@@ -1048,6 +1061,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try { res.status(201).json(await storage.createDbsCheck({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
     catch (e) { console.error("POST dbs-checks", e); res.status(500).json({ error: "Failed to create DBS check" }); }
   });
+
+  // --- MFA (secrets handled server-side only; never returned to the client) ---
+  // Login-step verification: returns pass/fail only. No secret material leaves the server.
+  app.post("/api/auth/mfa/verify", async (req, res) => {
+    try {
+      const { userId, code } = req.body as { userId?: string; code?: string };
+      if (!userId || !code) return res.status(400).json({ error: "userId and code are required" });
+      const secret = await storage.getMfaSecret(userId);
+      if (!secret) return res.status(400).json({ error: "MFA not configured for this account" });
+      const target = await storage.getUserById(userId);
+      const delta = makeTotp(secret, target?.email).validate({ token: code, window: 1 });
+      res.json({ valid: delta !== null });
+    } catch (error) {
+      console.error("MFA verify error:", error);
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
+  // Enable/disable require a live session, a password re-auth, and a valid TOTP.
+  const mfaChange = (action: "enable" | "disable"): RequestHandler => async (req, res) => {
+    try {
+      const { userId, password, mfaSecret, totpCode } = req.body as {
+        userId?: string; password?: string; mfaSecret?: string; totpCode?: string;
+      };
+      if (!userId || !password || !totpCode) return res.status(400).json({ error: "Missing required fields" });
+
+      const actingId = req.session.userId!;
+      const acting = await storage.getUser(actingId, req.session.practiceId!);
+      if (!acting) return res.status(404).json({ error: "User not found" });
+      const target = userId === actingId ? acting : await storage.getUserById(userId);
+      if (!target) return res.status(404).json({ error: "Target user not found" });
+
+      // Authorization: self, or a practice manager for the same practice.
+      const isSelf = target.id === actingId;
+      const isManagerSamePractice = !!acting.isPracticeManager && acting.practiceId === target.practiceId;
+      if (!isSelf && !isManagerSamePractice) return res.status(403).json({ error: "Not authorized" });
+
+      // Re-authenticate the ACTING user's password.
+      const pwOk = acting.passwordHash && await bcrypt.compare(password, acting.passwordHash);
+      if (!pwOk) {
+        await storage.insertAuditLog({
+          practiceId: acting.practiceId, userId: actingId, entityType: "mfa_settings",
+          entityId: target.id, action: `mfa_${action}_failed_reauth`,
+          afterData: { reason: "password_verification_failed", is_self: isSelf } as any,
+        });
+        return res.status(401).json({ error: "Password verification failed" });
+      }
+
+      // Validate the TOTP against the appropriate secret.
+      const secretToCheck = action === "enable" ? mfaSecret : await storage.getMfaSecret(target.id);
+      if (!secretToCheck) return res.status(400).json({ error: action === "enable" ? "MFA secret is required" : "MFA is not configured" });
+      if (makeTotp(secretToCheck, target.email).validate({ token: totpCode, window: 1 }) === null) {
+        return res.status(400).json({ error: "Invalid verification code" });
+      }
+
+      if (action === "enable") {
+        await storage.setMfaSecret(target.id, mfaSecret!);
+        await storage.updateUser(target.id, target.practiceId, { mfaEnabled: true } as any);
+      } else {
+        await storage.setMfaSecret(target.id, null);
+        await storage.updateUser(target.id, target.practiceId, { mfaEnabled: false } as any);
+      }
+      await storage.insertAuditLog({
+        practiceId: acting.practiceId, userId: actingId, entityType: "mfa_settings",
+        entityId: target.id, action: `mfa_${action}d`,
+        afterData: { is_self: isSelf } as any,
+      });
+      res.json({ success: true, message: `MFA ${action}d successfully` });
+    } catch (error) {
+      console.error(`MFA ${action} error:`, error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  };
+  app.post("/api/auth/mfa/enable", isAuthenticated, mfaChange("enable"));
+  app.post("/api/auth/mfa/disable", isAuthenticated, mfaChange("disable"));
 
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
