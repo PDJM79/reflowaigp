@@ -735,6 +735,30 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // --- Phase 4: generated-task <-> step-execution linkage ---
+  async getCuratedLogbook(id: string): Promise<schema.CuratedLogbook | undefined> {
+    const [row] = await db.select().from(schema.curatedLogbooks).where(eq(schema.curatedLogbooks.id, id));
+    return row;
+  }
+
+  // Find a task linked to a process instance via metadata.processInstanceId.
+  async getTaskByProcessInstanceId(practiceId: string, processInstanceId: string): Promise<Task | undefined> {
+    const [row] = await db.select().from(schema.tasks).where(and(
+      eq(schema.tasks.practiceId, practiceId),
+      sql`${schema.tasks.metadata}->>'processInstanceId' = ${processInstanceId}`,
+    ));
+    return row;
+  }
+
+  // Dedup materialised templates (curated logbook -> process_template) by name.
+  async findProcessTemplateByName(practiceId: string, name: string): Promise<ProcessTemplate | undefined> {
+    const [row] = await db.select().from(schema.processTemplates).where(and(
+      eq(schema.processTemplates.practiceId, practiceId),
+      eq(schema.processTemplates.name, name),
+    ));
+    return row;
+  }
+
   async updateLogbookSelection(id: string, practiceId: string, data: any): Promise<schema.PracticeLogbookSelection | undefined> {
     const [updated] = await db.update(schema.practiceLogbookSelections)
       .set({ ...data, updatedAt: new Date() })

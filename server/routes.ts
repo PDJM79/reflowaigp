@@ -720,6 +720,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Phase 4: lazily get-or-create the process instance for a logbook task, so it
+  // can deep-link into StepExecution. Idempotent — the PI id is stored on the task.
+  app.post("/api/practices/:practiceId/tasks/:id/process-instance", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const task = await storage.getTask(req.params.id as string, practiceId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      const meta = (task.metadata ?? {}) as Record<string, any>;
+      if (meta.processInstanceId) {
+        return res.json({ processInstanceId: meta.processInstanceId, hasSteps: true });
+      }
+
+      // Resolve the template (bespoke) or materialise one from the curated logbook.
+      let template = task.templateId ? await storage.getProcessTemplate(task.templateId, practiceId) : undefined;
+      if (!template && task.selectionId) {
+        const sel = await storage.getLogbookSelection(task.selectionId, practiceId);
+        const curated = sel ? await storage.getCuratedLogbook(sel.curatedLogbookId) : undefined;
+        const curatedSteps = (curated?.steps as any[]) ?? [];
+        if (curated && Array.isArray(curatedSteps) && curatedSteps.length > 0) {
+          template = await storage.findProcessTemplateByName(practiceId, curated.title)
+            ?? await storage.createProcessTemplate({
+              practiceId, name: curated.title, module: task.module ?? 'logbook',
+              steps: curated.steps as any, frequency: 'daily' as any,
+              responsibleRole: 'reception' as any, isActive: true,
+            } as any);
+        }
+      }
+
+      const steps = (template?.steps as any[]) ?? [];
+      if (!template || !Array.isArray(steps) || steps.length === 0) {
+        return res.json({ hasSteps: false });
+      }
+
+      const when = task.dueAt ?? new Date();
+      const pi = await storage.createProcessInstance({
+        templateId: template.id, practiceId, assigneeId: task.assigneeId ?? null,
+        status: 'pending', periodStart: when, periodEnd: when, dueAt: when,
+      } as any);
+      await storage.updateTask(task.id, practiceId, { metadata: { ...meta, processInstanceId: pi.id } } as any);
+      res.status(201).json({ processInstanceId: pi.id, hasSteps: true });
+    } catch (error) {
+      console.error("POST task process-instance error:", error);
+      res.status(500).json({ error: "Failed to start task steps" });
+    }
+  });
+
+  // Phase 4: when the final step of a linked process instance completes, complete
+  // (or submit-for-review) the owning task. Called by StepExecution on last step.
+  app.post("/api/practices/:practiceId/process-instances/:piid/complete-linked-task", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const task = await storage.getTaskByProcessInstanceId(practiceId, req.params.piid as string);
+      if (!task) return res.json({ linked: false });
+
+      // Does this occurrence require review? (selection or template flag)
+      let requiresReview = false;
+      if (task.selectionId) {
+        const sel = await storage.getLogbookSelection(task.selectionId, practiceId);
+        requiresReview = !!sel?.requiresReview;
+      } else if (task.templateId) {
+        const tpl = await storage.getProcessTemplate(task.templateId, practiceId);
+        requiresReview = !!(tpl as any)?.requiresReview;
+      }
+
+      const updated = requiresReview
+        ? await storage.updateTask(task.id, practiceId, { status: 'submitted_for_review', submittedForReviewAt: new Date() } as any)
+        : await storage.updateTask(task.id, practiceId, { status: 'complete', completedAt: new Date() } as any);
+      res.json({ linked: true, taskId: task.id, status: updated?.status });
+    } catch (error) {
+      console.error("POST complete-linked-task error:", error);
+      res.status(500).json({ error: "Failed to complete linked task" });
+    }
+  });
+
   // Step instances (logbook steps within a process instance)
   app.get("/api/practices/:practiceId/process-instances/:piid/step-instances", isAuthenticated, requireSamePractice, async (req, res) => {
     try {

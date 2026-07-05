@@ -96,6 +96,21 @@ export default function TaskDetail() {
           });
           if (res.ok) {
             const task = await res.json();
+            // Logbook occurrences with steps deep-link into StepExecution: lazily
+            // create/link the process instance and redirect to step 0.
+            const notDone = task.status !== 'complete' && task.status !== 'closed';
+            if (notDone && (task.sourceType === 'logbook' || task.templateId || task.selectionId)) {
+              const piRes = await fetch(`/api/practices/${user!.practiceId}/tasks/${task.id}/process-instance`, {
+                method: 'POST', credentials: 'include',
+              });
+              if (piRes.ok) {
+                const { processInstanceId, hasSteps } = await piRes.json();
+                if (hasSteps && processInstanceId) {
+                  navigate(`/task/${processInstanceId}/step/0`, { replace: true });
+                  return;
+                }
+              }
+            }
             setSimpleTask({
               id: task.id,
               title: task.title,

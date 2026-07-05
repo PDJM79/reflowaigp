@@ -210,9 +210,25 @@ export default function StepExecution() {
           console.error('Error completing process:', processRes.status);
         }
 
+        // Complete (or submit-for-review) the owning task, if this PI is linked.
+        let submittedForReview = false;
+        try {
+          const linkRes = await fetch(`/api/practices/${user!.practiceId}/process-instances/${taskId}/complete-linked-task`, {
+            method: 'POST', credentials: 'include',
+          });
+          if (linkRes.ok) {
+            const { linked, status } = await linkRes.json();
+            submittedForReview = linked && status === 'submitted_for_review';
+          }
+        } catch (e) {
+          console.error('Error completing linked task:', e);
+        }
+
         toast({
-          title: "Process Completed",
-          description: "Congratulations! You have completed the entire process.",
+          title: submittedForReview ? "Submitted for review" : "Process Completed",
+          description: submittedForReview
+            ? "Your completion has been submitted to a manager for review."
+            : "Congratulations! You have completed the entire process.",
         });
 
         navigate(`/task/${taskId}`);
