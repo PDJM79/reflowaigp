@@ -498,8 +498,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId, practiceRoleId } = req.body as { userId?: string; practiceRoleId?: string };
       if (!userId || !practiceRoleId) return res.status(400).json({ error: "userId and practiceRoleId are required" });
-      await storage.assignUserPracticeRole(req.params.practiceId as string, userId, practiceRoleId);
-      res.status(201).json({ ok: true });
+      const id = await storage.assignUserPracticeRole(req.params.practiceId as string, userId, practiceRoleId);
+      // Return id + fields so the audit middleware records the assignment (afterData).
+      res.status(201).json({ id, userId, practiceRoleId, ok: true });
     } catch (error) {
       console.error("POST user-practice-roles error:", error);
       res.status(500).json({ error: "Failed to assign role" });
@@ -512,7 +513,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId, practiceRoleId } = req.body as { userId?: string; practiceRoleId?: string };
       if (!userId || !practiceRoleId) return res.status(400).json({ error: "userId and practiceRoleId are required" });
       await storage.unassignUserPracticeRole(userId, practiceRoleId);
-      res.json({ ok: true });
+      // Return practiceRoleId as id so the audit middleware records the unassignment.
+      res.json({ id: practiceRoleId, ok: true });
     } catch (error) {
       console.error("DELETE user-practice-roles error:", error);
       res.status(500).json({ error: "Failed to unassign role" });

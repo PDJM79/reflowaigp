@@ -801,10 +801,20 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async assignUserPracticeRole(practiceId: string, userId: string, practiceRoleId: string) {
-    await db.insert(schema.userPracticeRoles)
+  async assignUserPracticeRole(practiceId: string, userId: string, practiceRoleId: string): Promise<string> {
+    const [row] = await db.insert(schema.userPracticeRoles)
       .values({ practiceId, userId, practiceRoleId })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ id: schema.userPracticeRoles.id });
+    if (row) return row.id;
+    // Already existed (idempotent) — look up the existing row's id.
+    const [existing] = await db.select({ id: schema.userPracticeRoles.id })
+      .from(schema.userPracticeRoles)
+      .where(and(
+        eq(schema.userPracticeRoles.userId, userId),
+        eq(schema.userPracticeRoles.practiceRoleId, practiceRoleId),
+      ));
+    return existing?.id ?? "";
   }
 
   async unassignUserPracticeRole(userId: string, practiceRoleId: string) {
