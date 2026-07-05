@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,30 +37,29 @@ export default function Complaints() {
     }
   }, [user, navigate]);
 
-  // Fetch complaints with pagination
-  const { data: complaintsData, isLoading, refetch } = useQuery({
+  // Fetch complaints via the Express API (RLS-dead direct-Supabase before this).
+  // The API returns all complaints as Drizzle camelCase; map to the snake_case
+  // the render reads, then paginate client-side.
+  const { data: complaintsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['complaints', user?.practiceId, page, pageSize],
     queryFn: async () => {
       if (!user?.practiceId) return { complaints: [], totalCount: 0 };
-
-      // Get total count
-      const { count } = await (supabase as any)
-        .from('complaints')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', user.practiceId);
-
-      // Get paginated data
+      const res = await fetch(`/api/practices/${user.practiceId}/complaints`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load complaints');
+      const raw = await res.json();
+      const all = (Array.isArray(raw) ? raw : []).map((c: any) => ({
+        ...c,
+        received_at: c.receivedAt,
+        ack_due: c.ackDue,
+        ack_sent_at: c.ackSentAt,
+        final_due: c.finalDue,
+        final_sent_at: c.finalSentAt,
+        sla_status: c.slaStatus,
+        complainant_name: c.complainantName,
+      }));
+      all.sort((a, b) => new Date(b.received_at || 0).getTime() - new Date(a.received_at || 0).getTime());
       const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data } = await (supabase as any)
-        .from('complaints')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('received_at', { ascending: false })
-        .range(from, to);
-
-      return { complaints: data || [], totalCount: count || 0 };
+      return { complaints: all.slice(from, from + pageSize), totalCount: all.length };
     },
     enabled: !!user?.practiceId,
   });
@@ -213,6 +211,15 @@ export default function Complaints() {
 
       {isLoading ? (
         <div className="text-center py-8">Loading complaints...</div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <p className="font-medium mb-1">Failed to load complaints</p>
+            <p className="text-muted-foreground mb-4">Check your connection and try again.</p>
+            <Button variant="outline" onClick={() => refetch()}><RefreshCw className="h-4 w-4 mr-2" /> Retry</Button>
+          </CardContent>
+        </Card>
       ) : complaints.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
