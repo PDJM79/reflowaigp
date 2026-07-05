@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -225,18 +224,22 @@ export default function FridgeTemps() {
     if (!user?.practiceId) return;
 
     try {
-      // Fetch all logs for the last 30 days
+      // Fetch readings via the API (the phantom temp_logs table was RLS-dead),
+      // filter to the last 30 days, and map to the shape the PDF expects.
       const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
       const today = format(new Date(), 'yyyy-MM-dd');
 
-      const { data: allLogs } = await supabase
-        .from('temp_logs')
-        .select('*')
-        .gte('log_date', thirtyDaysAgo)
-        .lte('log_date', today)
-        .order('log_date', { ascending: false });
-
-      const logs = allLogs || [];
+      const res = await fetch(`/api/practices/${user.practiceId}/fridge-readings`, { credentials: 'include' });
+      const readings = res.ok ? await res.json() : [];
+      const logs = (Array.isArray(readings) ? readings : [])
+        .map((r: any) => ({
+          fridge_id: r.fridgeId,
+          reading: r.temperature,
+          breach_flag: !!r.isOutOfRange,
+          log_date: String(r.readingDate).slice(0, 10),
+        }))
+        .filter((l) => l.log_date >= thirtyDaysAgo && l.log_date <= today)
+        .sort((a, b) => (a.log_date < b.log_date ? 1 : -1));
       const breaches = logs.filter(l => l.breach_flag).length;
       const complianceRate = logs.length > 0 
         ? ((logs.length - breaches) / logs.length) * 100 
