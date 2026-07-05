@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, LogOut, Mail, Calendar, Loader2 } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { RoleEmailAssignment, TaskScheduleConfig, FREQUENCY_OPTIONS, DEFAULT_TASK_TEMPLATES } from '@/types/organizationSetup';
@@ -50,19 +49,15 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const { data, error } = await supabase
-          .from('role_catalog')
-          .select('id, role_key, display_name, category, description')
-          .order('display_name');
-        
-        if (error) throw error;
-        // Cast category to RoleCategory
-        setRoleCatalog((data || []).map(r => ({
+        const res = await fetch('/api/role-catalog', { credentials: 'include' });
+        if (!res.ok) throw new Error(`Failed to load roles (${res.status})`);
+        const data = await res.json() as any[];
+        setRoleCatalog(data.map((r) => ({
           ...r,
           category: r.category as RoleCategory,
-          default_capabilities: [],
-          created_at: '',
-          updated_at: '',
+          default_capabilities: r.default_capabilities ?? [],
+          created_at: r.created_at ?? '',
+          updated_at: r.updated_at ?? '',
         })));
       } catch (err) {
         console.error('Error fetching role catalog:', err);
@@ -203,261 +198,32 @@ export function OrganizationSetup({ onComplete }: OrganizationSetupProps) {
     try {
       if (!user) throw new Error('No user found');
 
-      // Create practice using security definer function
-      // This bypasses the RLS restriction that prevents regular users from creating practices
-      const { data: practiceResponse, error: practiceError } = await supabase.functions.invoke(
-        'create-practice-during-setup',
-        {
-          body: {
-            name: organizationName.trim(),
-            country: country,
-          }
-        }
-      );
-
-      if (practiceError || !practiceResponse?.success) {
-        throw new Error(practiceError?.message || 'Failed to create practice');
+      // Provision the whole practice server-side (see docs/ORGSETUP_MAP.md).
+      const res = await fetch('/api/setup/provision', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationName: organizationName.trim(),
+          country,
+          assignments: filledAssignments.map((a) => ({
+            email: a.email, name: a.name, roles: a.roles, password: a.password,
+          })),
+          taskSchedules: taskSchedules.map((s) => ({
+            templateName: s.templateName, responsibleRole: s.responsibleRole,
+            frequency: s.frequency, startDate: s.startDate, slaHours: s.slaHours,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to set up organization');
       }
-
-      const practice = practiceResponse.practice;
-
-      // Find the current user's assignment
-      const currentUserAssignment = filledAssignments.find(a => a.email === user.email);
-      const isPracticeManager = currentUserAssignment?.roles.includes('practice_manager') || false;
-
-      // Create or update current user
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      let currentUserId: string;
-
-      if (existingUser) {
-        // NOTE: is_practice_manager flag is deprecated - roles assigned via user_practice_roles below
-        const { data: updated, error: updateError } = await supabase
-          .from('users')
-          .update({
-            name: currentUserAssignment?.name || 'Practice Manager',
-            role: currentUserAssignment?.roles[0] as any || 'practice_manager',
-            practice_id: practice.id,
-            is_practice_manager: isPracticeManager // DEPRECATED: kept for backward compatibility
-          })
-          .eq('id', user.id)
-          .select('id')
-          .single();
-
-        if (updateError) throw updateError;
-        currentUserId = updated.id;
-      } else {
-        // NOTE: is_practice_manager flag is deprecated - roles assigned via user_practice_roles below
-        const { data: created, error: createError } = await (supabase as any)
-          .from('users')
-          .insert({
-            auth_user_id: user.id,
-            name: currentUserAssignment?.name || 'Practice Manager',
-            practice_id: practice.id,
-            is_practice_manager: isPracticeManager // DEPRECATED: kept for backward compatibility
-          })
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        currentUserId = created.id;
-
-        // Insert contact details separately
-        const { error: contactError } = await (supabase as any)
-          .from('user_contact_details')
-          .insert({
-            user_id: currentUserId,
-            email: user.email!
-          });
-
-        if (contactError) {
-          console.error('Error creating contact details:', contactError);
-          // Don't fail the whole process, contact can be added later
-        }
-      }
-
-      // Create user accounts for other team members
-      const otherAssignments = filledAssignments.filter(a => a.email !== user.email);
-      const createdUserIds: Record<string, string> = { [user.email!]: currentUserId };
-
-      for (const assignment of otherAssignments) {
-        try {
-          const { data, error } = await supabase.functions.invoke('create-user-accounts', {
-            body: {
-              email: assignment.email,
-              name: assignment.name,
-              role: assignment.roles[0], // Primary role
-              practice_id: practice.id,
-              password: assignment.password
-            }
-          });
-
-          if (error) throw error;
-          
-          // Store the created user ID
-          if (data?.user_id) {
-            createdUserIds[assignment.email] = data.user_id;
-          }
-        } catch (error) {
-          console.error(`Error creating user ${assignment.email}:`, error);
-          toast({
-            title: "User creation warning",
-            description: `Could not create account for ${assignment.email}`,
-            variant: "destructive",
-          });
-        }
-      }
-
-      // Create user_practice_roles entries using new role system
-      for (const assignment of filledAssignments) {
-        const userId = createdUserIds[assignment.email];
-        if (userId) {
-          for (const roleKey of assignment.roles) {
-            try {
-              // Get role_catalog entry
-              const { data: catalogEntry } = await supabase
-                .from('role_catalog')
-                .select('id')
-                .eq('role_key', roleKey)
-                .single();
-
-              if (!catalogEntry) continue;
-
-              // Get or create practice_role
-              let { data: practiceRole } = await supabase
-                .from('practice_roles')
-                .select('id')
-                .eq('practice_id', practice.id)
-                .eq('role_catalog_id', catalogEntry.id)
-                .single();
-
-              if (!practiceRole) {
-                const { data: newPracticeRole } = await supabase
-                  .from('practice_roles')
-                  .insert({
-                    practice_id: practice.id,
-                    role_catalog_id: catalogEntry.id,
-                    is_active: true
-                  })
-                  .select('id')
-                  .single();
-                practiceRole = newPracticeRole;
-              }
-
-              if (practiceRole) {
-                // Create user_practice_role
-                await supabase
-                  .from('user_practice_roles')
-                  .upsert({
-                    user_id: userId,
-                    practice_role_id: practiceRole.id,
-                    practice_id: practice.id
-                  }, { onConflict: 'user_id,practice_role_id' });
-              }
-            } catch (roleError) {
-              console.error(`Error assigning role ${roleKey} to user:`, roleError);
-            }
-          }
-        }
-      }
-
-      // Create process templates with scheduling configuration
-      const templateInserts = taskSchedules.map(schedule => ({
-        practice_id: practice.id,
-        name: schedule.templateName,
-        responsible_role: schedule.responsibleRole as any,
-        frequency: schedule.frequency as any,
-        start_date: schedule.startDate,
-        sla_hours: schedule.slaHours,
-        custom_frequency: FREQUENCY_OPTIONS.find(f => f.value === schedule.frequency)?.label,
-        active: true,
-        steps: [], // Add default steps if needed
-      }));
-
-      const { data: createdTemplates, error: templatesError } = await supabase
-        .from('process_templates')
-        .insert(templateInserts)
-        .select();
-
-      if (templatesError) {
-        console.error('Error creating templates:', templatesError);
-        toast({
-          title: "Template creation warning",
-          description: "Some task templates could not be created",
-          variant: "destructive",
-        });
-      }
-
-      // Create initial process instances for the first occurrence
-      if (createdTemplates && createdTemplates.length > 0) {
-        const processInstances = [];
-        
-        for (const template of createdTemplates) {
-          // Find all users with the responsible role
-          const usersWithRole = filledAssignments.filter(a => 
-            a.roles.includes(template.responsible_role) && createdUserIds[a.email]
-          );
-
-          // Create one instance per user with that role
-          for (const assignment of usersWithRole) {
-            const userId = createdUserIds[assignment.email];
-            if (!userId) continue;
-
-            // Calculate first due date
-            const startDate = new Date(template.start_date);
-            const dueDate = startDate;
-
-            processInstances.push({
-              template_id: template.id,
-              practice_id: practice.id,
-              assignee_id: userId,
-              status: 'pending',
-              period_start: startDate.toISOString(),
-              period_end: dueDate.toISOString(),
-              due_at: dueDate.toISOString()
-            });
-          }
-        }
-
-        if (processInstances.length > 0) {
-          const { error: instancesError } = await supabase
-            .from('process_instances')
-            .insert(processInstances);
-
-          if (instancesError) {
-            console.error('Error creating process instances:', instancesError);
-          }
-        }
-      }
-
-      // Mark setup as complete
-      const { error: setupError } = await supabase
-        .from('organization_setup')
-        .insert({
-          practice_id: practice.id,
-          setup_completed: true
-        });
-
-      if (setupError) throw setupError;
 
       toast({
         title: "Organization setup complete",
         description: `Your practice has been set up with ${filledAssignments.length} team members and ${taskSchedules.length} task templates`,
       });
-
-      // Call auto-provision to seed templates and reminders
-      try {
-        await supabase.functions.invoke('auto-provision-practice', {
-          body: { practice_id: practice.id }
-        });
-      } catch (autoProvisionError) {
-        console.error('Auto-provision error:', autoProvisionError);
-        // Don't fail the setup if auto-provision fails
-      }
 
       onComplete();
     } catch (error: any) {

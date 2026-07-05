@@ -1137,6 +1137,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/mfa/enable", isAuthenticated, mfaChange("enable"));
   app.post("/api/auth/mfa/disable", isAuthenticated, mfaChange("disable"));
 
+  // Signup-context provisioning (see docs/ORGSETUP_MAP.md). The session user (just
+  // registered via /api/auth/register) becomes the practice's first manager. No
+  // requireSamePractice — the practice does not exist yet.
+  app.post("/api/setup/provision", isAuthenticated, async (req, res) => {
+    try {
+      const actingId = req.session.userId!;
+      const { organizationName, country, assignments, taskSchedules } = req.body as {
+        organizationName?: string; country?: string;
+        assignments?: { email: string; name: string; roles: string[]; password?: string }[];
+        taskSchedules?: { templateName: string; responsibleRole: string; frequency: string; startDate?: string; slaHours?: number }[];
+      };
+      if (!organizationName?.trim() || !Array.isArray(assignments) || assignments.length === 0) {
+        return res.status(400).json({ error: "organizationName and assignments are required" });
+      }
+
+      // 1. Create the practice (country enum is lowercase; client sends TitleCase)
+      const countryCode = (country || "wales").toLowerCase();
+      const practice = await storage.createPractice({ name: organizationName.trim(), country: countryCode as any } as any);
+
+      // 2. Attach the acting user as the first manager
+      const acting = await storage.getUserById(actingId);
+      const myAssignment = assignments.find((a) => a.email === acting?.email);
+      const isPM = myAssignment?.roles?.includes("practice_manager") ?? false;
+      await storage.updateUser(actingId, (acting?.practiceId ?? practice.id), {
+        practiceId: practice.id,
+        name: myAssignment?.name || acting?.name,
+        role: (myAssignment?.roles?.[0] as any) || "practice_manager",
+        isPracticeManager: isPM,
+      } as any);
+      req.session.practiceId = practice.id;
+
+      // 3. Create teammate accounts
+      const createdUserIds: Record<string, string> = {};
+      if (acting?.email) createdUserIds[acting.email] = actingId;
+      for (const a of assignments.filter((a) => a.email !== acting?.email)) {
+        try {
+          const passwordHash = a.password ? await hashPassword(a.password) : undefined;
+          const u = await storage.createUser({ email: a.email, name: a.name, role: (a.roles[0] as any) || "reception", practiceId: practice.id, passwordHash } as any);
+          createdUserIds[a.email] = u.id;
+        } catch (e) { console.error(`provision: failed to create user ${a.email}`, e); }
+      }
+
+      // 4. RBAC: role_catalog -> practice_roles -> user_practice_roles
+      const catalog = await storage.getRoleCatalog();
+      const catByKey = new Map(catalog.map((c: any) => [c.role_key, c.id]));
+      for (const a of assignments) {
+        const uid = createdUserIds[a.email];
+        if (!uid) continue;
+        for (const roleKey of a.roles ?? []) {
+          const catId = catByKey.get(roleKey);
+          if (!catId) continue;
+          const prId = await storage.enablePracticeRole(practice.id, catId as string);
+          await storage.assignUserPracticeRole(practice.id, uid, prId);
+        }
+      }
+
+      // 5 + 6. Templates and first process instances
+      for (const s of taskSchedules ?? []) {
+        const tpl = await storage.createProcessTemplate({
+          practiceId: practice.id, name: s.templateName,
+          responsibleRole: (s.responsibleRole as any) || "reception",
+          frequency: (s.frequency as any) || "daily",
+          slaHours: s.slaHours ?? 24, isActive: true, steps: [],
+        } as any);
+        const start = s.startDate ? new Date(s.startDate) : new Date();
+        for (const a of assignments) {
+          if (!a.roles?.includes(s.responsibleRole)) continue;
+          const uid = createdUserIds[a.email];
+          if (!uid) continue;
+          await storage.createProcessInstance({
+            templateId: tpl.id, practiceId: practice.id, assigneeId: uid,
+            status: "pending", periodStart: start, periodEnd: start, dueAt: start,
+          } as any);
+        }
+      }
+
+      // 7. Mark setup complete
+      await storage.createOrganizationSetup(practice.id);
+
+      res.status(201).json({ practiceId: practice.id });
+    } catch (error) {
+      console.error("POST setup/provision error:", error);
+      res.status(500).json({ error: "Failed to provision practice" });
+    }
+  });
+
   app.get("/api/practices/:practiceId/policies", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const policies = await storage.getPolicyDocumentsByPractice((req.params.practiceId as string));

@@ -1177,6 +1177,12 @@ export class DatabaseStorage implements IStorage {
   async insertAuditLog(row: typeof schema.auditLogs.$inferInsert) {
     await db.insert(schema.auditLogs).values(row);
   }
+
+  async createOrganizationSetup(practiceId: string) {
+    await db.insert(schema.organizationSetup)
+      .values({ practiceId, setupCompleted: true, setupCompletedAt: new Date() } as any)
+      .onConflictDoNothing();
+  }
 }
 
 export const storage = new DatabaseStorage();
