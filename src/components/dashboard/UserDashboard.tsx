@@ -88,37 +88,18 @@ export function UserDashboard() {
         return;
       }
 
-      // Find the practice manager via new role system first
-      const { data: pmViaRole } = await supabase
-        .from('user_practice_roles')
-        .select(`
-          user_id,
-          users!inner(id, practice_id),
-          practice_roles!inner(
-            role_catalog!inner(role_key)
-          )
-        `)
-        .eq('users.practice_id', practiceId)
-        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+      // Find the practice manager via the is_practice_manager flag.
+      // (The former user_practice_roles/role_catalog lookup was RLS-dead under
+      // session auth and always fell through to this flag — see docs/RBAC_MAP.md.)
+      const { data: fallbackPM } = await supabase
+        .from('users')
+        .select('id')
+        .eq('practice_id', practiceId)
+        .eq('is_practice_manager', true)
         .limit(1)
         .maybeSingle();
 
-      let practiceManagerId: string | null = null;
-
-      if (pmViaRole?.users) {
-        practiceManagerId = (pmViaRole.users as any).id;
-      } else {
-        // Fallback to is_practice_manager flag for backward compatibility
-        const { data: fallbackPM } = await supabase
-          .from('users')
-          .select('id')
-          .eq('practice_id', practiceId)
-          .eq('is_practice_manager', true)
-          .limit(1)
-          .maybeSingle();
-        
-        practiceManagerId = fallbackPM?.id || null;
-      }
+      const practiceManagerId: string | null = fallbackPM?.id || null;
 
       if (!practiceManagerId) {
         toast.error('No practice manager found');

@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePracticeSelection } from '@/hooks/usePracticeSelection';
 import { useRoleCatalog } from '@/hooks/useRoleCatalog';
@@ -85,13 +84,12 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     if (!practiceId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('user_practice_roles')
-        .select('practice_role_id')
-        .eq('user_id', userId)
-        .eq('practice_id', practiceId);
-
-      if (error) throw error;
+      const res = await fetch(
+        `/api/practices/${practiceId}/user-practice-roles?userId=${encodeURIComponent(userId)}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json() as { practice_role_id: string }[];
 
       const roleIds = (data || []).map(r => r.practice_role_id);
       setExistingRoleIds(roleIds);
@@ -187,33 +185,30 @@ export function UserManagementDialog({ isOpen, onClose, onSuccess, user }: UserM
     }
   };
 
-  // Best-effort sync of the practice-role badge system (Supabase-backed).
+  // Best-effort sync of the practice-role badge system (via the manager-gated API).
   // Failures here must not report the whole operation as failed.
   const syncPracticeRoleBadges = async (userId: string) => {
     try {
       const rolesToRemove = existingRoleIds.filter(id => !formData.selectedPracticeRoleIds.includes(id));
-      if (rolesToRemove.length > 0) {
-        const { error } = await supabase
-          .from('user_practice_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('practice_id', practiceId)
-          .in('practice_role_id', rolesToRemove);
-        if (error) throw error;
+      for (const practiceRoleId of rolesToRemove) {
+        const res = await fetch(`/api/practices/${practiceId}/user-practice-roles`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, practiceRoleId }),
+        });
+        if (!res.ok) throw new Error(`Failed to remove role (${res.status})`);
       }
 
       const rolesToAdd = formData.selectedPracticeRoleIds.filter(id => !existingRoleIds.includes(id));
-      if (rolesToAdd.length > 0) {
-        const { error } = await supabase
-          .from('user_practice_roles')
-          .insert(
-            rolesToAdd.map(practiceRoleId => ({
-              user_id: userId,
-              practice_id: practiceId,
-              practice_role_id: practiceRoleId,
-            }))
-          );
-        if (error) throw error;
+      for (const practiceRoleId of rolesToAdd) {
+        const res = await fetch(`/api/practices/${practiceId}/user-practice-roles`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, practiceRoleId }),
+        });
+        if (!res.ok) throw new Error(`Failed to add role (${res.status})`);
       }
     } catch (error) {
       console.error('Error syncing practice role badges:', error);

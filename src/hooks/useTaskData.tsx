@@ -33,41 +33,18 @@ export function useTaskData() {
       }
 
 
-      // Get practice manager for default assignment via new role system
-      // First try new role system, then fallback to is_practice_manager flag
-      const { data: practiceManagerViaRole } = await supabase
-        .from('user_practice_roles')
-        .select(`
-          user_id,
-          users!inner(id, name, practice_id),
-          practice_roles!inner(
-            role_catalog!inner(role_key)
-          )
-        `)
-        .eq('users.practice_id', targetPracticeId)
-        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
+      // Get practice manager for default assignment via the is_practice_manager flag.
+      // (The former user_practice_roles/role_catalog lookup was RLS-dead under
+      // session auth and always fell through to this flag — see docs/RBAC_MAP.md.)
+      const { data: fallbackPM } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('practice_id', targetPracticeId)
+        .eq('is_practice_manager', true)
         .limit(1)
         .maybeSingle();
 
-      let practiceManager: { id: string; name: string } | null = null;
-      
-      if (practiceManagerViaRole?.users) {
-        practiceManager = {
-          id: (practiceManagerViaRole.users as any).id,
-          name: (practiceManagerViaRole.users as any).name
-        };
-      } else {
-        // Fallback to is_practice_manager flag
-        const { data: fallbackPM } = await supabase
-          .from('users')
-          .select('id, name')
-          .eq('practice_id', targetPracticeId)
-          .eq('is_practice_manager', true)
-          .limit(1)
-          .maybeSingle();
-        
-        practiceManager = fallbackPM;
-      }
+      const practiceManager: { id: string; name: string } | null = fallbackPM;
 
 
       // Get ALL process instances for the target practice with template info
