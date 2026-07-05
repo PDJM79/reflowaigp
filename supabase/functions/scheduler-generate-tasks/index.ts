@@ -23,11 +23,10 @@ import type { Cadence } from "../_shared/cadence.ts";
 const BACKFILL_MAX_DAYS = 7;
 
 // process_templates.frequency (process_frequency enum) -> base_cadence.
-// twice_daily has no base_cadence equivalent (needs an AM/PM slot the idempotency
-// index does not model) and is intentionally skipped — see report.
+// Phase 5: twice_daily now generates two slot-aware occurrences per open day.
 const PROCESS_FREQUENCY_TO_CADENCE: Record<string, Cadence | null> = {
-  daily: "daily", weekly: "weekly", monthly: "monthly", quarterly: "quarterly",
-  six_monthly: "six_monthly", annually: "annual", twice_daily: null,
+  daily: "daily", twice_daily: "twice_daily", weekly: "weekly", monthly: "monthly",
+  quarterly: "quarterly", six_monthly: "six_monthly", annually: "annual",
 };
 
 serve(async (req) => {
@@ -106,17 +105,16 @@ serve(async (req) => {
       }));
 
       // Bespoke is_scheduled process_templates (second source). Mapped from
-      // process_frequency to base_cadence; twice_daily is skipped.
+      // process_frequency to base_cadence (twice_daily now supported via slots).
       const { data: templates, error: tErr } = await db
         .from("process_templates")
         .select("id, name, module, frequency, due_window_hours, early_start_hours, importance, default_assignee_id, default_assignee_role, created_at")
         .eq("practice_id", p.id)
         .eq("is_scheduled", true);
       if (tErr) throw tErr;
-      let skippedTwiceDaily = 0;
       for (const t of templates ?? []) {
         const cadence = PROCESS_FREQUENCY_TO_CADENCE[t.frequency as string];
-        if (!cadence) { skippedTwiceDaily++; continue; }
+        if (!cadence) continue; // unmapped/unschedulable frequency
         selections.push({
           id: t.id, sourceKind: "template", curatedLogbookId: "",
           title: t.name, module: t.module ?? "compliance",
@@ -142,9 +140,10 @@ serve(async (req) => {
         practice, selections, roleAssignments, closures, fromISO, toISO,
       });
 
-      // Bulk upsert — the partial-unique indexes make duplicate occurrences no-op.
-      // Split by source: selection rows conflict on (selection_id, scheduled_date);
-      // template rows on (template_id, scheduled_date).
+      // Bulk upsert — the slot-aware partial-unique indexes make duplicate
+      // occurrences no-op. Split by source: selection rows conflict on
+      // (selection_id, scheduled_date, slot); template rows on (template_id,
+      // scheduled_date, slot). twice_daily writes 'am'/'pm'; others ''.
       const toRow = (r: PlannedTask) => ({
         practice_id: r.practiceId,
         selection_id: r.selectionId,
@@ -153,6 +152,7 @@ serve(async (req) => {
         title: r.title,
         module: r.module,
         scheduled_date: r.scheduledDate,
+        slot: r.slot ?? "",
         due_at: r.dueAt,
         visible_from: r.visibleFrom,
         status: "pending",
@@ -163,11 +163,11 @@ serve(async (req) => {
       const selectionRows = rows.filter((r) => r.selectionId).map(toRow);
       const templateRows = rows.filter((r) => r.templateId).map(toRow);
       if (selectionRows.length > 0) {
-        const { error } = await db.from("tasks").upsert(selectionRows, { onConflict: "selection_id,scheduled_date", ignoreDuplicates: true });
+        const { error } = await db.from("tasks").upsert(selectionRows, { onConflict: "selection_id,scheduled_date,slot", ignoreDuplicates: true });
         if (error) throw error;
       }
       if (templateRows.length > 0) {
-        const { error } = await db.from("tasks").upsert(templateRows, { onConflict: "template_id,scheduled_date", ignoreDuplicates: true });
+        const { error } = await db.from("tasks").upsert(templateRows, { onConflict: "template_id,scheduled_date,slot", ignoreDuplicates: true });
         if (error) throw error;
       }
 
@@ -181,7 +181,6 @@ serve(async (req) => {
           window: { from: fromISO, to: toISO },
           generated: counts.generated,
           skipped_closure: counts.skippedClosure,
-          skipped_twice_daily_templates: skippedTwiceDaily,
           unassigned: counts.unassigned,
           periodic_review_reminders: counts.periodicReviewReminders,
           periodic_review_due: periodicReviewDue,

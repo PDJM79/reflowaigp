@@ -192,3 +192,32 @@ describe("addDaysISO helper", () => {
     expect(addDaysISO("2024-02-28", 1)).toBe("2024-02-29"); // leap
   });
 });
+
+describe("planGeneration — twice_daily (Phase 5)", () => {
+  it("generates two rows (am + pm) per open day, same date", () => {
+    const r = plan([sel({ cadence: "twice_daily" })], "2026-07-06");
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows.map((x) => x.slot).sort()).toEqual(["am", "pm"]);
+    expect(r.rows.every((x) => x.scheduledDate === "2026-07-06")).toBe(true);
+    expect(r.counts.generated).toBe(2);
+  });
+  it("closure skips BOTH slots", () => {
+    const r = plan([sel({ cadence: "twice_daily" })], "2026-07-06", { closures: ["2026-07-06"] });
+    expect(r.rows).toHaveLength(0);
+    expect(r.counts.skippedClosure).toBe(2);
+  });
+  it("DST spring-forward day still generates exactly two", () => {
+    // 2026-03-29 is the Europe/London BST transition (clocks forward).
+    const r = plan([sel({ cadence: "twice_daily" })], "2026-03-29", { from: "2026-03-29" });
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows.map((x) => x.slot).sort()).toEqual(["am", "pm"]);
+  });
+  it("multi-day open range: exactly 2 per open day", () => {
+    const r = plan([sel({ cadence: "twice_daily" })], "2026-07-07", { from: "2026-07-06" });
+    expect(r.rows).toHaveLength(4);
+  });
+  it("non-twice_daily cadences carry slot=null", () => {
+    const r = plan([sel({ cadence: "weekly" })], "2026-07-06");
+    expect(r.rows[0].slot ?? null).toBeNull();
+  });
+});

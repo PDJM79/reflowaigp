@@ -5,8 +5,9 @@
 // logbook occurrences to create. No DB access, no side effects — the Deno edge
 // function and the Node integration harness both do their I/O around this.
 //
-// Idempotency is the DB's job: inserts use the (selection_id, scheduled_date)
+// Idempotency is the DB's job: inserts use the (selection_id, scheduled_date, slot)
 // partial-unique index with ON CONFLICT DO NOTHING, so a duplicate plan no-ops.
+// slot is '' for single-occurrence cadences and 'am'/'pm' for twice_daily.
 // =============================================================================
 
 import {
@@ -67,6 +68,7 @@ export interface PlannedTask {
   importance: string;
   assigneeId: string | null;
   curatedLogbookId: string | null;
+  slot: string | null;         // "am" | "pm" for twice_daily; null otherwise
 }
 
 export interface PlanCounts {
@@ -119,7 +121,7 @@ export function addDaysISO(iso: string, days: number): string {
 
 /** Daily/weekly cadences skip closures; monthly+ shift to the next open day. */
 function isDailyOrWeekly(c: Cadence): boolean {
-  return c === "daily" || c === "weekly" || c === "fortnightly";
+  return c === "daily" || c === "twice_daily" || c === "weekly" || c === "fortnightly";
 }
 
 /**
@@ -169,11 +171,14 @@ export function planGeneration(params: {
         continue;
       }
 
+      // twice_daily emits two slots (am + pm) per open day; other cadences one.
+      const slots: (string | null)[] = cadence === "twice_daily" ? ["am", "pm"] : [null];
+
       // Closure handling.
       let scheduledDate = dayISO;
       if (closures.has(dayISO)) {
         if (isDailyOrWeekly(cadence)) {
-          counts.skippedClosure++;
+          counts.skippedClosure += slots.length; // both slots for twice_daily
           continue; // skip entirely
         }
         // monthly+: shift forward to the next open day
@@ -188,22 +193,25 @@ export function planGeneration(params: {
       const dueAt = addHours(occurrenceInstant, sel.dueWindowHours);
       const visibleFrom = addHours(dueAt, -sel.earlyStartHours);
 
-      if (!assignee) counts.unassigned++;
-      counts.generated++;
       const isTemplate = sel.sourceKind === "template";
-      rows.push({
-        practiceId: practice.id,
-        selectionId: isTemplate ? null : sel.id,
-        templateId: isTemplate ? sel.id : null,
-        title: sel.title,
-        module: sel.module,
-        scheduledDate,
-        dueAt: dueAt.toISOString(),
-        visibleFrom: visibleFrom.toISOString(),
-        importance: sel.importance ?? DEFAULT_IMPORTANCE,
-        assigneeId: assignee,
-        curatedLogbookId: isTemplate ? null : sel.curatedLogbookId,
-      });
+      for (const slot of slots) {
+        if (!assignee) counts.unassigned++;
+        counts.generated++;
+        rows.push({
+          practiceId: practice.id,
+          selectionId: isTemplate ? null : sel.id,
+          templateId: isTemplate ? sel.id : null,
+          title: sel.title,
+          module: sel.module,
+          scheduledDate,
+          dueAt: dueAt.toISOString(),
+          visibleFrom: visibleFrom.toISOString(),
+          importance: sel.importance ?? DEFAULT_IMPORTANCE,
+          assigneeId: assignee,
+          curatedLogbookId: isTemplate ? null : sel.curatedLogbookId,
+          slot,
+        });
+      }
     }
   }
 

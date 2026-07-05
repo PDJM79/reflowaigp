@@ -15,7 +15,7 @@ export const processFrequencyEnum = pgEnum('process_frequency', [
 // Phase 1: base cadence dimension for curated logbooks. Separate from
 // process_frequency (which stays on process_templates) so it is reversible.
 export const baseCadenceEnum = pgEnum('base_cadence', [
-  'daily', 'weekly', 'fortnightly', 'monthly', 'termly', 'quarterly', 'six_monthly',
+  'daily', 'twice_daily', 'weekly', 'fortnightly', 'monthly', 'termly', 'quarterly', 'six_monthly',
   'biennial', 'annual', 'triennial', 'five_yearly', 'periodic_review', 'ad_hoc'
 ]);
 
@@ -621,6 +621,7 @@ export const tasks = pgTable("tasks", {
   sourceType: taskSourceTypeEnum("source_type").notNull().default('adhoc'),
   selectionId: uuid("selection_id").references(() => practiceLogbookSelections.id, { onDelete: "set null" }),
   scheduledDate: date("scheduled_date", { mode: 'string' }),
+  slot: text("slot").notNull().default(''), // 'am'/'pm' for twice_daily; '' otherwise
   visibleFrom: timestamp("visible_from"),
   importance: text("importance").notNull().default('medium'),
   submittedForReviewAt: timestamp("submitted_for_review_at"),

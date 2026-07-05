@@ -12,7 +12,7 @@
 // =============================================================================
 
 export type Cadence =
-  | "daily" | "weekly" | "fortnightly" | "monthly" | "termly" | "quarterly"
+  | "daily" | "twice_daily" | "weekly" | "fortnightly" | "monthly" | "termly" | "quarterly"
   | "six_monthly" | "annual" | "biennial" | "triennial" | "five_yearly"
   | "periodic_review" | "ad_hoc";
 
@@ -120,7 +120,8 @@ export function occursOn(input: OccurrenceInput): boolean {
 
   switch (cadence) {
     case "daily":
-      return true; // every day (open-day filtering handled by planner)
+    case "twice_daily":
+      return true; // every day (twice_daily emits two slots per day in the planner)
 
     case "weekly":
       return today.weekday === (preferredDay % 7);
