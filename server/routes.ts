@@ -795,6 +795,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Phase 4: review queue (manager-only, server-enforced).
+  app.get("/api/practices/:practiceId/review-queue", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      res.json(await storage.getReviewQueue(req.params.practiceId as string));
+    } catch (error) {
+      console.error("GET review-queue error:", error);
+      res.status(500).json({ error: "Failed to fetch review queue" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/tasks/:id/approve", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const task = await storage.getTask(req.params.id as string, practiceId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (task.status !== 'submitted_for_review') return res.status(409).json({ error: "Task is not awaiting review" });
+      const updated = await storage.updateTask(task.id, practiceId, {
+        status: 'complete', completedAt: new Date(), reviewedBy: req.session.userId, reviewedAt: new Date(),
+      } as any);
+      await storage.insertAuditLog({
+        practiceId, userId: req.session.userId ?? null, entityType: "tasks", entityId: task.id,
+        action: "task_approved", afterData: { title: task.title } as any,
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("POST approve error:", error);
+      res.status(500).json({ error: "Failed to approve task" });
+    }
+  });
+
+  app.post("/api/practices/:practiceId/tasks/:id/reject", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const reason = (req.body?.reason as string | undefined)?.trim();
+      if (!reason) return res.status(400).json({ error: "A rejection reason is required" });
+      const task = await storage.getTask(req.params.id as string, practiceId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (task.status !== 'submitted_for_review') return res.status(409).json({ error: "Task is not awaiting review" });
+      const updated = await storage.updateTask(task.id, practiceId, {
+        status: 'rejected', rejectedReason: reason, reviewedBy: req.session.userId, reviewedAt: new Date(),
+      } as any);
+      // Reset the linked process instance so the assignee can redo + re-submit.
+      const piid = (task.metadata as any)?.processInstanceId;
+      if (piid) await storage.updateProcessInstance(piid, practiceId, { status: 'in_progress', completedAt: null } as any);
+      await storage.insertAuditLog({
+        practiceId, userId: req.session.userId ?? null, entityType: "tasks", entityId: task.id,
+        action: "task_rejected", afterData: { title: task.title, reason } as any,
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("POST reject error:", error);
+      res.status(500).json({ error: "Failed to reject task" });
+    }
+  });
+
   // Step instances (logbook steps within a process instance)
   app.get("/api/practices/:practiceId/process-instances/:piid/step-instances", isAuthenticated, requireSamePractice, async (req, res) => {
     try {

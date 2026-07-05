@@ -750,6 +750,29 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  // Tasks awaiting manager review, with assignee name + linked process instance.
+  async getReviewQueue(practiceId: string) {
+    const rows = await db
+      .select({ t: schema.tasks, assignee: schema.users.name })
+      .from(schema.tasks)
+      .leftJoin(schema.users, eq(schema.tasks.assigneeId, schema.users.id))
+      .where(and(
+        eq(schema.tasks.practiceId, practiceId),
+        eq(schema.tasks.status, 'submitted_for_review'),
+      ))
+      .orderBy(desc(schema.tasks.submittedForReviewAt));
+    return rows.map(({ t, assignee }) => ({
+      id: t.id,
+      title: t.title,
+      module: t.module,
+      assignee_id: t.assigneeId,
+      assignee_name: assignee ?? null,
+      submitted_for_review_at: t.submittedForReviewAt,
+      process_instance_id: (t.metadata as any)?.processInstanceId ?? null,
+      due_at: t.dueAt,
+    }));
+  }
+
   // Dedup materialised templates (curated logbook -> process_template) by name.
   async findProcessTemplateByName(practiceId: string, name: string): Promise<ProcessTemplate | undefined> {
     const [row] = await db.select().from(schema.processTemplates).where(and(
