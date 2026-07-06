@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Wand2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TrainingCatalogueDialogProps {
   open: boolean;
@@ -14,60 +16,45 @@ interface TrainingCatalogueDialogProps {
   trainingType?: any;
 }
 
+const RENEWALS = ['annual', 'biennial', 'triennial', 'five_yearly'];
+
 export function TrainingCatalogueDialog({ open, onOpenChange, onSuccess, trainingType }: TrainingCatalogueDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [formData, setFormData] = useState({
-    key: '',
-    title: '',
-    level: '',
-    recurrence_months: null as number | null,
-    certificate_required: true,
-    audience_roles: [] as string[],
-    tags: {}
+  const [form, setForm] = useState({
+    name: trainingType?.name ?? '',
+    description: trainingType?.description ?? '',
+    renewalFrequency: trainingType?.renewalFrequency ?? trainingType?.renewal_frequency ?? 'none',
   });
 
-  useEffect(() => {
-    if (trainingType) {
-      setFormData({
-        key: trainingType.key || '',
-        title: trainingType.title || '',
-        level: trainingType.level || '',
-        recurrence_months: trainingType.recurrence_months,
-        certificate_required: trainingType.certificate_required ?? true,
-        audience_roles: trainingType.audience_roles || [],
-        tags: trainingType.tags || {}
-      });
-    }
-  }, [trainingType]);
-
-  const handleSeedCatalogue = async () => {
-    setSeeding(true);
-    try {
-      toast("This feature will be available in a future update", {
-        description: "Training catalogue seeding is coming soon"
-      });
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error('Error seeding catalogue:', error);
-      toast.error('Failed to seed training catalogue');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const handleSubmit = async () => {
+    if (!user?.practiceId) return;
+    if (!form.name.trim()) { toast.error('Name is required'); return; }
     setLoading(true);
     try {
-      toast("This feature will be available in a future update", {
-        description: "Training type management is coming soon"
+      const isEdit = !!trainingType?.id;
+      const url = isEdit
+        ? `/api/practices/${user.practiceId}/training-types/${trainingType.id}`
+        : `/api/practices/${user.practiceId}/training-types`;
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          description: form.description || null,
+          renewalFrequency: form.renewalFrequency === 'none' ? null : form.renewalFrequency,
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Failed (${res.status})`);
+      }
+      toast.success(`Training type ${isEdit ? 'updated' : 'created'}`);
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Error saving training type:', error);
-      toast.error('Failed to save training type');
+      toast.error(error.message || 'Failed to save training type');
     } finally {
       setLoading(false);
     }
@@ -75,105 +62,36 @@ export function TrainingCatalogueDialog({ open, onOpenChange, onSuccess, trainin
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-lg">
         <DialogHeader>
           <DialogTitle>{trainingType ? 'Edit' : 'Add'} Training Type</DialogTitle>
         </DialogHeader>
-
-        {!trainingType && (
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-              Want to start with NHS standard training requirements?
-            </p>
-            <Button
-              variant="outline"
-              onClick={handleSeedCatalogue}
-              disabled={seeding}
-              className="w-full"
-            >
-              {seeding ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4 mr-2" />
-              )}
-              Seed NHS Training Catalogue (17 courses)
-            </Button>
-          </div>
-        )}
-
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="key">Key (slug) *</Label>
-              <Input
-                id="key"
-                value={formData.key}
-                onChange={(e) => setFormData({ ...formData, key: e.target.value })}
-                placeholder="e.g., fire-safety-l1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Fire Safety Level 1"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="level">Level</Label>
-              <Input
-                id="level"
-                value={formData.level}
-                onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                placeholder="e.g., L1, L2, Adult, Child"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="recurrence">Recurrence (months)</Label>
-              <Input
-                id="recurrence"
-                type="number"
-                value={formData.recurrence_months || ''}
-                onChange={(e) => setFormData({ ...formData, recurrence_months: e.target.value ? parseInt(e.target.value) : null })}
-                placeholder="Leave empty for one-off"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="certificate_required"
-              checked={formData.certificate_required}
-              onCheckedChange={(checked) => setFormData({ ...formData, certificate_required: !!checked })}
-            />
-            <label htmlFor="certificate_required" className="text-sm cursor-pointer">
-              Certificate required for compliance
-            </label>
-          </div>
-
           <div className="space-y-2">
-            <Label>Audience Roles (comma-separated)</Label>
-            <Input
-              value={formData.audience_roles.join(', ')}
-              onChange={(e) => setFormData({
-                ...formData,
-                audience_roles: e.target.value.split(',').map(r => r.trim()).filter(Boolean)
-              })}
-              placeholder="gp, nurse, hca, admin, estates"
-            />
+            <Label htmlFor="tt-name">Name *</Label>
+            <Input id="tt-name" value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g., Basic Life Support" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tt-desc">Description</Label>
+            <Textarea id="tt-desc" rows={3} value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Renewal frequency</Label>
+            <Select value={form.renewalFrequency} onValueChange={(v) => setForm({ ...form, renewalFrequency: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">One-off (no renewal)</SelectItem>
+                {RENEWALS.map((r) => (<SelectItem key={r} value={r} className="capitalize">{r.replace(/_/g, ' ')}</SelectItem>))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!formData.key || !formData.title || loading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!form.name.trim() || loading}>
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {trainingType ? 'Update' : 'Create'}
           </Button>

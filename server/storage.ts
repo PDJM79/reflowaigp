@@ -1395,6 +1395,32 @@ export class DatabaseStorage implements IStorage {
     return rows.length > 0;
   }
 
+  // KF4: training-type catalogue (practice-defined).
+  async getTrainingTypes(practiceId: string) {
+    return db.select().from(schema.trainingTypes)
+      .where(eq(schema.trainingTypes.practiceId, practiceId))
+      .orderBy(schema.trainingTypes.name);
+  }
+  async createTrainingType(data: typeof schema.trainingTypes.$inferInsert) {
+    const [row] = await db.insert(schema.trainingTypes).values(data).returning();
+    return row;
+  }
+  async updateTrainingType(id: string, practiceId: string, data: Partial<typeof schema.trainingTypes.$inferInsert>) {
+    const [row] = await db.update(schema.trainingTypes)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.trainingTypes.id, id), eq(schema.trainingTypes.practiceId, practiceId)))
+      .returning();
+    return row;
+  }
+  /** KF4: set (or clear) a training record's type_id, scoped to the practice. */
+  async setTrainingRecordType(recordId: string, practiceId: string, typeId: string | null) {
+    const [row] = await db.update(schema.trainingRecords)
+      .set({ typeId, updatedAt: new Date() })
+      .where(and(eq(schema.trainingRecords.id, recordId), eq(schema.trainingRecords.practiceId, practiceId)))
+      .returning();
+    return row;
+  }
+
   // KF2: appraisals register (per-employee history, newest first).
   async getAppraisals(practiceId: string) {
     return db.select().from(schema.appraisals)

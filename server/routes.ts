@@ -1424,6 +1424,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { console.error("PATCH appraisals", e); res.status(500).json({ error: "Failed to update appraisal" }); }
   });
 
+  // KF4: training-type catalogue — practice-member read, manager write.
+  app.get("/api/practices/:practiceId/training-types", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getTrainingTypes(req.params.practiceId as string)); }
+    catch (e) { console.error("GET training-types", e); res.status(500).json({ error: "Failed to fetch training types" }); }
+  });
+  app.post("/api/practices/:practiceId/training-types", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const body = stripPracticeId(req.body);
+      if (!body.name || !String(body.name).trim()) return res.status(400).json({ error: "name required" });
+      res.status(201).json(await storage.createTrainingType({ ...body, practiceId: req.params.practiceId } as any));
+    } catch (e) { console.error("POST training-types", e); res.status(500).json({ error: "Failed to create training type" }); }
+  });
+  app.patch("/api/practices/:practiceId/training-types/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const row = await storage.updateTrainingType(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body) as any);
+      if (!row) return res.status(404).json({ error: "Training type not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH training-types", e); res.status(500).json({ error: "Failed to update training type" }); }
+  });
+  // Type a training record against a catalogue type (manager write).
+  app.patch("/api/practices/:practiceId/training-records/:id/type", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const typeId = typeof req.body?.typeId === 'string' ? req.body.typeId : null;
+      const row = await storage.setTrainingRecordType(req.params.id as string, req.params.practiceId as string, typeId);
+      if (!row) return res.status(404).json({ error: "Training record not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH training-record type", e); res.status(500).json({ error: "Failed to type training record" }); }
+  });
+
   // --- MFA (secrets handled server-side only; never returned to the client) ---
   // Login-step verification: returns pass/fail only. No secret material leaves the server.
   app.post("/api/auth/mfa/verify", async (req, res) => {

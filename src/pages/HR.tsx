@@ -59,6 +59,7 @@ export default function HR() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [appraisals, setAppraisals] = useState<any[]>([]);
   const [trainingRecords, setTrainingRecords] = useState<any[]>([]);
+  const [catalogueTypes, setCatalogueTypes] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [dbsChecks, setDbsChecks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,16 +95,19 @@ export default function HR() {
       // employees + training-records have routes; appraisals / leave_requests /
       // dbs_checks do NOT yet — those sections degrade to empty and are deferred
       // to a follow-up (they need dedicated routes + storage).
-      const [empRes, trainRes, dbsRes, apprRes] = await Promise.all([
+      const [empRes, trainRes, dbsRes, apprRes, ttRes] = await Promise.all([
         fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/dbs-checks`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/appraisals`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/training-types`, { credentials: 'include' }),
       ]);
       const employeesAll: any[] = empRes.ok ? await empRes.json() : [];
       const trainingAll: any[] = trainRes.ok ? await trainRes.json() : [];
       const dbsAll: any[] = dbsRes.ok ? await dbsRes.json() : [];
       const apprAll: any[] = apprRes.ok ? await apprRes.json() : [];
+      const ttAll: any[] = ttRes.ok ? await ttRes.json() : [];
+      setCatalogueTypes(ttAll);
 
       // Only real HR employees that have a role assigned (matches prior filter).
       const withRole = employeesAll.filter((e) => e.role != null);
@@ -121,6 +125,7 @@ export default function HR() {
           completion_date: t.completedAt,
           course_name: t.courseName,
           expiry_date: t.expiryDate,
+          type_id: t.typeId ?? t.type_id ?? null,
           employees: { name: nameById.get(t.employeeId) },
         }));
       setTrainingRecords(training);
@@ -150,6 +155,20 @@ export default function HR() {
   };
 
   const activeEmployees = employees.filter(e => !e.end_date);
+  const assignRecordType = async (recordId: string, typeId: string | null) => {
+    if (!user?.practiceId) return;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/training-records/${recordId}/type`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typeId }),
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      toast.success('Training record typed');
+      fetchHRData();
+    } catch { toast.error('Failed to assign training type'); }
+  };
+
   const pendingAppraisals = appraisals.filter(a => !a.completed_date);
 
   // Capability check - requires manage_training or manage_appraisals capability
@@ -678,11 +697,25 @@ export default function HR() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm sm:text-base">{record.course_name}</p>
                           <p className="text-xs sm:text-sm text-muted-foreground">{record.employees?.name}</p>
+                          {record.type_id && (
+                            <Badge variant="outline" className="mt-1">{catalogueTypes.find((t) => t.id === record.type_id)?.name ?? 'Typed'}</Badge>
+                          )}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          <div>Completed: {new Date(record.completion_date).toLocaleDateString()}</div>
-                          {record.expiry_date && (
-                            <div>Expires: {new Date(record.expiry_date).toLocaleDateString()}</div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-xs sm:text-sm text-muted-foreground text-right">
+                            <div>Completed: {record.completion_date ? new Date(record.completion_date).toLocaleDateString() : '—'}</div>
+                            {record.expiry_date && (
+                              <div>Expires: {new Date(record.expiry_date).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                          {catalogueTypes.length > 0 && (
+                            <Select value={record.type_id ?? 'none'} onValueChange={(v) => assignRecordType(record.id, v === 'none' ? null : v)}>
+                              <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Assign type" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No type</SelectItem>
+                                {catalogueTypes.map((t) => (<SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
                           )}
                         </div>
                       </div>

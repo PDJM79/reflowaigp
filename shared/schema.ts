@@ -307,6 +307,19 @@ export const trainingRecords = pgTable("training_records", {
   evidenceId: uuid("evidence_id"),
   isMandatory: boolean("is_mandatory").default(false),
   reminderSentAt: timestamp("reminder_sent_at"),
+  typeId: uuid("type_id"), // KF4: link to practice training_types (NULL for legacy rows)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KF4: practice-defined catalogue of training types (the phantom table, real).
+export const trainingTypes = pgTable("training_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  renewalFrequency: baseCadenceEnum("renewal_frequency"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
