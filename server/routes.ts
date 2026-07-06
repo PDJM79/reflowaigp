@@ -1344,6 +1344,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { console.error("POST claim-run export", e); res.status(500).json({ error: "Failed to export claim run" }); }
   });
 
+  // KF6: claim reviews. Read = any practice member; review (write) = manager
+  // (governance oversight of a submitted run).
+  app.get("/api/practices/:practiceId/claim-runs/:id/reviews", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getClaimReviews(req.params.id as string, req.params.practiceId as string)); }
+    catch (e) { console.error("GET claim reviews", e); res.status(500).json({ error: "Failed to fetch claim reviews" }); }
+  });
+  app.post("/api/practices/:practiceId/claim-runs/:id/reviews", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { reviewDate, outcome, notes } = req.body ?? {};
+      if (!reviewDate) return res.status(400).json({ error: "reviewDate required" });
+      if (outcome !== "approved" && outcome !== "queried") {
+        return res.status(400).json({ error: "outcome must be 'approved' or 'queried'" });
+      }
+      const result = await storage.createClaimReview(
+        req.params.id as string,
+        req.params.practiceId as string,
+        (req.session as any).userId,
+        { reviewDate, outcome, notes: notes ?? null },
+      );
+      res.status(201).json(result);
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      if (msg.includes("not found")) return res.status(404).json({ error: msg });
+      if (msg.includes("submitted run")) return res.status(409).json({ error: msg });
+      console.error("POST claim review", e);
+      res.status(500).json({ error: "Failed to record claim review" });
+    }
+  });
+
   app.get("/api/practices/:practiceId/rooms", isAuthenticated, requireSamePractice, async (req, res) => {
     try { res.json(await storage.getRoomsByPractice(req.params.practiceId as string)); }
     catch (e) { console.error("GET rooms", e); res.status(500).json({ error: "Failed to fetch rooms" }); }

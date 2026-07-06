@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PoundSterling, Plus, Calendar, FileText, FileDown } from 'lucide-react';
+import { PoundSterling, Plus, Calendar, FileText, FileDown, ClipboardCheck } from 'lucide-react';
 import { ScriptClaimRunDialog } from '@/components/scripts/ScriptClaimRunDialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateClaimsPackPDF } from '@/lib/pdfExportV2';
 import { toast } from 'sonner';
+
+interface ClaimReview { id: string; outcome: string; notes: string | null; reviewDate: string }
 
 export default function Claims() {
   const { hasCapability, loading: capabilitiesLoading } = useCapabilities();
@@ -19,6 +26,11 @@ export default function Claims() {
   const [loading, setLoading] = useState(true);
   const [isClaimRunDialogOpen, setIsClaimRunDialogOpen] = useState(false);
   const [practiceId, setPracticeId] = useState<string>('');
+  const [reviewsByRun, setReviewsByRun] = useState<Record<string, ClaimReview>>({});
+  const today = new Date().toISOString().slice(0, 10);
+  const [reviewRunId, setReviewRunId] = useState<string | null>(null);
+  const [reviewForm, setReviewForm] = useState({ outcome: 'approved', notes: '', reviewDate: today });
+  const [savingReview, setSavingReview] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -36,13 +48,46 @@ export default function Claims() {
 
       const res = await fetch(`/api/practices/${user.practiceId}/claim-runs`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch claims (${res.status})`);
-      setClaimRuns(await res.json() || []);
+      const runs = await res.json() || [];
+      setClaimRuns(runs);
+
+      // Latest review per reviewed run (approved/queried), for inline display.
+      const reviewed = runs.filter((r: any) => r.status === 'approved' || r.status === 'queried');
+      const entries = await Promise.all(reviewed.map(async (r: any) => {
+        const rr = await fetch(`/api/practices/${user.practiceId}/claim-runs/${r.id}/reviews`, { credentials: 'include' });
+        if (!rr.ok) return null;
+        const list: ClaimReview[] = await rr.json();
+        return list.length ? ([r.id, list[0]] as [string, ClaimReview]) : null;
+      }));
+      setReviewsByRun(Object.fromEntries(entries.filter(Boolean) as [string, ClaimReview][]));
     } catch (error) {
       console.error('Error fetching claims:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const submitReview = async () => {
+    if (!user?.practiceId || !reviewRunId) return;
+    setSavingReview(true);
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/claim-runs/${reviewRunId}/reviews`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome: reviewForm.outcome, notes: reviewForm.notes || null, reviewDate: reviewForm.reviewDate }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Failed (${res.status})`); }
+      toast.success(reviewForm.outcome === 'approved' ? 'Claim run approved' : 'Claim run queried');
+      setReviewRunId(null);
+      setReviewForm({ outcome: 'approved', notes: '', reviewDate: today });
+      fetchClaims();
+    } catch (e: any) { toast.error(e.message || 'Failed to record review'); } finally { setSavingReview(false); }
+  };
+
+  const statusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' =>
+    status === 'submitted' ? 'default'
+    : status === 'approved' ? 'outline'
+    : status === 'queried' ? 'destructive' : 'secondary';
 
   const submitRun = async (id: string) => {
     if (!user?.practiceId) return;
@@ -186,17 +231,30 @@ export default function Claims() {
                 <div key={run.id} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={run.status === 'submitted' ? 'default' : 'secondary'}>{run.status ?? 'draft'}</Badge>
+                      <Badge variant={statusBadgeVariant(run.status ?? 'draft')}>{run.status ?? 'draft'}</Badge>
                       <span className="text-sm text-muted-foreground">
                         {ps ? new Date(ps).toLocaleDateString() : '?'} – {pe ? new Date(pe).toLocaleDateString() : '?'}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">{scripts} scripts · {items} items</p>
+                    {reviewsByRun[run.id] && (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <ClipboardCheck className="h-3 w-3" />
+                        Reviewed {reviewsByRun[run.id].outcome}
+                        {reviewsByRun[run.id].notes ? ` — ${reviewsByRun[run.id].notes}` : ''}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {run.status === 'draft' && (
                       <Button variant="default" size="sm" onClick={() => submitRun(run.id)}>
                         Submit
+                      </Button>
+                    )}
+                    {run.status === 'submitted' && (
+                      <Button variant="default" size="sm" onClick={() => { setReviewRunId(run.id); setReviewForm({ outcome: 'approved', notes: '', reviewDate: today }); }}>
+                        <ClipboardCheck className="h-4 w-4 mr-1" />
+                        Review
                       </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={() => exportRun(run.id, ps, pe)}>

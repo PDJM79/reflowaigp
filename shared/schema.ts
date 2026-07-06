@@ -542,6 +542,18 @@ export const claimItems = pgTable("claim_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const claimReviews = pgTable("claim_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  claimRunId: uuid("claim_run_id").references(() => claimRuns.id, { onDelete: "cascade" }).notNull(),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewDate: date("review_date", { mode: "string" }).notNull(),
+  outcome: text("outcome").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const fireRiskAssessmentsV2 = pgTable("fire_risk_assessments_v2", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),

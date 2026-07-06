@@ -1352,6 +1352,51 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  /** KF6: reviews for a claim run, newest first. */
+  async getClaimReviews(claimRunId: string, practiceId: string) {
+    return db.select().from(schema.claimReviews)
+      .where(and(
+        eq(schema.claimReviews.claimRunId, claimRunId),
+        eq(schema.claimReviews.practiceId, practiceId),
+      ))
+      .orderBy(desc(schema.claimReviews.reviewDate), desc(schema.claimReviews.createdAt));
+  }
+
+  /**
+   * KF6: record a manager review of a submitted run and transition its status.
+   * approved -> "approved"; queried -> "queried". Only a submitted run is reviewable.
+   * Review row + run status change happen in one transaction.
+   */
+  async createClaimReview(
+    claimRunId: string,
+    practiceId: string,
+    reviewedBy: string,
+    input: { reviewDate: string; outcome: string; notes: string | null },
+  ) {
+    return db.transaction(async (tx) => {
+      const [run] = await tx.select().from(schema.claimRuns)
+        .where(and(eq(schema.claimRuns.id, claimRunId), eq(schema.claimRuns.practiceId, practiceId)));
+      if (!run) throw new Error("Claim run not found");
+      if (run.status !== "submitted") throw new Error("Only a submitted run can be reviewed");
+
+      const [review] = await tx.insert(schema.claimReviews).values({
+        practiceId,
+        claimRunId,
+        reviewedBy,
+        reviewDate: input.reviewDate,
+        outcome: input.outcome,
+        notes: input.notes,
+      } as any).returning();
+
+      const nextStatus = input.outcome === "approved" ? "approved" : "queried";
+      await tx.update(schema.claimRuns)
+        .set({ status: nextStatus, updatedAt: new Date() })
+        .where(and(eq(schema.claimRuns.id, claimRunId), eq(schema.claimRuns.practiceId, practiceId)));
+
+      return { review, status: nextStatus };
+    });
+  }
+
   async getRoomsByPractice(practiceId: string) {
     return db.select().from(schema.rooms).where(eq(schema.rooms.practiceId, practiceId));
   }
