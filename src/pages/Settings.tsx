@@ -46,6 +46,13 @@ export default function Settings() {
   const [practiceLoading, setPracticeLoading] = useState(false);
   const [practiceSaving, setPracticeSaving] = useState(false);
 
+  // Phase 5: per-module scheduling toggles (opt-in, default off).
+  const [scheduling, setScheduling] = useState<{ cleaning_scheduling_enabled: boolean; fridge_scheduling_enabled: boolean }>({
+    cleaning_scheduling_enabled: false,
+    fridge_scheduling_enabled: false,
+  });
+  const [schedulingSaving, setSchedulingSaving] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) {
       fetchMfaStatus();
@@ -55,8 +62,42 @@ export default function Settings() {
   useEffect(() => {
     if (isPracticeManager && user?.practiceId) {
       fetchPracticeSettings();
+      fetchSchedulingSettings();
     }
   }, [isPracticeManager, user?.practiceId]);
+
+  const fetchSchedulingSettings = async () => {
+    if (!user?.practiceId) return;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/scheduling-settings`, { credentials: 'include' });
+      if (res.ok) setScheduling(await res.json());
+    } catch (error) {
+      console.error('Error loading scheduling settings:', error);
+    }
+  };
+
+  const toggleScheduling = async (key: 'cleaning_scheduling_enabled' | 'fridge_scheduling_enabled', value: boolean) => {
+    if (!user?.practiceId) return;
+    const previous = scheduling;
+    setScheduling({ ...scheduling, [key]: value }); // optimistic
+    setSchedulingSaving(key);
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/scheduling-settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      setScheduling(await res.json());
+      toast.success('Scheduling settings updated');
+    } catch (error) {
+      setScheduling(previous); // revert on failure
+      toast.error('Could not update scheduling settings');
+    } finally {
+      setSchedulingSaving(null);
+    }
+  };
 
   const fetchPracticeSettings = async () => {
     if (!user?.practiceId) return;
@@ -257,6 +298,44 @@ export default function Settings() {
                 </Button>
               </>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Module Scheduling (practice managers only) — Phase 5 opt-in toggles */}
+      {isPracticeManager && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Automated scheduling</CardTitle>
+            <CardDescription>
+              Generate daily task occurrences for these modules so they appear in each person's My Day. Off by default.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor="cleaning-scheduling" className="text-base">Cleaning schedules</Label>
+                <p className="text-sm text-muted-foreground">Auto-generate cleaning-task occurrences per zone on their frequency.</p>
+              </div>
+              <Switch
+                id="cleaning-scheduling"
+                checked={scheduling.cleaning_scheduling_enabled}
+                disabled={schedulingSaving === 'cleaning_scheduling_enabled'}
+                onCheckedChange={(v) => toggleScheduling('cleaning_scheduling_enabled', v)}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor="fridge-scheduling" className="text-base">Fridge temperature checks</Label>
+                <p className="text-sm text-muted-foreground">Auto-generate "Record temperature" occurrences per fridge; breaches raise a remedial task.</p>
+              </div>
+              <Switch
+                id="fridge-scheduling"
+                checked={scheduling.fridge_scheduling_enabled}
+                disabled={schedulingSaving === 'fridge_scheduling_enabled'}
+                onCheckedChange={(v) => toggleScheduling('fridge_scheduling_enabled', v)}
+              />
+            </div>
           </CardContent>
         </Card>
       )}

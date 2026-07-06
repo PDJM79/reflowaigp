@@ -154,6 +154,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Phase 5: per-module scheduling toggles (manager-only). Merges the two flags
+  // into practices.metadata without touching other keys.
+  app.get("/api/practices/:practiceId/scheduling-settings", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practice = await storage.getPractice(req.params.practiceId as string);
+      const meta = (practice?.metadata ?? {}) as Record<string, any>;
+      const isOn = (v: unknown) => v === true || v === 'true';
+      res.json({
+        cleaning_scheduling_enabled: isOn(meta.cleaning_scheduling_enabled),
+        fridge_scheduling_enabled: isOn(meta.fridge_scheduling_enabled),
+      });
+    } catch (error) {
+      console.error("GET scheduling-settings error:", error);
+      res.status(500).json({ error: "Failed to fetch scheduling settings" });
+    }
+  });
+
+  app.patch("/api/practices/:practiceId/scheduling-settings", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const { cleaning_scheduling_enabled, fridge_scheduling_enabled } = req.body ?? {};
+      const metadata = await storage.setSchedulingFlags(req.params.practiceId as string, {
+        cleaning_scheduling_enabled: typeof cleaning_scheduling_enabled === 'boolean' ? cleaning_scheduling_enabled : undefined,
+        fridge_scheduling_enabled: typeof fridge_scheduling_enabled === 'boolean' ? fridge_scheduling_enabled : undefined,
+      });
+      res.json({
+        cleaning_scheduling_enabled: metadata.cleaning_scheduling_enabled === true,
+        fridge_scheduling_enabled: metadata.fridge_scheduling_enabled === true,
+      });
+    } catch (error) {
+      console.error("PATCH scheduling-settings error:", error);
+      res.status(500).json({ error: "Failed to update scheduling settings" });
+    }
+  });
+
   app.get("/api/practices/:practiceId/users", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
       const users = await storage.getUsersByPractice((req.params.practiceId as string));

@@ -152,6 +152,25 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  /**
+   * Phase 5: merge per-module scheduling toggles into practices.metadata without
+   * clobbering other keys. Only the two known boolean flags are written.
+   */
+  async setSchedulingFlags(
+    id: string,
+    flags: { cleaning_scheduling_enabled?: boolean; fridge_scheduling_enabled?: boolean },
+  ): Promise<Record<string, unknown>> {
+    const practice = await this.getPractice(id);
+    const meta = { ...((practice?.metadata as Record<string, unknown>) ?? {}) };
+    if (typeof flags.cleaning_scheduling_enabled === 'boolean') meta.cleaning_scheduling_enabled = flags.cleaning_scheduling_enabled;
+    if (typeof flags.fridge_scheduling_enabled === 'boolean') meta.fridge_scheduling_enabled = flags.fridge_scheduling_enabled;
+    const [updated] = await db.update(schema.practices)
+      .set({ metadata: meta as any, updatedAt: new Date() })
+      .where(eq(schema.practices.id, id))
+      .returning({ metadata: schema.practices.metadata });
+    return (updated?.metadata as Record<string, unknown>) ?? meta;
+  }
+
   async getUser(id: string, practiceId: string): Promise<User | undefined> {
     const [user] = await db.select().from(schema.users).where(
       and(eq(schema.users.id, id), eq(schema.users.practiceId, practiceId))
