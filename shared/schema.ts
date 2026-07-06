@@ -455,6 +455,18 @@ export const fridgeReadings = pgTable("fridge_readings", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Phase 6: record of each generated compliance export (PDF/CSV; Annex B variant).
+export const complianceExports = pgTable("compliance_exports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  params: jsonb("params").notNull().default({}),
+  format: text("format").notNull(),
+  status: text("status").notNull().default('complete'),
+  fileRef: text("file_ref"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const claimRuns = pgTable("claim_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
@@ -923,6 +935,9 @@ export type InsertFridgeUnit = z.infer<typeof insertFridgeUnitSchema>;
 export type InsertFridgeReading = z.infer<typeof insertFridgeReadingSchema>;
 export type FridgeUnit = typeof fridgeUnits.$inferSelect;
 export type FridgeReading = typeof fridgeReadings.$inferSelect;
+export const insertComplianceExportSchema = createInsertSchema(complianceExports).omit({ id: true, createdAt: true });
+export type InsertComplianceExport = z.infer<typeof insertComplianceExportSchema>;
+export type ComplianceExport = typeof complianceExports.$inferSelect;
 
 export type Practice = typeof practices.$inferSelect;
 export type User = typeof users.$inferSelect;

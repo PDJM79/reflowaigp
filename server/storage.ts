@@ -380,6 +380,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // Phase 6: recorded compliance exports for a practice (most recent first).
+  async getComplianceExports(practiceId: string) {
+    return db.select().from(schema.complianceExports)
+      .where(eq(schema.complianceExports.practiceId, practiceId))
+      .orderBy(desc(schema.complianceExports.createdAt))
+      .limit(100);
+  }
+
   /** First active holder of a role in a practice, or null (role-resolution fallback). */
   async resolveRoleHolder(practiceId: string, role: string): Promise<string | null> {
     const [row] = await db.select({ userId: schema.roleAssignments.userId })

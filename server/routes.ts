@@ -8,6 +8,7 @@ import { getTrainingAnalysis } from "./trainingAnalysis";
 import { getSectionTips } from "./sectionTips";
 import { auditLogger } from "./auditLogger";
 import * as analytics from "./analytics/analyticsService";
+import * as exportService from "./analytics/exportService";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
@@ -904,6 +905,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("analytics/overdue-summary error:", error);
       res.status(500).json({ error: "Failed to compute overdue summary" });
+    }
+  });
+
+  // Phase 6: compliance exports (PDF/CSV; Annex B = cleaning-filtered). Generates
+  // the artefact, records a compliance_exports row, and streams the file back.
+  app.post("/api/practices/:practiceId/exports", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const userId = (req.session as any).userId ?? null;
+      const now = new Date();
+      const body = req.body ?? {};
+      const annexB = body.annexB === true || body.annexB === 'true';
+      const format = body.format === 'pdf' ? 'pdf' : 'csv';
+      const params = {
+        from: typeof body.from === 'string' ? body.from : new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10),
+        to: typeof body.to === 'string' ? body.to : now.toISOString().slice(0, 10),
+        module: typeof body.module === 'string' && body.module ? body.module : undefined,
+        annexB,
+      };
+      const rows = await exportService.getExportRows(practiceId, params);
+      const label = annexB ? 'annex-b-cleaning' : (params.module ?? 'compliance');
+      const fileRef = `${label}_${params.from}_${params.to}.${format}`;
+      const exportId = await exportService.recordExport(practiceId, userId, params, format, fileRef);
+
+      res.setHeader('X-Export-Id', exportId);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileRef}"`);
+      if (format === 'csv') {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.send(exportService.toCsv(rows));
+      } else {
+        const title = annexB ? 'Annex B — Cleaning Records' : 'Compliance Export';
+        const pdf = exportService.toPdf(rows, { title, subtitle: `${params.from} to ${params.to}${params.module ? ` · ${params.module}` : ''} · ${rows.length} occurrences` });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.send(pdf);
+      }
+    } catch (error) {
+      console.error("POST exports error:", error);
+      res.status(500).json({ error: "Failed to generate export" });
+    }
+  });
+
+  // Export history for a practice.
+  app.get("/api/practices/:practiceId/exports", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      res.json(await storage.getComplianceExports(req.params.practiceId as string));
+    } catch (error) {
+      console.error("GET exports error:", error);
+      res.status(500).json({ error: "Failed to fetch export history" });
     }
   });
 
