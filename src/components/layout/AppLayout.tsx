@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { RouteBreadcrumbs } from './RouteBreadcrumbs';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useTranslation } from 'react-i18next';
@@ -347,6 +348,7 @@ export function AppLayout() {
 
       {/* Main Content */}
       <main className={`flex-1 overflow-auto ${isMobile ? 'pb-20' : ''}`}>
+        <RouteBreadcrumbs />
         <Outlet />
       </main>
 

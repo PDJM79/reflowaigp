@@ -316,6 +316,11 @@ export default function Settings() {
               <div>
                 <Label htmlFor="cleaning-scheduling" className="text-base">Cleaning schedules</Label>
                 <p className="text-sm text-muted-foreground">Auto-generate cleaning-task occurrences per zone on their frequency.</p>
+                {!scheduling.cleaning_scheduling_enabled && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                    Off — cleaning occurrences are not generated and won't appear in My Day or dashboards.
+                  </p>
+                )}
               </div>
               <Switch
                 id="cleaning-scheduling"
@@ -328,6 +333,11 @@ export default function Settings() {
               <div>
                 <Label htmlFor="fridge-scheduling" className="text-base">Fridge temperature checks</Label>
                 <p className="text-sm text-muted-foreground">Auto-generate "Record temperature" occurrences per fridge; breaches raise a remedial task.</p>
+                {!scheduling.fridge_scheduling_enabled && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                    Off — fridge occurrences are not generated and won't appear in My Day or dashboards.
+                  </p>
+                )}
               </div>
               <Switch
                 id="fridge-scheduling"
@@ -335,6 +345,25 @@ export default function Settings() {
                 disabled={schedulingSaving === 'fridge_scheduling_enabled'}
                 onCheckedChange={(v) => toggleScheduling('fridge_scheduling_enabled', v)}
               />
+            </div>
+
+            {/* Why some menu items or occurrences may not appear — no silent vanishing. */}
+            <div className="rounded-md border border-muted bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Why don't I see some menu items or scheduled tasks?</p>
+              <p>
+                Menu items appear based on your <span className="font-medium">role capabilities</span> — items you
+                cannot action are hidden for you.
+              </p>
+              <p>
+                Scheduled occurrences only appear when the module above is <span className="font-medium">on</span>.
+                {' '}Currently off:{' '}
+                <span className="font-medium">
+                  {[
+                    !scheduling.cleaning_scheduling_enabled && 'Cleaning',
+                    !scheduling.fridge_scheduling_enabled && 'Fridge',
+                  ].filter(Boolean).join(', ') || 'none — both modules are on'}
+                </span>.
+              </p>
             </div>
           </CardContent>
         </Card>
