@@ -403,6 +403,9 @@ export const cleaningTasks = pgTable("cleaning_tasks", {
   periodicRule: text("periodic_rule"),
   isActive: boolean("is_active").default(true),
   requiresPhoto: boolean("requires_photo").default(false),
+  // Phase 5: central-scheduler integration (opt-in per practice).
+  selectionId: uuid("selection_id").references(() => practiceLogbookSelections.id, { onDelete: "set null" }),
+  defaultAssigneeRole: text("default_assignee_role"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

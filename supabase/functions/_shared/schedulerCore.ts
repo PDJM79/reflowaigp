@@ -24,10 +24,11 @@ export interface PracticeInfo {
   isBranch: boolean;
 }
 
-// A schedulable is either a curated selection or a bespoke is_scheduled
-// process_template. The cadence maths are identical; only the idempotency key
-// differs (selection_id vs template_id), so the planner tags each planned row.
-export type SourceKind = "selection" | "template";
+// A schedulable is a curated selection, a bespoke is_scheduled process_template,
+// or (Phase 5) a cleaning_task. The cadence maths are identical; only the
+// identity/idempotency key differs (selection_id / template_id / cleaningTaskId),
+// so the planner tags each planned row with its source.
+export type SourceKind = "selection" | "template" | "cleaning";
 
 export interface SelectionInput {
   id: string;
@@ -49,6 +50,7 @@ export interface SelectionInput {
   isEnabled: boolean;
   adHocOnly: boolean;
   nextReviewDate: string | null; // for periodic_review
+  zoneId?: string | null;        // cleaning source only — the cleaning zone
 }
 
 export interface RoleAssignment {
@@ -69,6 +71,8 @@ export interface PlannedTask {
   assigneeId: string | null;
   curatedLogbookId: string | null;
   slot: string | null;         // "am" | "pm" for twice_daily; null otherwise
+  cleaningTaskId: string | null; // set for cleaning sources
+  zoneId: string | null;         // set for cleaning sources
 }
 
 export interface PlanCounts {
@@ -194,12 +198,14 @@ export function planGeneration(params: {
       const visibleFrom = addHours(dueAt, -sel.earlyStartHours);
 
       const isTemplate = sel.sourceKind === "template";
+      const isCleaning = sel.sourceKind === "cleaning";
+      const isLogbook = !isTemplate && !isCleaning;
       for (const slot of slots) {
         if (!assignee) counts.unassigned++;
         counts.generated++;
         rows.push({
           practiceId: practice.id,
-          selectionId: isTemplate ? null : sel.id,
+          selectionId: isLogbook ? sel.id : null,
           templateId: isTemplate ? sel.id : null,
           title: sel.title,
           module: sel.module,
@@ -208,8 +214,10 @@ export function planGeneration(params: {
           visibleFrom: visibleFrom.toISOString(),
           importance: sel.importance ?? DEFAULT_IMPORTANCE,
           assigneeId: assignee,
-          curatedLogbookId: isTemplate ? null : sel.curatedLogbookId,
+          curatedLogbookId: isLogbook ? sel.curatedLogbookId : null,
           slot,
+          cleaningTaskId: isCleaning ? sel.id : null,
+          zoneId: isCleaning ? (sel.zoneId ?? null) : null,
         });
       }
     }

@@ -221,3 +221,36 @@ describe("planGeneration — twice_daily (Phase 5)", () => {
     expect(r.rows[0].slot ?? null).toBeNull();
   });
 });
+
+describe("planGeneration — cleaning source (Phase 5)", () => {
+  it("cleaning source sets cleaningTaskId + zoneId, null selectionId/templateId/curatedLogbookId", () => {
+    const r = plan([sel({ id: "ct-1", sourceKind: "cleaning", cadence: "daily", zoneId: "zone-1", curatedLogbookId: "" })], "2026-07-06");
+    expect(r.rows).toHaveLength(1);
+    const row = r.rows[0];
+    expect(row.cleaningTaskId).toBe("ct-1");
+    expect(row.zoneId).toBe("zone-1");
+    expect(row.selectionId).toBe(null);
+    expect(row.templateId).toBe(null);
+    expect(row.curatedLogbookId).toBe(null);
+  });
+  it("cleaning twice_daily reuses am/pm slots", () => {
+    const r = plan([sel({ id: "ct-2", sourceKind: "cleaning", cadence: "twice_daily", zoneId: "zone-2", curatedLogbookId: "" })], "2026-07-06");
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows.map((x) => x.slot).sort()).toEqual(["am", "pm"]);
+    expect(r.rows.every((x) => x.cleaningTaskId === "ct-2" && x.zoneId === "zone-2")).toBe(true);
+  });
+  it("cleaning resolves assignee from default_assignee_role", () => {
+    const r = plan([sel({ id: "ct-3", sourceKind: "cleaning", cadence: "daily", defaultAssigneeRole: "cleaner", curatedLogbookId: "" })], "2026-07-06",
+      { roles: [{ role: "cleaner", userId: "u-clean" }] });
+    expect(r.rows[0].assigneeId).toBe("u-clean");
+  });
+  it("cleaning source with null zoneId carries zoneId=null", () => {
+    const r = plan([sel({ id: "ct-4", sourceKind: "cleaning", cadence: "daily", curatedLogbookId: "" })], "2026-07-06");
+    expect(r.rows[0].zoneId ?? null).toBeNull();
+  });
+  it("non-cleaning sources carry cleaningTaskId=null and zoneId=null", () => {
+    const r = plan([sel({ cadence: "daily" })], "2026-07-06");
+    expect(r.rows[0].cleaningTaskId ?? null).toBeNull();
+    expect(r.rows[0].zoneId ?? null).toBeNull();
+  });
+});

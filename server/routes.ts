@@ -1712,6 +1712,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const practiceId = req.params.practiceId as string;
       const userId = (req.session as any).userId;
       const body = req.body;
+      // Phase 5: optional link to a generated cleaning occurrence (tasks.id).
+      // When present, the log and the task completion commit in one transaction.
+      const occurrenceTaskId: string | null = typeof body.occurrenceTaskId === 'string' ? body.occurrenceTaskId : null;
       const dataWithPractice = {
         ...stripPracticeId(body),
         practiceId,
@@ -1719,13 +1722,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: new Date(),
         logDate: new Date(),
       };
+      delete (dataWithPractice as any).occurrenceTaskId;
       const validated = insertCleaningLogSchema.parse(dataWithPractice);
-      const log = await storage.createCleaningLog(validated);
+      const log = occurrenceTaskId
+        ? await storage.createCleaningLogWithOccurrence(validated, occurrenceTaskId, practiceId)
+        : await storage.createCleaningLog(validated);
       res.status(201).json(log);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      if (error instanceof Error && error.message.includes('cleaning occurrence not found')) {
+        return res.status(404).json({ error: error.message });
+      }
       console.error('cleaning log error:', error);
       res.status(500).json({ error: "Failed to create cleaning log" });
+    }
+  });
+
+  // Phase 5: today's (or ?date=) generated cleaning occurrences, with assignee.
+  app.get("/api/practices/:practiceId/cleaning-occurrences", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const date = typeof req.query.date === 'string'
+        ? req.query.date
+        : new Date().toISOString().split('T')[0];
+      const occurrences = await storage.getCleaningOccurrences(req.params.practiceId as string, date);
+      res.json(occurrences);
+    } catch (error) {
+      console.error('cleaning occurrences error:', error);
+      res.status(500).json({ error: "Failed to fetch cleaning occurrences" });
     }
   });
 

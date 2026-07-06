@@ -24,10 +24,17 @@ function check(name: string, cond: boolean, detail = "") {
 // Mirror the edge function's upsert using pg (ON CONFLICT DO NOTHING via the unique index).
 async function generateFor(practiceId: string, fromISO: string, toISO: string) {
   const p = (await pool.query(
-    `SELECT id, timezone, is_dispensing, is_branch FROM practices WHERE id=$1 AND metadata->>'scheduler_enabled'='true'`, [practiceId]
+    `SELECT id, timezone, is_dispensing, is_branch,
+            metadata->>'scheduler_enabled' AS scheduler_enabled,
+            metadata->>'cleaning_scheduling_enabled' AS cleaning_enabled
+     FROM practices WHERE id=$1
+       AND (metadata->>'scheduler_enabled'='true'
+         OR metadata->>'cleaning_scheduling_enabled'='true')`, [practiceId]
   )).rows[0];
-  if (!p) return { generated: 0, skipped: true }; // scheduler not enabled
+  if (!p) return { generated: 0, skipped: true }; // no module scheduling enabled
 
+  const schedulerEnabled = p.scheduler_enabled === "true";
+  const cleaningEnabled = p.cleaning_enabled === "true";
   const practice: PracticeInfo = { id: p.id, timezone: p.timezone, isDispensing: p.is_dispensing, isBranch: p.is_branch };
 
   const sels = (await pool.query(`
@@ -40,7 +47,7 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
     JOIN curated_sections cs ON cs.id = cl.section_id
     WHERE s.practice_id=$1 AND s.is_enabled=true`, [practiceId])).rows;
 
-  const selections: SelectionInput[] = sels.map((s) => ({
+  const selections: SelectionInput[] = (schedulerEnabled ? sels : []).map((s) => ({
     id: s.id, curatedLogbookId: s.curated_logbook_id, title: s.title, module: s.module,
     cadence: s.cadence, cadenceOverride: s.cadence_override,
     applicableTo: (s.applicable_to ?? ["all"]) as ApplicableTo[],
@@ -52,19 +59,39 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
   }));
 
   // Bespoke is_scheduled process_templates (second source).
-  const PF_TO_CADENCE: Record<string, string | null> = { daily: "daily", weekly: "weekly", monthly: "monthly", quarterly: "quarterly", six_monthly: "six_monthly", annually: "annual", twice_daily: null };
-  const templates = (await pool.query(`SELECT id, name, module, frequency, due_window_hours, early_start_hours, importance, default_assignee_id, default_assignee_role, created_at FROM process_templates WHERE practice_id=$1 AND is_scheduled=true`, [practiceId])).rows;
-  for (const t of templates) {
-    const cadence = PF_TO_CADENCE[t.frequency];
-    if (!cadence) continue;
-    selections.push({
-      id: t.id, sourceKind: "template", curatedLogbookId: "", title: t.name, module: t.module ?? "compliance",
-      cadence: cadence as any, cadenceOverride: null, applicableTo: ["all"], preferredDay: null, preferredDate: null,
-      dueWindowHours: t.due_window_hours ?? 24, earlyStartHours: t.early_start_hours ?? 12, importance: t.importance,
-      defaultAssigneeId: t.default_assignee_id, defaultAssigneeRole: t.default_assignee_role,
-      anchorDate: (t.created_at instanceof Date ? t.created_at.toISOString() : String(t.created_at)).slice(0, 10),
-      isEnabled: true, adHocOnly: false, nextReviewDate: null,
-    });
+  const PF_TO_CADENCE: Record<string, string | null> = { daily: "daily", twice_daily: "twice_daily", weekly: "weekly", monthly: "monthly", quarterly: "quarterly", six_monthly: "six_monthly", annually: "annual" };
+  if (schedulerEnabled) {
+    const templates = (await pool.query(`SELECT id, name, module, frequency, due_window_hours, early_start_hours, importance, default_assignee_id, default_assignee_role, created_at FROM process_templates WHERE practice_id=$1 AND is_scheduled=true`, [practiceId])).rows;
+    for (const t of templates) {
+      const cadence = PF_TO_CADENCE[t.frequency];
+      if (!cadence) continue;
+      selections.push({
+        id: t.id, sourceKind: "template", curatedLogbookId: "", title: t.name, module: t.module ?? "compliance",
+        cadence: cadence as any, cadenceOverride: null, applicableTo: ["all"], preferredDay: null, preferredDate: null,
+        dueWindowHours: t.due_window_hours ?? 24, earlyStartHours: t.early_start_hours ?? 12, importance: t.importance,
+        defaultAssigneeId: t.default_assignee_id, defaultAssigneeRole: t.default_assignee_role,
+        anchorDate: (t.created_at instanceof Date ? t.created_at.toISOString() : String(t.created_at)).slice(0, 10),
+        isEnabled: true, adHocOnly: false, nextReviewDate: null,
+      });
+    }
+  }
+
+  // Cleaning tasks (third source, Phase 5) — opt-in per practice.
+  const CLEAN_TO_CADENCE: Record<string, string | null> = { daily: "daily", twice_daily: "twice_daily", weekly: "weekly", monthly: "monthly", periodic: null };
+  if (cleaningEnabled) {
+    const cts = (await pool.query(`SELECT id, task_name, zone_id, frequency, default_assignee_role, created_at FROM cleaning_tasks WHERE practice_id=$1 AND is_active=true`, [practiceId])).rows;
+    for (const ct of cts) {
+      const cadence = CLEAN_TO_CADENCE[ct.frequency];
+      if (!cadence) continue;
+      selections.push({
+        id: ct.id, sourceKind: "cleaning", curatedLogbookId: "", title: ct.task_name ?? "Cleaning task", module: "cleaning",
+        cadence: cadence as any, cadenceOverride: null, applicableTo: ["all"], preferredDay: null, preferredDate: null,
+        dueWindowHours: 24, earlyStartHours: 12, importance: null,
+        defaultAssigneeId: null, defaultAssigneeRole: ct.default_assignee_role,
+        anchorDate: (ct.created_at instanceof Date ? ct.created_at.toISOString() : String(ct.created_at)).slice(0, 10),
+        isEnabled: true, adHocOnly: false, nextReviewDate: null, zoneId: ct.zone_id ?? null,
+      });
+    }
   }
 
   const roles: RoleAssignment[] = (await pool.query(`SELECT role, user_id FROM role_assignments WHERE practice_id=$1`, [practiceId])).rows
@@ -74,19 +101,36 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
 
   const { rows, counts } = planGeneration({ practice, selections, roleAssignments: roles, closures, fromISO, toISO });
 
+  // Cleaning idempotency is in-app (metadata-keyed): pre-load existing cleaning
+  // occurrences in the window, mirroring the edge function.
+  const cleaningSeen = new Set<string>(
+    (await pool.query(
+      `SELECT scheduled_date::text AS d, slot, metadata->>'cleaningTaskId' AS ctid
+       FROM tasks WHERE practice_id=$1 AND source_type='cleaning' AND scheduled_date BETWEEN $2 AND $3`,
+      [practiceId, fromISO, toISO])).rows.map((e) => `${e.ctid ?? ""}|${e.d}|${e.slot ?? ""}`),
+  );
+
   for (const r of rows) {
     if (r.selectionId) {
       await pool.query(`
-        INSERT INTO tasks (practice_id, selection_id, source_type, title, module, scheduled_date, due_at, visible_from, status, importance, assignee_id, metadata)
-        VALUES ($1,$2,'logbook',$3,$4,$5,$6,$7,'pending',$8,$9,$10)
-        ON CONFLICT (selection_id, scheduled_date) WHERE selection_id IS NOT NULL AND scheduled_date IS NOT NULL DO NOTHING`,
-        [r.practiceId, r.selectionId, r.title, r.module, r.scheduledDate, r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ curated_logbook_id: r.curatedLogbookId })]);
+        INSERT INTO tasks (practice_id, selection_id, source_type, title, module, scheduled_date, slot, due_at, visible_from, status, importance, assignee_id, metadata)
+        VALUES ($1,$2,'logbook',$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11)
+        ON CONFLICT (selection_id, scheduled_date, slot) WHERE source_type='logbook' AND selection_id IS NOT NULL DO NOTHING`,
+        [r.practiceId, r.selectionId, r.title, r.module, r.scheduledDate, r.slot ?? "", r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ curated_logbook_id: r.curatedLogbookId })]);
     } else if (r.templateId) {
       await pool.query(`
-        INSERT INTO tasks (practice_id, template_id, source_type, title, module, scheduled_date, due_at, visible_from, status, importance, assignee_id, metadata)
-        VALUES ($1,$2,'logbook',$3,$4,$5,$6,$7,'pending',$8,$9,$10)
-        ON CONFLICT (template_id, scheduled_date) WHERE template_id IS NOT NULL AND scheduled_date IS NOT NULL AND source_type='logbook' DO NOTHING`,
-        [r.practiceId, r.templateId, r.title, r.module, r.scheduledDate, r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ steps_source: "template" })]);
+        INSERT INTO tasks (practice_id, template_id, source_type, title, module, scheduled_date, slot, due_at, visible_from, status, importance, assignee_id, metadata)
+        VALUES ($1,$2,'logbook',$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11)
+        ON CONFLICT (template_id, scheduled_date, slot) WHERE source_type='logbook' AND template_id IS NOT NULL DO NOTHING`,
+        [r.practiceId, r.templateId, r.title, r.module, r.scheduledDate, r.slot ?? "", r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ steps_source: "template" })]);
+    } else if (r.cleaningTaskId) {
+      const key = `${r.cleaningTaskId}|${r.scheduledDate}|${r.slot ?? ""}`;
+      if (cleaningSeen.has(key)) continue;
+      cleaningSeen.add(key);
+      await pool.query(`
+        INSERT INTO tasks (practice_id, source_type, title, module, scheduled_date, slot, due_at, visible_from, status, importance, assignee_id, metadata)
+        VALUES ($1,'cleaning',$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10)`,
+        [r.practiceId, r.title, r.module, r.scheduledDate, r.slot ?? "", r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ cleaningTaskId: r.cleaningTaskId, zoneId: r.zoneId })]);
     }
   }
   return { generated: counts.generated, skipped: false, counts };
@@ -220,6 +264,47 @@ async function main() {
   await generateFor(PID, "2026-05-05", "2026-05-05");
   const tCount = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND template_id=$2`, [PID, tmpl])).rows[0].n;
   check("template source is idempotent (double-run => 1 row)", tCount === 1, `count=${tCount}`);
+
+  console.log("\n=== Test 8: cleaning integration (Phase 5) — opt-in, generation, idempotency, assignee ===");
+  await pool.query(`DELETE FROM tasks WHERE practice_id=$1`, [PID]);
+  await pool.query(`DELETE FROM cleaning_tasks WHERE practice_id=$1`, [PID]);
+  await pool.query(`DELETE FROM cleaning_zones WHERE practice_id=$1`, [PID]);
+  await pool.query(`DELETE FROM role_assignments WHERE practice_id=$1 AND role='cleaner'`, [PID]);
+  // A real user to hold the 'cleaner' role (FK-valid assignee for My Day).
+  const cleanerUser = (await pool.query(`SELECT id FROM users LIMIT 1`)).rows[0]?.id ?? null;
+  if (cleanerUser) await pool.query(`INSERT INTO role_assignments (practice_id, role, user_id) VALUES ($1,'cleaner',$2)`, [PID, cleanerUser]);
+  const zoneId = (await pool.query(`INSERT INTO cleaning_zones (practice_id, zone_name) VALUES ($1,'Reception') RETURNING id`, [PID])).rows[0].id;
+  const ctDaily = (await pool.query(
+    `INSERT INTO cleaning_tasks (practice_id, zone_id, task_name, frequency, default_assignee_role, created_at)
+     VALUES ($1,$2,'Wipe reception desk','daily','cleaner','2026-01-05T00:00:00Z') RETURNING id`, [PID, zoneId])).rows[0].id;
+  const ctTwice = (await pool.query(
+    `INSERT INTO cleaning_tasks (practice_id, zone_id, task_name, frequency, default_assignee_role, created_at)
+     VALUES ($1,$2,'Clean toilets','twice_daily','cleaner','2026-01-05T00:00:00Z') RETURNING id`, [PID, zoneId])).rows[0].id;
+
+  // cleaning disabled -> nothing generates even though scheduler_enabled is on.
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const cleanBefore = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='cleaning'`, [PID])).rows[0].n;
+  check("cleaning disabled => no cleaning occurrences", cleanBefore === 0, `got ${cleanBefore}`);
+
+  // enable cleaning and generate.
+  await pool.query(`UPDATE practices SET metadata = metadata || '{"cleaning_scheduling_enabled":true}'::jsonb WHERE id=$1`, [PID]);
+  await pool.query(`DELETE FROM tasks WHERE practice_id=$1`, [PID]);
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const cleanRows = (await pool.query(
+    `SELECT slot, status, source_type, assignee_id, metadata->>'cleaningTaskId' AS ctid, metadata->>'zoneId' AS zid
+     FROM tasks WHERE practice_id=$1 AND source_type='cleaning' ORDER BY (metadata->>'cleaningTaskId'), slot`, [PID])).rows;
+  const dailyRows = cleanRows.filter((r) => r.ctid === ctDaily);
+  const twiceRows = cleanRows.filter((r) => r.ctid === ctTwice);
+  check("daily cleaning task => 1 occurrence, slot=''", dailyRows.length === 1 && dailyRows[0].slot === "", `got ${dailyRows.length}`);
+  check("twice_daily cleaning task => 2 occurrences am+pm", twiceRows.length === 2 && twiceRows.map((r) => r.slot).sort().join(",") === "am,pm", `slots=${twiceRows.map((r) => r.slot).join(",")}`);
+  check("cleaning occurrences carry zoneId + cleaningTaskId in metadata", cleanRows.every((r) => r.zid === zoneId && r.ctid), "");
+  if (cleanerUser) check("cleaning occurrences resolve assignee from default_assignee_role", cleanRows.every((r) => r.assignee_id === cleanerUser), "");
+
+  // double-run => zero new cleaning rows (in-app dedup).
+  const cbefore = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='cleaning'`, [PID])).rows[0].n;
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const cafter = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='cleaning'`, [PID])).rows[0].n;
+  check("cleaning double-run is idempotent (0 new rows)", cbefore === cafter, `before=${cbefore} after=${cafter}`);
 
   console.log(`\n${failures === 0 ? "\x1b[32mALL INTEGRATION CHECKS PASSED\x1b[0m" : `\x1b[31m${failures} CHECK(S) FAILED\x1b[0m`}`);
   await pool.end();

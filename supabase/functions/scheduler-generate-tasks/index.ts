@@ -29,6 +29,12 @@ const PROCESS_FREQUENCY_TO_CADENCE: Record<string, Cadence | null> = {
   quarterly: "quarterly", six_monthly: "six_monthly", annually: "annual",
 };
 
+// clean_frequency enum -> base_cadence. 'periodic' stays manual (no auto-gen).
+const CLEAN_FREQUENCY_TO_CADENCE: Record<string, Cadence | null> = {
+  daily: "daily", twice_daily: "twice_daily", weekly: "weekly", monthly: "monthly",
+  periodic: null,
+};
+
 serve(async (req) => {
   try {
     if (req.method !== "POST") {
@@ -43,10 +49,10 @@ serve(async (req) => {
 
     const db = createServiceClient();
 
-    // Feature-flagged practices only.
+    // Feature-flagged practices only — any of the per-module scheduling toggles.
     let pq = db.from("practices")
       .select("id, timezone, is_dispensing, is_branch, metadata")
-      .filter("metadata->>scheduler_enabled", "eq", "true");
+      .or("metadata->>scheduler_enabled.eq.true,metadata->>cleaning_scheduling_enabled.eq.true,metadata->>fridge_scheduling_enabled.eq.true");
     if (onlyPractice) pq = pq.eq("id", onlyPractice);
     const { data: practices, error: pErr } = await pq;
     if (pErr) throw pErr;
@@ -58,6 +64,12 @@ serve(async (req) => {
         id: p.id, timezone: p.timezone ?? "Europe/London",
         isDispensing: !!p.is_dispensing, isBranch: !!p.is_branch,
       };
+
+      // Per-module opt-in flags (jsonb value may be boolean true or string "true").
+      const meta = (p.metadata ?? {}) as Record<string, unknown>;
+      const isOn = (v: unknown) => v === true || v === "true";
+      const schedulerEnabled = isOn(meta.scheduler_enabled);
+      const cleaningEnabled = isOn(meta.cleaning_scheduling_enabled);
 
       // Determine the run window (in practice tz).
       const todayISO = toISODate(localDateInTz(new Date(), practice.timezone));
@@ -83,7 +95,7 @@ serve(async (req) => {
         .eq("is_enabled", true);
       if (sErr) throw sErr;
 
-      const selections: SelectionInput[] = (sels ?? []).map((s: Record<string, any>) => ({
+      const selections: SelectionInput[] = (schedulerEnabled ? (sels ?? []) : []).map((s: Record<string, any>) => ({
         id: s.id,
         curatedLogbookId: s.curated_logbook_id,
         title: s.curated_logbooks?.title ?? "Logbook task",
@@ -106,25 +118,56 @@ serve(async (req) => {
 
       // Bespoke is_scheduled process_templates (second source). Mapped from
       // process_frequency to base_cadence (twice_daily now supported via slots).
-      const { data: templates, error: tErr } = await db
-        .from("process_templates")
-        .select("id, name, module, frequency, due_window_hours, early_start_hours, importance, default_assignee_id, default_assignee_role, created_at")
-        .eq("practice_id", p.id)
-        .eq("is_scheduled", true);
-      if (tErr) throw tErr;
-      for (const t of templates ?? []) {
-        const cadence = PROCESS_FREQUENCY_TO_CADENCE[t.frequency as string];
-        if (!cadence) continue; // unmapped/unschedulable frequency
-        selections.push({
-          id: t.id, sourceKind: "template", curatedLogbookId: "",
-          title: t.name, module: t.module ?? "compliance",
-          cadence, cadenceOverride: null, applicableTo: ["all"],
-          preferredDay: null, preferredDate: null,
-          dueWindowHours: t.due_window_hours ?? 24, earlyStartHours: t.early_start_hours ?? 12,
-          importance: t.importance, defaultAssigneeId: t.default_assignee_id, defaultAssigneeRole: t.default_assignee_role,
-          anchorDate: (t.created_at ?? todayISO).slice(0, 10),
-          isEnabled: true, adHocOnly: false, nextReviewDate: null,
-        });
+      if (schedulerEnabled) {
+        const { data: templates, error: tErr } = await db
+          .from("process_templates")
+          .select("id, name, module, frequency, due_window_hours, early_start_hours, importance, default_assignee_id, default_assignee_role, created_at")
+          .eq("practice_id", p.id)
+          .eq("is_scheduled", true);
+        if (tErr) throw tErr;
+        for (const t of templates ?? []) {
+          const cadence = PROCESS_FREQUENCY_TO_CADENCE[t.frequency as string];
+          if (!cadence) continue; // unmapped/unschedulable frequency
+          selections.push({
+            id: t.id, sourceKind: "template", curatedLogbookId: "",
+            title: t.name, module: t.module ?? "compliance",
+            cadence, cadenceOverride: null, applicableTo: ["all"],
+            preferredDay: null, preferredDate: null,
+            dueWindowHours: t.due_window_hours ?? 24, earlyStartHours: t.early_start_hours ?? 12,
+            importance: t.importance, defaultAssigneeId: t.default_assignee_id, defaultAssigneeRole: t.default_assignee_role,
+            anchorDate: (t.created_at ?? todayISO).slice(0, 10),
+            isEnabled: true, adHocOnly: false, nextReviewDate: null,
+          });
+        }
+      }
+
+      // Cleaning tasks (third source, Phase 5) — opt-in per practice. Each active
+      // cleaning_task generates occurrences on its own frequency. Idempotency is
+      // handled in-app below (tasks.selection_id is FK-bound to logbook selections,
+      // so cleaning occurrences carry the cleaning_task id in metadata instead).
+      if (cleaningEnabled) {
+        const { data: cleaningTasks, error: cErr } = await db
+          .from("cleaning_tasks")
+          .select("id, task_name, zone_id, frequency, default_assignee_role, created_at")
+          .eq("practice_id", p.id)
+          .eq("is_active", true);
+        if (cErr) throw cErr;
+        for (const ct of cleaningTasks ?? []) {
+          const cadence = CLEAN_FREQUENCY_TO_CADENCE[ct.frequency as string];
+          if (!cadence) continue; // 'periodic' (and unknowns) stay manual — no auto-gen
+          selections.push({
+            id: ct.id, sourceKind: "cleaning", curatedLogbookId: "",
+            title: ct.task_name ?? "Cleaning task", module: "cleaning",
+            cadence, cadenceOverride: null, applicableTo: ["all"],
+            preferredDay: null, preferredDate: null,
+            dueWindowHours: 24, earlyStartHours: 12,
+            importance: null, // cleaning_tasks has no importance — planner defaults to 'medium'
+            defaultAssigneeId: null, defaultAssigneeRole: ct.default_assignee_role,
+            anchorDate: (ct.created_at ?? todayISO).slice(0, 10),
+            isEnabled: true, adHocOnly: false, nextReviewDate: null,
+            zoneId: ct.zone_id ?? null,
+          });
+        }
       }
 
       // Role assignments + closures for this practice.
@@ -171,6 +214,47 @@ serve(async (req) => {
         if (error) throw error;
       }
 
+      // Cleaning occurrences: no functional idempotency index (metadata-keyed), so
+      // de-dupe in-app against existing cleaning tasks in the window. Single-run
+      // cron → no concurrent-insert race.
+      const cleaningPlanned = rows.filter((r) => r.cleaningTaskId);
+      let cleaningGenerated = 0;
+      if (cleaningPlanned.length > 0) {
+        const { data: existing, error: exErr } = await db
+          .from("tasks")
+          .select("scheduled_date, slot, metadata")
+          .eq("practice_id", p.id)
+          .eq("source_type", "cleaning")
+          .gte("scheduled_date", fromISO)
+          .lte("scheduled_date", toISO);
+        if (exErr) throw exErr;
+        const seen = new Set<string>(
+          (existing ?? []).map((e: Record<string, any>) =>
+            `${(e.metadata as any)?.cleaningTaskId ?? ""}|${e.scheduled_date}|${e.slot ?? ""}`),
+        );
+        const cleaningRows = cleaningPlanned
+          .filter((r) => !seen.has(`${r.cleaningTaskId}|${r.scheduledDate}|${r.slot ?? ""}`))
+          .map((r) => ({
+            practice_id: r.practiceId,
+            source_type: "cleaning",
+            title: r.title,
+            module: r.module,
+            scheduled_date: r.scheduledDate,
+            slot: r.slot ?? "",
+            due_at: r.dueAt,
+            visible_from: r.visibleFrom,
+            status: "pending",
+            importance: r.importance,
+            assignee_id: r.assigneeId,
+            metadata: { cleaningTaskId: r.cleaningTaskId, zoneId: r.zoneId },
+          }));
+        if (cleaningRows.length > 0) {
+          const { error } = await db.from("tasks").insert(cleaningRows);
+          if (error) throw error;
+          cleaningGenerated = cleaningRows.length;
+        }
+      }
+
       // One audit event per practice per run (audit_logs is practice-scoped).
       await db.from("audit_logs").insert({
         practice_id: p.id,
@@ -180,6 +264,7 @@ serve(async (req) => {
         after_data: {
           window: { from: fromISO, to: toISO },
           generated: counts.generated,
+          cleaning_generated: cleaningGenerated,
           skipped_closure: counts.skippedClosure,
           unassigned: counts.unassigned,
           periodic_review_reminders: counts.periodicReviewReminders,
@@ -187,7 +272,7 @@ serve(async (req) => {
         },
       });
 
-      summary.push({ practice_id: p.id, ...counts });
+      summary.push({ practice_id: p.id, ...counts, cleaning_generated: cleaningGenerated });
     }
 
     return new Response(JSON.stringify({ ok: true, practices: summary.length, summary }), {

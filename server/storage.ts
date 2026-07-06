@@ -625,6 +625,65 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  /**
+   * Phase 5: create a cleaning log and, when it satisfies a scheduled cleaning
+   * occurrence, mark that task complete — both in ONE transaction so the log and
+   * the task completion never diverge. occurrenceTaskId is the generated tasks.id
+   * (source_type='cleaning'); it must belong to this practice.
+   */
+  async createCleaningLogWithOccurrence(
+    log: InsertCleaningLog,
+    occurrenceTaskId: string | null,
+    practiceId: string,
+  ): Promise<CleaningLog> {
+    return db.transaction(async (tx) => {
+      const [created] = await tx.insert(schema.cleaningLogs).values(log).returning();
+      if (occurrenceTaskId) {
+        const [updated] = await tx.update(schema.tasks)
+          .set({ status: 'complete', completedAt: new Date(), updatedAt: new Date() })
+          .where(and(
+            eq(schema.tasks.id, occurrenceTaskId),
+            eq(schema.tasks.practiceId, practiceId),
+            eq(schema.tasks.sourceType, 'cleaning'),
+          ))
+          .returning({ id: schema.tasks.id });
+        if (!updated) {
+          // Occurrence not found / wrong practice / not a cleaning task — abort so
+          // we never write a log claiming to close an occurrence that didn't close.
+          throw new Error('cleaning occurrence not found for this practice');
+        }
+      }
+      return created;
+    });
+  }
+
+  /**
+   * Today's (or a given date's) generated cleaning occurrences for a practice,
+   * with assignee name. Powers the Cleaning page's scheduled view.
+   */
+  async getCleaningOccurrences(practiceId: string, date: string) {
+    const rows = await db
+      .select({ t: schema.tasks, assignee: schema.users.name })
+      .from(schema.tasks)
+      .leftJoin(schema.users, eq(schema.tasks.assigneeId, schema.users.id))
+      .where(and(
+        eq(schema.tasks.practiceId, practiceId),
+        eq(schema.tasks.sourceType, 'cleaning'),
+        eq(schema.tasks.scheduledDate, date),
+      ));
+    return rows.map(({ t, assignee }) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      slot: t.slot,
+      due_at: t.dueAt,
+      assignee_id: t.assigneeId,
+      assignee_name: assignee ?? null,
+      cleaning_task_id: (t.metadata as any)?.cleaningTaskId ?? null,
+      zone_id: (t.metadata as any)?.zoneId ?? null,
+    }));
+  }
+
   // ── Phase 3: curated logbook library + selections ─────────────────────────
 
   /**
