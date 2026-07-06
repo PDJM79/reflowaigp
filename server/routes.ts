@@ -7,6 +7,7 @@ import { getComplaintAnalysis } from "./complaintAnalysis";
 import { getTrainingAnalysis } from "./trainingAnalysis";
 import { getSectionTips } from "./sectionTips";
 import { auditLogger } from "./auditLogger";
+import * as analytics from "./analytics/analyticsService";
 import {
   insertPracticeSchema, insertUserSchema, insertEmployeeSchema,
   insertTaskSchema, insertIncidentSchema, insertComplaintSchema,
@@ -852,6 +853,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ count: await storage.getPracticeOverdueCount(req.params.practiceId as string) });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch overdue count" });
+    }
+  });
+
+  // ── Phase 6: server-side compliance analytics ─────────────────────────────
+  // Default window: last 30 days ending today. Dates are ISO 'YYYY-MM-DD'.
+  const analyticsWindow = (req: any) => {
+    const now = new Date();
+    const to = typeof req.query.to === 'string' ? req.query.to : now.toISOString().slice(0, 10);
+    const from = typeof req.query.from === 'string' ? req.query.from
+      : new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    const module = typeof req.query.module === 'string' && req.query.module ? req.query.module : undefined;
+    return { from, to, module };
+  };
+
+  app.get("/api/practices/:practiceId/analytics/compliance", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const out = await analytics.getCompliance(req.params.practiceId as string, analyticsWindow(req), Date.now());
+      res.json(out);
+    } catch (error) {
+      console.error("analytics/compliance error:", error);
+      res.status(500).json({ error: "Failed to compute compliance analytics" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/analytics/module-breakdown", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const out = await analytics.getModuleBreakdown(req.params.practiceId as string, analyticsWindow(req), Date.now());
+      res.json(out);
+    } catch (error) {
+      console.error("analytics/module-breakdown error:", error);
+      res.status(500).json({ error: "Failed to compute module breakdown" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/analytics/team", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const out = await analytics.getTeam(req.params.practiceId as string, analyticsWindow(req), Date.now());
+      res.json(out);
+    } catch (error) {
+      console.error("analytics/team error:", error);
+      res.status(500).json({ error: "Failed to compute team analytics" });
+    }
+  });
+
+  app.get("/api/practices/:practiceId/analytics/overdue-summary", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const out = await analytics.getOverdueSummary(req.params.practiceId as string, Date.now());
+      res.json(out);
+    } catch (error) {
+      console.error("analytics/overdue-summary error:", error);
+      res.status(500).json({ error: "Failed to compute overdue summary" });
     }
   });
 
