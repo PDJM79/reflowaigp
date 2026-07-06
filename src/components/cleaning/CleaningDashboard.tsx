@@ -6,13 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CleaningZoneEditor } from "@/modules/cleaning/CleaningZoneEditor";
 import { CleaningTaskLibrary } from "@/components/cleaning/CleaningTaskLibrary";
 import { CleaningWeeklyGrid } from "@/modules/cleaning/CleaningWeeklyGrid";
-import { RoomManagementDialog } from "@/components/cleaning/RoomManagementDialog";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export function CleaningDashboard() {
   const { user } = useAuth();
-  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [stats, setStats] = useState({ zones: 0, tasks: 0, rooms: 0 });
 
   useEffect(() => {
@@ -50,10 +48,6 @@ export function CleaningDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setRoomDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Manage Rooms
-          </Button>
           <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export Annex B
@@ -110,10 +104,6 @@ export function CleaningDashboard() {
         </TabsContent>
       </Tabs>
 
-      <RoomManagementDialog
-        open={roomDialogOpen}
-        onOpenChange={setRoomDialogOpen}
-      />
     </div>
   );
 }
