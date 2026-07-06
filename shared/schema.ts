@@ -77,6 +77,13 @@ export const practices = pgTable("practices", {
   isBranch: boolean("is_branch").notNull().default(false),
   // Phase 2: general-purpose bag; holds the scheduler_enabled staged-rollout flag.
   metadata: jsonb("metadata").notNull().default({}),
+  // Onboarding wizard (migration 20260304180000): practice profile fields
+  address: text("address"),
+  postcode: varchar("postcode", { length: 10 }),
+  regulator: varchar("regulator", { length: 10 }).default('cqc'),
+  registrationNumber: varchar("registration_number", { length: 50 }),
+  contactEmail: text("contact_email"),
+  contactName: text("contact_name"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1104,3 +1111,73 @@ export type CuratedSection = typeof curatedSections.$inferSelect;
 export type CuratedLogbook = typeof curatedLogbooks.$inferSelect;
 export type PracticeLogbookSelection = typeof practiceLogbookSelections.$inferSelect;
 export type PracticeClosureDate = typeof practiceClosureDates.$inferSelect;
+
+// ── Onboarding Wizard ─────────────────────────────────────────────────────────
+
+export const onboardingSessions = pgTable("onboarding_sessions", {
+  id:                 uuid("id").primaryKey().defaultRandom(),
+  practiceName:       text("practice_name").notNull(),
+  registrationNumber: text("registration_number"),
+  regulator:          text("regulator").notNull().default('cqc'),
+  address:            text("address"),
+  postcode:           text("postcode"),
+  contactEmail:       text("contact_email"),
+  contactName:        text("contact_name"),
+  modulesEnabled:     jsonb("modules_enabled").default([]),
+  inspectionData:     jsonb("inspection_data"),
+  roomsConfig:        jsonb("rooms_config"),
+  cleaningConfig:     jsonb("cleaning_config"),
+  aiRecommendations:  jsonb("ai_recommendations"),
+  currentStep:        integer("current_step").notNull().default(1),
+  completedAt:        timestamp("completed_at"),
+  // Added by migration 20260304180000: practice created by this session (set on complete)
+  practiceId:         uuid("practice_id").references(() => practices.id, { onDelete: "set null" }),
+  createdAt:          timestamp("created_at").defaultNow(),
+  updatedAt:          timestamp("updated_at").defaultNow(),
+  deletedAt:          timestamp("deleted_at"),
+});
+
+export const complianceTemplates = pgTable("compliance_templates", {
+  id:          uuid("id").primaryKey().defaultRandom(),
+  moduleName:  text("module_name").notNull(),
+  category:    text("category").notNull(),
+  title:       text("title").notNull(),
+  description: text("description"),
+  frequency:   text("frequency").notNull().default('annually'),
+  isMandatory: boolean("is_mandatory").notNull().default(true),
+  regulator:   text("regulator"),
+  sortOrder:   integer("sort_order").notNull().default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export const cleaningTemplates = pgTable("cleaning_templates", {
+  id:          uuid("id").primaryKey().defaultRandom(),
+  roomType:    text("room_type").notNull(),
+  taskName:    text("task_name").notNull(),
+  frequency:   text("frequency").notNull().default('daily'),
+  isMandatory: boolean("is_mandatory").notNull().default(true),
+  sortOrder:   integer("sort_order").notNull().default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export const practiceModules = pgTable("practice_modules", {
+  id:          uuid("id").primaryKey().defaultRandom(),
+  practiceId:  uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  moduleName:  text("module_name").notNull(),
+  isEnabled:   boolean("is_enabled").notNull().default(true),
+  config:      jsonb("config"),
+  // Added by migration 20260304180000
+  disabledAt:  timestamp("disabled_at"),
+  enabledAt:   timestamp("enabled_at"),
+  createdAt:   timestamp("created_at").defaultNow(),
+  updatedAt:   timestamp("updated_at").defaultNow(),
+});
+
+export const insertOnboardingSessionSchema = createInsertSchema(onboardingSessions).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export const insertPracticeModuleSchema = createInsertSchema(practiceModules).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertOnboardingSession = z.infer<typeof insertOnboardingSessionSchema>;
+export type InsertPracticeModule = z.infer<typeof insertPracticeModuleSchema>;
+export type OnboardingSession = typeof onboardingSessions.$inferSelect;
+export type ComplianceTemplate = typeof complianceTemplates.$inferSelect;
+export type CleaningTemplate = typeof cleaningTemplates.$inferSelect;
+export type PracticeModule = typeof practiceModules.$inferSelect;

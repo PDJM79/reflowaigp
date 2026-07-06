@@ -7,6 +7,51 @@ import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
+async function findUserByEmail(practiceId: string, email: string): Promise<{ id: string } | null> {
+  const response = await fetch(`/api/practices/${practiceId}/users`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Failed to fetch users');
+  const users = await response.json();
+  return users.find((u: any) => u.email === email.trim()) ?? null;
+}
+
+async function patchUserPassword(practiceId: string, userId: string, password: string): Promise<boolean> {
+  const response = await fetch(`/api/practices/${practiceId}/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  });
+  return response.ok;
+}
+
+function validateResetInputs(email: string, password: string, practiceId: string | null | undefined): string | null {
+  if (!email.trim()) return 'Please enter an email address';
+  if (!password.trim()) return 'Please enter a new password';
+  if (!practiceId) return 'No practice context available';
+  return null;
+}
+
+interface SendCredentialsButtonProps {
+  email: string;
+  password: string;
+}
+
+function SendCredentialsButton({ email, password }: SendCredentialsButtonProps) {
+  const handleClick = () => {
+    const subject = encodeURIComponent('Your Password Has Been Reset');
+    const body = encodeURIComponent(`Hello,\n\nYour password has been reset.\n\nEmail: ${email}\nNew Password: ${password}\n\nLogin at: ${window.location.origin}\n\nPlease change your password after logging in.\n\nBest regards`);
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+  };
+  return (
+    <Button variant="outline" onClick={handleClick} className="w-full" data-testid="button-send-credentials-email">
+      <Mail className="h-4 w-4 mr-2" />
+      Send New Credentials via Email
+    </Button>
+  );
+}
+
 export function PasswordReset() {
   const { user } = useAuth();
   const [email, setEmail] = useState('');
@@ -16,51 +61,23 @@ export function PasswordReset() {
   const [lastResetPassword, setLastResetPassword] = useState<string>('');
 
   const resetPassword = async () => {
-    if (!email.trim()) {
-      toast.error('Please enter an email address');
+    const validationError = validateResetInputs(email, newPassword, user?.practiceId);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
-
-    if (!newPassword.trim()) {
-      toast.error('Please enter a new password');
-      return;
-    }
-
-    if (!user?.practiceId) {
-      toast.error('No practice context available');
-      return;
-    }
-
     setResetting(true);
     try {
-      const usersResponse = await fetch(`/api/practices/${user.practiceId}/users`, {
-        credentials: 'include',
-      });
-
-      if (!usersResponse.ok) throw new Error('Failed to fetch users');
-
-      const users = await usersResponse.json();
-      const targetUser = users.find((u: any) => u.email === email.trim());
-
+      const targetUser = await findUserByEmail(user!.practiceId!, email);
       if (!targetUser) {
         toast.error('User not found with that email address');
-        setResetting(false);
         return;
       }
-
-      const response = await fetch(`/api/practices/${user.practiceId}/users/${targetUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ password: newPassword.trim() }),
-      });
-
-      if (!response.ok) {
+      const success = await patchUserPassword(user!.practiceId!, targetUser.id, newPassword.trim());
+      if (!success) {
         toast.info('Password reset will be available in a future update.');
-        setResetting(false);
         return;
       }
-
       toast.success(`Password successfully reset for ${email}`);
       setLastResetEmail(email.trim());
       setLastResetPassword(newPassword.trim());
@@ -79,80 +96,27 @@ export function PasswordReset() {
           <KeyRound className="h-5 w-5 text-primary" />
           Reset User Password
         </CardTitle>
-        <CardDescription>
-          Reset a user's password (Admin function)
-        </CardDescription>
+        <CardDescription>Reset a user's password (Admin function)</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">User Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              data-testid="input-reset-email"
-            />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com" data-testid="input-reset-email" />
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="password">New Password</Label>
-            <Input
-              id="password"
-              type="text"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              data-testid="input-reset-password"
-            />
+            <Input id="password" type="text" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password" data-testid="input-reset-password" />
           </div>
-          
-          <Button 
-            onClick={resetPassword}
-            disabled={resetting}
-            className="w-full"
-            data-testid="button-reset-password"
-          >
-            {resetting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Resetting Password...
-              </>
-            ) : (
-              <>
-                <KeyRound className="h-4 w-4 mr-2" />
-                Reset Password
-              </>
-            )}
+          <Button onClick={resetPassword} disabled={resetting} className="w-full" data-testid="button-reset-password">
+            {resetting
+              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resetting Password...</>
+              : <><KeyRound className="h-4 w-4 mr-2" />Reset Password</>}
           </Button>
-          
           {lastResetEmail && lastResetPassword && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                const subject = encodeURIComponent('Your Password Has Been Reset');
-                const body = encodeURIComponent(`Hello,
-
-Your password has been reset.
-
-Email: ${lastResetEmail}
-New Password: ${lastResetPassword}
-
-Login at: ${window.location.origin}
-
-Please change your password after logging in.
-
-Best regards`);
-                window.open(`mailto:${lastResetEmail}?subject=${subject}&body=${body}`);
-              }}
-              className="w-full"
-              data-testid="button-send-credentials-email"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Send New Credentials via Email
-            </Button>
+            <SendCredentialsButton email={lastResetEmail} password={lastResetPassword} />
           )}
         </div>
       </CardContent>

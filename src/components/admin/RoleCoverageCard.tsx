@@ -14,10 +14,18 @@ interface RoleCoverageCardProps {
   usersWithCapabilities: UserWithCapabilities[];
 }
 
-export function RoleCoverageCard({ usersWithCapabilities }: RoleCoverageCardProps) {
-  // Calculate which critical capabilities are covered and by whom
-  const capabilityCoverage = CRITICAL_CAPABILITIES.map(capability => {
-    const coveredBy = usersWithCapabilities.filter(user => 
+interface CoverageEntry {
+  capability: Capability;
+  label: string;
+  isCovered: boolean;
+  coveredBy: string[];
+}
+
+function calculateCapabilityCoverage(
+  usersWithCapabilities: UserWithCapabilities[]
+): CoverageEntry[] {
+  return CRITICAL_CAPABILITIES.map(capability => {
+    const coveredBy = usersWithCapabilities.filter(user =>
       user.capabilities.includes(capability)
     );
     return {
@@ -27,7 +35,10 @@ export function RoleCoverageCard({ usersWithCapabilities }: RoleCoverageCardProp
       coveredBy: coveredBy.map(u => u.name),
     };
   });
+}
 
+export function RoleCoverageCard({ usersWithCapabilities }: RoleCoverageCardProps) {
+  const capabilityCoverage = calculateCapabilityCoverage(usersWithCapabilities);
   const uncoveredCount = capabilityCoverage.filter(c => !c.isCovered).length;
   const coveredCount = capabilityCoverage.filter(c => c.isCovered).length;
 

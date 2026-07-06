@@ -12,20 +12,6 @@ DECLARE
   u4   uuid := '44444444-4444-4444-4444-444444444444'; -- James (admin)
 BEGIN
 
--- ─── PRACTICE ────────────────────────────────────────────────────────────────
-INSERT INTO practices (id, name, country)
-VALUES (pid, 'Minfor Surgery', 'Wales')
-ON CONFLICT (id) DO NOTHING;
-
--- ─── USERS ───────────────────────────────────────────────────────────────────
-INSERT INTO users (id, practice_id, name, email, role, is_practice_manager, password_hash)
-VALUES
-  (u1, pid, 'Sarah Ahmed',   'sarah@minforsurgery.nhs.uk', 'practice_manager', true,  'demo-hash'),
-  (u2, pid, 'Tom Blackwell', 'tom@minforsurgery.nhs.uk',   'gp',               false, 'demo-hash'),
-  (u3, pid, 'Emma Clarke',   'emma@minforsurgery.nhs.uk',  'nurse',            false, 'demo-hash'),
-  (u4, pid, 'James Davies',  'james@minforsurgery.nhs.uk', 'admin',            false, 'demo-hash')
-ON CONFLICT (id) DO NOTHING;
-
 -- ─── ROOMS ───────────────────────────────────────────────────────────────────
 INSERT INTO rooms (id, practice_id, name, type, is_active)
 VALUES
@@ -38,85 +24,55 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- ─── TASKS ───────────────────────────────────────────────────────────────────
--- Past tasks (due_at in last 30 days) drive audit scoring:
---   4 closed on-time, 1 closed late, 2 overdue  →  compliance ~67%, fit-for-audit ~80%
--- Future tasks appear on the task list / upcoming work.
-INSERT INTO tasks (id, practice_id, title, description, priority, status, assignee_id,
-                   due_at, completed_at, module, is_auditable, evidence_min_count)
+INSERT INTO tasks (id, practice_id, title, description, priority, status, assignee_id, due_at, completed_at, module)
 VALUES
-  -- ── In-window: closed on time ──────────────────────────────────────────────
-  (gen_random_uuid(), pid,
-   'Fridge temperature log review',
-   'Review last month''s vaccine fridge temperature logs',
-   'high', 'closed', u3,
-   NOW() - INTERVAL '10 days', NOW() - INTERVAL '11 days',
-   'ipc', true, 0),
-
-  (gen_random_uuid(), pid,
-   'Sharps disposal audit',
-   'Check sharps bins in all clinical rooms are within date',
-   'high', 'closed', u2,
-   NOW() - INTERVAL '5 days', NOW() - INTERVAL '6 days',
-   'ipc', true, 0),
-
   (gen_random_uuid(), pid,
    'Review infection control policy',
    'Annual review of the IPC policy document',
-   'high', 'closed', u1,
-   NOW() - INTERVAL '7 days', NOW() - INTERVAL '9 days',
-   'policies', true, 0),
+   'high', 'completed', u1,
+   NOW() - INTERVAL '7 days', NOW() - INTERVAL '2 days', 'policies'),
 
-  (gen_random_uuid(), pid,
-   'Update staff training records',
-   'Upload Q1 training certificates for clinical staff',
-   'medium', 'closed', u3,
-   NOW() - INTERVAL '15 days', NOW() - INTERVAL '16 days',
-   'training', false, 0),
-
-  -- ── In-window: closed late (completed_at > due_at) ─────────────────────────
-  (gen_random_uuid(), pid,
-   'Patient complaints quarterly review',
-   'Summarise Q4 complaints and share with partners',
-   'medium', 'closed', u2,
-   NOW() - INTERVAL '20 days', NOW() - INTERVAL '18 days',
-   'complaints', true, 0),
-
-  -- ── In-window: overdue (not completed) ────────────────────────────────────
-  (gen_random_uuid(), pid,
-   'Staff DBS check renewals',
-   'Identify staff with DBS renewals due in next 90 days',
-   'medium', 'overdue', u4,
-   NOW() - INTERVAL '3 days', NULL,
-   'hr', false, 0),
-
-  (gen_random_uuid(), pid,
-   'Risk assessment annual review',
-   'Review and update the practice risk register',
-   'high', 'overdue', u1,
-   NOW() - INTERVAL '8 days', NULL,
-   'incidents', true, 0),
-
-  -- ── Future tasks (task list / upcoming work) ───────────────────────────────
   (gen_random_uuid(), pid,
    'Fire safety walkthrough',
    'Quarterly fire safety inspection of all rooms',
    'high', 'in_progress', u4,
-   NOW() + INTERVAL '3 days', NULL,
-   'compliance', false, 0),
+   NOW() + INTERVAL '3 days', NULL, 'compliance'),
+
+  (gen_random_uuid(), pid,
+   'Update staff training records',
+   'Upload Q1 training certificates for clinical staff',
+   'medium', 'pending', u3,
+   NOW() + INTERVAL '10 days', NULL, 'training'),
+
+  (gen_random_uuid(), pid,
+   'Sharps disposal audit',
+   'Check sharps bins in all clinical rooms are within date',
+   'high', 'overdue', u2,
+   NOW() - INTERVAL '5 days', NULL, 'ipc'),
 
   (gen_random_uuid(), pid,
    'Submit CQC registration renewal',
    'Annual CQC registration renewal documentation',
    'high', 'in_progress', u1,
-   NOW() + INTERVAL '14 days', NULL,
-   'compliance', false, 0),
+   NOW() + INTERVAL '14 days', NULL, 'compliance'),
 
   (gen_random_uuid(), pid,
-   'Annual appraisals schedule',
-   'Set up annual appraisal meetings for all clinical staff',
-   'medium', 'pending', u1,
-   NOW() + INTERVAL '21 days', NULL,
-   'hr', false, 0)
+   'Fridge temperature log review',
+   'Review last months vaccine fridge temperature logs',
+   'medium', 'completed', u3,
+   NOW() - INTERVAL '10 days', NOW() - INTERVAL '8 days', 'ipc'),
+
+  (gen_random_uuid(), pid,
+   'Staff DBS check renewals',
+   'Identify staff with DBS renewals due in next 90 days',
+   'medium', 'pending', u4,
+   NOW() + INTERVAL '21 days', NULL, 'hr'),
+
+  (gen_random_uuid(), pid,
+   'Patient complaints quarterly review',
+   'Summarise Q4 complaints and share with partners',
+   'low', 'pending', u2,
+   NOW() + INTERVAL '30 days', NULL, 'complaints')
 ON CONFLICT DO NOTHING;
 
 -- ─── POLICY DOCUMENTS ────────────────────────────────────────────────────────

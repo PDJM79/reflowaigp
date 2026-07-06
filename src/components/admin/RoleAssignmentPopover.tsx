@@ -6,6 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil, Loader2 } from 'lucide-react';
 import { ROLE_CATEGORY_LABELS, type RoleCategory } from '@/types/roles';
 
+const ROLE_CATEGORY_COLORS: Record<string, string> = {
+  clinical: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  governance: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  it: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+  support: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  pcn: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+};
+
 interface RoleCatalogEntry {
   id: string;
   role_key: string;
@@ -28,6 +37,47 @@ interface RoleAssignmentPopoverProps {
   disabled?: boolean;
 }
 
+function groupRolesByCategory(roles: PracticeRole[]): Record<string, PracticeRole[]> {
+  return roles.reduce((acc, role) => {
+    const category = (role.role_catalog?.category || 'admin') as string;
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(role);
+    return acc;
+  }, {} as Record<string, PracticeRole[]>);
+}
+
+interface RoleCategoryGroupProps {
+  category: string;
+  roles: PracticeRole[];
+  selectedRoleIds: string[];
+  onToggle: (roleId: string) => void;
+}
+
+function RoleCategoryGroup({ category, roles, selectedRoleIds, onToggle }: RoleCategoryGroupProps) {
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        {ROLE_CATEGORY_LABELS[category as RoleCategory] || category}
+      </div>
+      {roles.map(role => (
+        <div key={role.id} className="flex items-center space-x-2">
+          <Checkbox
+            id={role.id}
+            checked={selectedRoleIds.includes(role.id)}
+            onCheckedChange={() => onToggle(role.id)}
+          />
+          <label htmlFor={role.id} className="text-sm cursor-pointer flex items-center gap-2">
+            {role.role_catalog?.display_name || 'Unknown Role'}
+            <Badge variant="outline" className={`text-xs ${ROLE_CATEGORY_COLORS[category] || 'bg-muted text-muted-foreground'}`}>
+              {role.role_catalog?.default_capabilities?.length || 0}
+            </Badge>
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function RoleAssignmentPopover({
   userName,
   currentRoleIds,
@@ -39,18 +89,13 @@ export function RoleAssignmentPopover({
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(currentRoleIds);
   const [saving, setSaving] = useState(false);
 
-  // Reset selection when popover opens
   useEffect(() => {
-    if (open) {
-      setSelectedRoleIds(currentRoleIds);
-    }
+    if (open) setSelectedRoleIds(currentRoleIds);
   }, [open, currentRoleIds]);
 
   const toggleRole = (roleId: string) => {
     setSelectedRoleIds(prev =>
-      prev.includes(roleId)
-        ? prev.filter(id => id !== roleId)
-        : [...prev, roleId]
+      prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
     );
   };
 
@@ -65,26 +110,7 @@ export function RoleAssignmentPopover({
   };
 
   const hasChanges = JSON.stringify([...selectedRoleIds].sort()) !== JSON.stringify([...currentRoleIds].sort());
-
-  const getCategoryColor = (category: string): string => {
-    switch (category) {
-      case 'clinical': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'admin': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'governance': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
-      case 'it': return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
-      case 'support': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'pcn': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  // Group roles by category
-  const rolesByCategory = availableRoles.reduce((acc, role) => {
-    const category = (role.role_catalog?.category || 'admin') as string;
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(role);
-    return acc;
-  }, {} as Record<string, PracticeRole[]>);
+  const rolesByCategory = groupRolesByCategory(availableRoles);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -95,47 +121,21 @@ export function RoleAssignmentPopover({
       </PopoverTrigger>
       <PopoverContent className="w-80" align="end">
         <div className="space-y-4">
-          <div className="font-medium text-sm">
-            Assign Roles to {userName}
-          </div>
-          
+          <div className="font-medium text-sm">Assign Roles to {userName}</div>
           <div className="max-h-64 overflow-y-auto space-y-4">
             {Object.entries(rolesByCategory).map(([category, roles]) => (
-              <div key={category} className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {ROLE_CATEGORY_LABELS[category as RoleCategory] || category}
-                </div>
-                {roles.map(role => (
-                  <div key={role.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={role.id}
-                      checked={selectedRoleIds.includes(role.id)}
-                      onCheckedChange={() => toggleRole(role.id)}
-                    />
-                    <label
-                      htmlFor={role.id}
-                      className="text-sm cursor-pointer flex items-center gap-2"
-                    >
-                      {role.role_catalog?.display_name || 'Unknown Role'}
-                      <Badge variant="outline" className={`text-xs ${getCategoryColor(category)}`}>
-                        {role.role_catalog?.default_capabilities?.length || 0}
-                      </Badge>
-                    </label>
-                  </div>
-                ))}
-              </div>
+              <RoleCategoryGroup
+                key={category}
+                category={category}
+                roles={roles}
+                selectedRoleIds={selectedRoleIds}
+                onToggle={toggleRole}
+              />
             ))}
           </div>
-
           <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={handleSave} 
-              disabled={saving || !hasChanges}
-            >
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || !hasChanges}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save
             </Button>
