@@ -94,14 +94,16 @@ export default function HR() {
       // employees + training-records have routes; appraisals / leave_requests /
       // dbs_checks do NOT yet — those sections degrade to empty and are deferred
       // to a follow-up (they need dedicated routes + storage).
-      const [empRes, trainRes, dbsRes] = await Promise.all([
+      const [empRes, trainRes, dbsRes, apprRes] = await Promise.all([
         fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/dbs-checks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/appraisals`, { credentials: 'include' }),
       ]);
       const employeesAll: any[] = empRes.ok ? await empRes.json() : [];
       const trainingAll: any[] = trainRes.ok ? await trainRes.json() : [];
       const dbsAll: any[] = dbsRes.ok ? await dbsRes.json() : [];
+      const apprAll: any[] = apprRes.ok ? await apprRes.json() : [];
 
       // Only real HR employees that have a role assigned (matches prior filter).
       const withRole = employeesAll.filter((e) => e.role != null);
@@ -131,8 +133,14 @@ export default function HR() {
         certificate_number: d.certificateNumber ?? d.certificate_number,
         next_review_due: d.nextReviewDue ?? d.next_review_due,
       })));
-      // Appraisals / leave_requests still have no route: render empty.
-      setAppraisals([]);
+      // Appraisals now via API; map employee names + snake_case for the render.
+      setAppraisals(apprAll.map((a) => ({
+        ...a,
+        employee_id: a.employeeId ?? a.employee_id,
+        appraisal_date: a.appraisalDate ?? a.appraisal_date,
+        next_due: a.nextDue ?? a.next_due,
+        employees: { name: nameById.get(a.employeeId ?? a.employee_id) },
+      })));
       setLeaveRequests([]);
     } catch (error) {
       console.error('Error fetching HR data:', error);
@@ -591,37 +599,56 @@ export default function HR() {
 
           <TabsContent value="appraisals">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base sm:text-lg">Recent Appraisals</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <CardTitle className="text-base sm:text-lg">Appraisal History</CardTitle>
+                <div className="flex gap-2">
+                  <Select value={selectedEmployeeForAppraisal} onValueChange={setSelectedEmployeeForAppraisal}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map((e: any) => (<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" disabled={!selectedEmployeeForAppraisal}
+                    onClick={() => { setSelectedAppraisal(null); setIsAppraisalDialogOpen(true); }}>
+                    Record
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {appraisals.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No appraisals scheduled</p>
+                    <p>No appraisals recorded</p>
+                    <p className="text-sm mt-2">Select an employee and record their appraisal.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {appraisals.map((appraisal: any) => (
-                      <div 
-                        key={appraisal.id} 
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm sm:text-base">{appraisal.employees?.name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">Period: {appraisal.period}</p>
-                        </div>
-                        <div className="text-xs sm:text-sm whitespace-nowrap">
-                          {appraisal.completed_date ? (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300">
-                              Completed
-                            </Badge>
-                          ) : (
-                            <span>Due: {appraisal.scheduled_date ? new Date(appraisal.scheduled_date).toLocaleDateString() : 'TBC'}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                    {appraisals.map((appraisal: any) => {
+                      const nextDue = appraisal.next_due;
+                      const overdue = nextDue && new Date(nextDue).getTime() < Date.now();
+                      return (
+                        <button
+                          type="button"
+                          key={appraisal.id}
+                          onClick={() => { setSelectedEmployeeForAppraisal(appraisal.employee_id); setSelectedAppraisal(appraisal); setIsAppraisalDialogOpen(true); }}
+                          className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg text-left hover:bg-accent/50 gap-2 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base">{appraisal.employees?.name || 'Employee'}</p>
+                            {appraisal.summary && <p className="text-xs sm:text-sm text-muted-foreground truncate">{appraisal.summary}</p>}
+                          </div>
+                          <div className="text-xs sm:text-sm text-right flex flex-col items-end gap-1">
+                            <span>Appraised: {new Date(appraisal.appraisal_date).toLocaleDateString()}</span>
+                            {nextDue && (
+                              <span className="flex items-center gap-2">
+                                Next due: {new Date(nextDue).toLocaleDateString()}
+                                {overdue && <Badge className="bg-destructive text-destructive-foreground">Overdue</Badge>}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -728,14 +755,16 @@ export default function HR() {
         />
       )}
 
-      {selectedEmployeeForAppraisal && (
+      {selectedEmployeeForAppraisal && isAppraisalDialogOpen && (
         <AppraisalDialog
           employeeId={selectedEmployeeForAppraisal}
+          existing={selectedAppraisal}
           open={isAppraisalDialogOpen}
           onOpenChange={(open) => {
             setIsAppraisalDialogOpen(open);
             if (!open) {
               setSelectedEmployeeForAppraisal('');
+              setSelectedAppraisal(null);
               fetchHRData();
             }
           }}

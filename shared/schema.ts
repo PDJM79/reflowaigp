@@ -324,6 +324,19 @@ export const dbsChecks = pgTable("dbs_checks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// KF2: per-employee appraisal record (the register behind curated GP-LB-028-004).
+export const appraisals = pgTable("appraisals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  appraisalDate: date("appraisal_date", { mode: "string" }).notNull(),
+  appraiserId: uuid("appraiser_id").references(() => users.id, { onDelete: "set null" }),
+  summary: text("summary"),
+  nextDue: date("next_due", { mode: "string" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const incidents = pgTable("incidents", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),

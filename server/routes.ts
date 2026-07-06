@@ -1371,6 +1371,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { console.error("DELETE dbs-checks", e); res.status(500).json({ error: "Failed to delete DBS check" }); }
   });
 
+  // KF2: appraisals — practice-member read, manager write (HR record).
+  app.get("/api/practices/:practiceId/appraisals", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getAppraisals(req.params.practiceId as string)); }
+    catch (e) { console.error("GET appraisals", e); res.status(500).json({ error: "Failed to fetch appraisals" }); }
+  });
+  app.post("/api/practices/:practiceId/appraisals", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const body = stripPracticeId(req.body);
+      res.status(201).json(await storage.createAppraisal({ ...body, practiceId: req.params.practiceId } as any));
+    } catch (e) { console.error("POST appraisals", e); res.status(500).json({ error: "Failed to create appraisal" }); }
+  });
+  app.patch("/api/practices/:practiceId/appraisals/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const row = await storage.updateAppraisal(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body) as any);
+      if (!row) return res.status(404).json({ error: "Appraisal not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH appraisals", e); res.status(500).json({ error: "Failed to update appraisal" }); }
+  });
+
   // --- MFA (secrets handled server-side only; never returned to the client) ---
   // Login-step verification: returns pass/fail only. No secret material leaves the server.
   app.post("/api/auth/mfa/verify", async (req, res) => {

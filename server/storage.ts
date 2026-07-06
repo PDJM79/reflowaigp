@@ -1354,6 +1354,24 @@ export class DatabaseStorage implements IStorage {
     return rows.length > 0;
   }
 
+  // KF2: appraisals register (per-employee history, newest first).
+  async getAppraisals(practiceId: string) {
+    return db.select().from(schema.appraisals)
+      .where(eq(schema.appraisals.practiceId, practiceId))
+      .orderBy(desc(schema.appraisals.appraisalDate));
+  }
+  async createAppraisal(data: typeof schema.appraisals.$inferInsert) {
+    const [row] = await db.insert(schema.appraisals).values(data).returning();
+    return row;
+  }
+  async updateAppraisal(id: string, practiceId: string, data: Partial<typeof schema.appraisals.$inferInsert>) {
+    const [row] = await db.update(schema.appraisals)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.appraisals.id, id), eq(schema.appraisals.practiceId, practiceId)))
+      .returning();
+    return row;
+  }
+
   // --- step_instances + evidence (logbook completion flow) ---
   // step_instances/evidence carry no practice_id; scope via the parent
   // process_instance. Shaped snake_case to match the client interfaces.
