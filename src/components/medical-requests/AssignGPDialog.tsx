@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { MedicalRequest, GPEmployee } from './types';
 
@@ -51,16 +50,12 @@ export function AssignGPDialog({
 
   const fetchGPs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name, role')
-        .eq('practice_id', practiceId)
-        .in('role', ['gp', 'cd_lead_gp'])
-        .is('end_date', null)
-        .order('name');
-
-      if (error) throw error;
-      setGps(data || []);
+      const res = await fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' });
+      const rows = res.ok ? await res.json() as any[] : [];
+      setGps(rows
+        .filter((e) => ['gp', 'cd_lead_gp'].includes(e.role) && !(e.endDate ?? e.end_date))
+        .map((e) => ({ id: e.id, name: e.name, role: e.role }))
+        .sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Error fetching GPs:', error);
     }
@@ -71,16 +66,13 @@ export function AssignGPDialog({
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('medical_requests')
-        .update({
-          assigned_gp_id: selectedGpId,
-          status: 'assigned',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', request.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${practiceId}/medical-requests/${request.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedGpId: selectedGpId, status: 'assigned' }),
+      });
+      if (!res.ok) throw new Error(`Failed to assign GP (${res.status})`);
 
       toast({ title: 'GP assigned successfully' });
       onSuccess();

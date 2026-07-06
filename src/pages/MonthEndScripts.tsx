@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,16 +35,9 @@ export default function MonthEndScripts() {
     try {
       if (!user?.practiceId) return;
 
-      const { data, error } = await supabase
-        .from('month_end_scripts')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('month', { ascending: false })
-        .order('issue_date', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-      setScripts(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/month-end-scripts`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch scripts (${res.status})`);
+      setScripts(await res.json() || []);
     } catch (error) {
       console.error('Error fetching scripts:', error);
     } finally {

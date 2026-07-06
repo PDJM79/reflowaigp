@@ -1,46 +1,33 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CleaningZoneEditor } from "@/modules/cleaning/CleaningZoneEditor";
 import { CleaningTaskLibrary } from "@/components/cleaning/CleaningTaskLibrary";
 import { CleaningWeeklyGrid } from "@/modules/cleaning/CleaningWeeklyGrid";
-import { RoomManagementDialog } from "@/components/cleaning/RoomManagementDialog";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export function CleaningDashboard() {
   const { user } = useAuth();
-  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [stats, setStats] = useState({ zones: 0, tasks: 0, rooms: 0 });
 
   useEffect(() => {
     if (!user?.practiceId) return;
     const fetchStats = async () => {
-      const [zonesRes, tasksRes, roomsRes] = await Promise.all([
-        supabase
-          .from('cleaning_zones')
-          .select('*', { count: 'exact', head: true })
-          .eq('practice_id', user.practiceId)
-          .eq('is_active', true),
-        supabase
-          .from('cleaning_tasks')
-          .select('*', { count: 'exact', head: true })
-          .eq('practice_id', user.practiceId)
-          .eq('is_active', true),
-        supabase
-          .from('rooms')
-          .select('*', { count: 'exact', head: true })
-          .eq('practice_id', user.practiceId)
-          .eq('is_active', true),
+      const countActive = async (path: string) => {
+        const r = await fetch(`/api/practices/${user.practiceId}/${path}`, { credentials: 'include' });
+        if (!r.ok) return 0;
+        const rows = await r.json() as any[];
+        return rows.filter((x) => (x.isActive ?? x.is_active) !== false).length;
+      };
+      const [zones, tasks, rooms] = await Promise.all([
+        countActive('cleaning-zones'),
+        countActive('cleaning-tasks'),
+        countActive('rooms'),
       ]);
-      setStats({
-        zones: zonesRes.count || 0,
-        tasks: tasksRes.count || 0,
-        rooms: roomsRes.count || 0,
-      });
+      setStats({ zones, tasks, rooms });
     };
     fetchStats();
   }, [user?.practiceId]);
@@ -61,10 +48,6 @@ export function CleaningDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setRoomDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Manage Rooms
-          </Button>
           <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export Annex B
@@ -121,10 +104,6 @@ export function CleaningDashboard() {
         </TabsContent>
       </Tabs>
 
-      <RoomManagementDialog
-        open={roomDialogOpen}
-        onOpenChange={setRoomDialogOpen}
-      />
     </div>
   );
 }

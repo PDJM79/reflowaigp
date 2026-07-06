@@ -21,6 +21,12 @@ verify_jwt = true
 [functions.process-scheduled-reminders]
 verify_jwt = false
 
+[functions.scheduler-generate-tasks]
+verify_jwt = false
+
+[functions.scheduler-overdue-escalator]
+verify_jwt = false
+
 [functions.create-practice-during-setup]
 verify_jwt = true
 

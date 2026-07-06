@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 // Task Management
 import TaskTemplates from "./pages/TaskTemplates";
 import TasksList from "./pages/TasksList";
+import Logbooks from "./pages/Logbooks";
 import Schedule from "./pages/Schedule";
 
 // Modules
@@ -45,6 +46,8 @@ import EmailReportsSettings from "./pages/EmailReportsSettings";
 
 // Role Management
 import RoleManagement from "./pages/RoleManagement";
+import ReviewQueue from "./pages/ReviewQueue";
+import MyDay from "./pages/MyDay";
 import StaffRoleAssignment from "./pages/StaffRoleAssignment";
 
 // Phase 3 Dashboards
@@ -67,8 +70,6 @@ import StepExecution from "./pages/StepExecution";
 import AllProcesses from "./pages/AllProcesses";
 import RiskRegister from "./pages/RiskRegister";
 import TeamDashboard from "./pages/TeamDashboard";
-import AdminCalendar from "./pages/AdminCalendar";
-import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
 import ModuleSettings from "./pages/settings/ModuleSettings";
@@ -108,6 +109,9 @@ const App = () => (
                   {/* Task Management */}
                   <Route path="/task-templates" element={<TaskTemplates />} />
                   <Route path="/tasks" element={<TasksList />} />
+                  <Route path="/review-queue" element={<ReviewQueue />} />
+                  <Route path="/my-day" element={<MyDay />} />
+                  <Route path="/logbooks" element={<Logbooks />} />
                   <Route path="/schedule" element={<Schedule />} />
                   <Route path="/month-end" element={<MonthEndScripts />} />
                   <Route path="/claims" element={<Claims />} />
@@ -150,8 +154,6 @@ const App = () => (
                   <Route path="/processes" element={<AllProcesses />} />
                   <Route path="/risk-register" element={<RiskRegister />} />
                   <Route path="/team" element={<TeamDashboard />} />
-                  <Route path="/admin/calendar" element={<AdminCalendar />} />
-                  <Route path="/admin/reports" element={<AdminReports />} />
                 </Route>
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

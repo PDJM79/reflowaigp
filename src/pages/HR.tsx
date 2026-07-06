@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
@@ -41,6 +40,17 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   group_manager: 'Group Manager',
 };
 
+/** DBS renewal RAG: red = overdue, amber = due within 60 days, none otherwise. */
+function dbsRenewalState(nextReviewDue: string | null | undefined): { label: string; className: string } | null {
+  if (!nextReviewDue) return null;
+  const due = new Date(nextReviewDue).getTime();
+  if (Number.isNaN(due)) return null;
+  const days = Math.floor((due - Date.now()) / 86400000);
+  if (days < 0) return { label: 'Overdue', className: 'bg-destructive text-destructive-foreground' };
+  if (days < 60) return { label: `Due in ${days}d`, className: 'bg-amber-500 text-white' };
+  return null;
+}
+
 export default function HR() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -49,6 +59,7 @@ export default function HR() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [appraisals, setAppraisals] = useState<any[]>([]);
   const [trainingRecords, setTrainingRecords] = useState<any[]>([]);
+  const [catalogueTypes, setCatalogueTypes] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [dbsChecks, setDbsChecks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +68,7 @@ export default function HR() {
   const [is360FeedbackOpen, setIs360FeedbackOpen] = useState(false);
   const [isTrainingCatalogueOpen, setIsTrainingCatalogueOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedDbsCheck, setSelectedDbsCheck] = useState<any>(null);
   const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
   const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const practiceId = user?.practiceId ?? '';
@@ -79,32 +91,62 @@ export default function HR() {
     try {
       if (!user?.practiceId) return;
 
-      // Get employee count (only real HR employees that have a role assigned)
-      const { count: empCount } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', user.practiceId)
-        .not('role', 'is', null);
-
-      setEmployeeTotalCount(empCount || 0);
-
-      // Get paginated employees
-      const from = (employeePage - 1) * employeePageSize;
-      const to = from + employeePageSize - 1;
-
-      const [employeesData, appraisalsData, trainingData, leaveData, dbsData] = await Promise.all([
-        supabase.from('employees').select('*').eq('practice_id', user.practiceId).not('role', 'is', null).range(from, to),
-        supabase.from('appraisals').select('*, employees(name)').order('scheduled_date', { ascending: false }).limit(10),
-        supabase.from('training_records').select('*, employees(name)').order('completion_date', { ascending: false }).limit(10),
-        supabase.from('leave_requests').select('*, employees(name)').eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('dbs_checks').select('*').eq('practice_id', user.practiceId).order('check_date', { ascending: false }),
+      // Core HR data via the Express API (direct-Supabase was RLS-dead).
+      // employees + training-records have routes; appraisals / leave_requests /
+      // dbs_checks do NOT yet — those sections degrade to empty and are deferred
+      // to a follow-up (they need dedicated routes + storage).
+      const [empRes, trainRes, dbsRes, apprRes, ttRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/dbs-checks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/appraisals`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/training-types`, { credentials: 'include' }),
       ]);
+      const employeesAll: any[] = empRes.ok ? await empRes.json() : [];
+      const trainingAll: any[] = trainRes.ok ? await trainRes.json() : [];
+      const dbsAll: any[] = dbsRes.ok ? await dbsRes.json() : [];
+      const apprAll: any[] = apprRes.ok ? await apprRes.json() : [];
+      const ttAll: any[] = ttRes.ok ? await ttRes.json() : [];
+      setCatalogueTypes(ttAll);
 
-      setEmployees(employeesData.data || []);
-      setAppraisals(appraisalsData.data || []);
-      setTrainingRecords(trainingData.data || []);
-      setLeaveRequests(leaveData.data || []);
-      setDbsChecks(dbsData.data || []);
+      // Only real HR employees that have a role assigned (matches prior filter).
+      const withRole = employeesAll.filter((e) => e.role != null);
+      setEmployeeTotalCount(withRole.length);
+      const from = (employeePage - 1) * employeePageSize;
+      setEmployees(withRole.slice(from, from + employeePageSize));
+
+      // Join employee names onto training records for display.
+      const nameById = new Map(employeesAll.map((e: any) => [e.id, e.name]));
+      const training = [...trainingAll]
+        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+        .slice(0, 10)
+        .map((t: any) => ({
+          ...t,
+          completion_date: t.completedAt,
+          course_name: t.courseName,
+          expiry_date: t.expiryDate,
+          type_id: t.typeId ?? t.type_id ?? null,
+          employees: { name: nameById.get(t.employeeId) },
+        }));
+      setTrainingRecords(training);
+
+      // DBS checks now via API; map to the snake_case the table renders.
+      setDbsChecks(dbsAll.map((d) => ({
+        ...d,
+        employee_id: d.employeeId ?? d.employee_id,
+        check_date: d.checkDate ?? d.check_date,
+        certificate_number: d.certificateNumber ?? d.certificate_number,
+        next_review_due: d.nextReviewDue ?? d.next_review_due,
+      })));
+      // Appraisals now via API; map employee names + snake_case for the render.
+      setAppraisals(apprAll.map((a) => ({
+        ...a,
+        employee_id: a.employeeId ?? a.employee_id,
+        appraisal_date: a.appraisalDate ?? a.appraisal_date,
+        next_due: a.nextDue ?? a.next_due,
+        employees: { name: nameById.get(a.employeeId ?? a.employee_id) },
+      })));
+      setLeaveRequests([]);
     } catch (error) {
       console.error('Error fetching HR data:', error);
     } finally {
@@ -113,6 +155,20 @@ export default function HR() {
   };
 
   const activeEmployees = employees.filter(e => !e.end_date);
+  const assignRecordType = async (recordId: string, typeId: string | null) => {
+    if (!user?.practiceId) return;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/training-records/${recordId}/type`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typeId }),
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      toast.success('Training record typed');
+      fetchHRData();
+    } catch { toast.error('Failed to assign training type'); }
+  };
+
   const pendingAppraisals = appraisals.filter(a => !a.completed_date);
 
   // Capability check - requires manage_training or manage_appraisals capability
@@ -177,30 +233,32 @@ export default function HR() {
           continue;
         }
 
-        // Find employee by name
-        const { data: employee } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('practice_id', practiceId)
-          .ilike('name', `%${employeeName}%`)
-          .single();
+        // Find employee by name (fetch the list once per practice would be nicer,
+        // but keep the per-row match to preserve the existing import semantics).
+        const empRes = await fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' });
+        const employees = empRes.ok ? await empRes.json() as any[] : [];
+        const employee = employees.find((e) => e.name?.toLowerCase().includes(employeeName.toLowerCase()));
 
         if (!employee) {
           skipped++;
           continue;
         }
 
-        // Insert DBS check
-        const { error } = await supabase.from('dbs_checks').insert({
-          employee_id: employee.id,
-          practice_id: practiceId,
-          check_date: new Date(checkDate).toISOString().split('T')[0],
-          certificate_number: certificateNumber || null,
-          next_review_due: nextReviewDue ? new Date(nextReviewDue).toISOString().split('T')[0] : null,
+        // Insert DBS check via the API
+        const res = await fetch(`/api/practices/${practiceId}/dbs-checks`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            checkDate: new Date(checkDate).toISOString(),
+            certificateNumber: certificateNumber || null,
+            nextReviewDue: nextReviewDue ? new Date(nextReviewDue).toISOString() : null,
+          }),
         });
 
-        if (error) {
-          console.error('Import error for row:', i, error);
+        if (!res.ok) {
+          console.error('Import error for row:', i, res.status);
           skipped++;
         } else {
           imported++;
@@ -260,21 +318,16 @@ export default function HR() {
               try {
                 if (!user?.practiceId) throw new Error('User data not found');
 
-                const { data: employeesData } = await supabase
-                  .from('employees')
-                  .select('*')
-                  .eq('practice_id', user.practiceId);
+                const [empRes, trainRes] = await Promise.all([
+                  fetch(`/api/practices/${user.practiceId}/employees`, { credentials: 'include' }),
+                  fetch(`/api/practices/${user.practiceId}/training-records`, { credentials: 'include' }),
+                ]);
+                const employeesData = empRes.ok ? await empRes.json() : [];
+                const trainingRecordsData = trainRes.ok ? await trainRes.json() : [];
+                // training_types has no backing table (phantom) — pass an empty set.
+                const trainingTypesData: any[] = [];
 
-                const { data: trainingTypesData } = await supabase
-                  .from('training_types')
-                  .select('*')
-                  .eq('practice_id', user.practiceId);
-                
-                const { data: trainingRecordsData } = await supabase
-                  .from('training_records')
-                  .select('*');
-
-                if (employeesData && trainingTypesData && trainingRecordsData) {
+                if (employeesData && trainingRecordsData) {
                   generateTrainingMatrixPDF({
                     practiceName: user.practice?.name || 'Unknown Practice',
                     employees: employeesData,
@@ -298,16 +351,11 @@ export default function HR() {
             className="min-h-[44px]"
             onClick={async () => {
               try {
-                const { data: practice } = await supabase
-                  .from('practices')
-                  .select('name')
-                  .eq('id', practiceId)
-                  .single();
-                
-                const { data: employeesData } = await supabase
-                  .from('employees')
-                  .select('*')
-                  .eq('practice_id', practiceId);
+                const practiceRes = await fetch(`/api/practices/${practiceId}`, { credentials: 'include' });
+                const practice = practiceRes.ok ? await practiceRes.json() : null;
+
+                const empRes = await fetch(`/api/practices/${practiceId}/employees`, { credentials: 'include' });
+                const employeesData = empRes.ok ? await empRes.json() : [];
 
                 if (dbsChecks && employeesData) {
                   generateDBSRegisterPDF({
@@ -536,10 +584,13 @@ export default function HR() {
                   <div className="space-y-3">
                     {dbsChecks.map((check: any) => {
                       const employee = employees.find(e => e.id === check.employee_id);
+                      const renewal = dbsRenewalState(check.next_review_due);
                       return (
-                        <div 
-                          key={check.id} 
-                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                        <button
+                          type="button"
+                          key={check.id}
+                          onClick={() => { setSelectedEmployee(employee ?? { id: check.employee_id }); setSelectedDbsCheck(check); setIsDBSDialogOpen(true); }}
+                          className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg text-left hover:bg-accent/50 active:bg-accent gap-2 transition-colors"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm sm:text-base">{employee?.name || 'Unknown Employee'}</p>
@@ -547,13 +598,16 @@ export default function HR() {
                               {check.certificate_number && `Cert: ${check.certificate_number}`}
                             </p>
                           </div>
-                          <div className="text-xs sm:text-sm text-muted-foreground text-right">
+                          <div className="text-xs sm:text-sm text-muted-foreground text-right flex flex-col items-end gap-1">
                             <div>Checked: {new Date(check.check_date).toLocaleDateString()}</div>
                             {check.next_review_due && (
-                              <div>Review Due: {new Date(check.next_review_due).toLocaleDateString()}</div>
+                              <div className="flex items-center gap-2">
+                                <span>Review Due: {new Date(check.next_review_due).toLocaleDateString()}</span>
+                                {renewal && <Badge className={renewal.className}>{renewal.label}</Badge>}
+                              </div>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -564,37 +618,56 @@ export default function HR() {
 
           <TabsContent value="appraisals">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base sm:text-lg">Recent Appraisals</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <CardTitle className="text-base sm:text-lg">Appraisal History</CardTitle>
+                <div className="flex gap-2">
+                  <Select value={selectedEmployeeForAppraisal} onValueChange={setSelectedEmployeeForAppraisal}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map((e: any) => (<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" disabled={!selectedEmployeeForAppraisal}
+                    onClick={() => { setSelectedAppraisal(null); setIsAppraisalDialogOpen(true); }}>
+                    Record
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {appraisals.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No appraisals scheduled</p>
+                    <p>No appraisals recorded</p>
+                    <p className="text-sm mt-2">Select an employee and record their appraisal.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {appraisals.map((appraisal: any) => (
-                      <div 
-                        key={appraisal.id} 
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm sm:text-base">{appraisal.employees?.name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">Period: {appraisal.period}</p>
-                        </div>
-                        <div className="text-xs sm:text-sm whitespace-nowrap">
-                          {appraisal.completed_date ? (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300">
-                              Completed
-                            </Badge>
-                          ) : (
-                            <span>Due: {appraisal.scheduled_date ? new Date(appraisal.scheduled_date).toLocaleDateString() : 'TBC'}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                    {appraisals.map((appraisal: any) => {
+                      const nextDue = appraisal.next_due;
+                      const overdue = nextDue && new Date(nextDue).getTime() < Date.now();
+                      return (
+                        <button
+                          type="button"
+                          key={appraisal.id}
+                          onClick={() => { setSelectedEmployeeForAppraisal(appraisal.employee_id); setSelectedAppraisal(appraisal); setIsAppraisalDialogOpen(true); }}
+                          className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg text-left hover:bg-accent/50 gap-2 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base">{appraisal.employees?.name || 'Employee'}</p>
+                            {appraisal.summary && <p className="text-xs sm:text-sm text-muted-foreground truncate">{appraisal.summary}</p>}
+                          </div>
+                          <div className="text-xs sm:text-sm text-right flex flex-col items-end gap-1">
+                            <span>Appraised: {new Date(appraisal.appraisal_date).toLocaleDateString()}</span>
+                            {nextDue && (
+                              <span className="flex items-center gap-2">
+                                Next due: {new Date(nextDue).toLocaleDateString()}
+                                {overdue && <Badge className="bg-destructive text-destructive-foreground">Overdue</Badge>}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -624,11 +697,25 @@ export default function HR() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm sm:text-base">{record.course_name}</p>
                           <p className="text-xs sm:text-sm text-muted-foreground">{record.employees?.name}</p>
+                          {record.type_id && (
+                            <Badge variant="outline" className="mt-1">{catalogueTypes.find((t) => t.id === record.type_id)?.name ?? 'Typed'}</Badge>
+                          )}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          <div>Completed: {new Date(record.completion_date).toLocaleDateString()}</div>
-                          {record.expiry_date && (
-                            <div>Expires: {new Date(record.expiry_date).toLocaleDateString()}</div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-xs sm:text-sm text-muted-foreground text-right">
+                            <div>Completed: {record.completion_date ? new Date(record.completion_date).toLocaleDateString() : '—'}</div>
+                            {record.expiry_date && (
+                              <div>Expires: {new Date(record.expiry_date).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                          {catalogueTypes.length > 0 && (
+                            <Select value={record.type_id ?? 'none'} onValueChange={(v) => assignRecordType(record.id, v === 'none' ? null : v)}>
+                              <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Assign type" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No type</SelectItem>
+                                {catalogueTypes.map((t) => (<SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
                           )}
                         </div>
                       </div>
@@ -693,20 +780,24 @@ export default function HR() {
           onClose={() => {
             setIsDBSDialogOpen(false);
             setSelectedEmployee(null);
+            setSelectedDbsCheck(null);
           }}
           employeeId={selectedEmployee.id}
           practiceId={practiceId}
+          existingCheck={selectedDbsCheck}
         />
       )}
 
-      {selectedEmployeeForAppraisal && (
+      {selectedEmployeeForAppraisal && isAppraisalDialogOpen && (
         <AppraisalDialog
           employeeId={selectedEmployeeForAppraisal}
+          existing={selectedAppraisal}
           open={isAppraisalDialogOpen}
           onOpenChange={(open) => {
             setIsAppraisalDialogOpen(open);
             if (!open) {
               setSelectedEmployeeForAppraisal('');
+              setSelectedAppraisal(null);
               fetchHRData();
             }
           }}

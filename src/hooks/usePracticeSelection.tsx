@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 interface Practice {
@@ -39,18 +38,10 @@ export const usePracticeSelection = () => {
 
   const fetchPractices = async () => {
     try {
-      const { data, error } = await supabase
-        .from("practices")
-        .select("id, name")
-        .order("name");
-
-      if (error) {
-        console.error("Error fetching practices:", error);
-        throw error;
-      }
-
-      console.log("Fetched practices:", data);
-      setPractices(data || []);
+      const res = await fetch("/api/practices", { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch practices (${res.status})`);
+      const data = await res.json();
+      setPractices(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching practices:", error);
     } finally {

@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { IncidentReportDialog } from '@/components/incidents/IncidentReportDialog';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Plus, Calendar } from 'lucide-react';
+import { AlertTriangle, Plus, Calendar, RefreshCw } from 'lucide-react';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
 export default function Incidents() {
@@ -14,6 +13,7 @@ export default function Incidents() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -27,18 +27,21 @@ export default function Incidents() {
   const fetchIncidents = async () => {
     try {
       if (!user?.practiceId) return;
+      setLoadError(false);
 
-      const { data, error } = await supabase
-        .from('incidents')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('incident_date', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setIncidents(data || []);
+      const res = await fetch(`/api/practices/${user.practiceId}/incidents`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load incidents');
+      const data = await res.json();
+      // API returns Drizzle camelCase; map the one field the render reads as snake_case.
+      const mapped = (Array.isArray(data) ? data : []).map((i: any) => ({
+        ...i,
+        incident_date: i.incidentDate ?? i.dateOccurred ?? i.createdAt,
+      }));
+      mapped.sort((a, b) => new Date(b.incident_date || 0).getTime() - new Date(a.incident_date || 0).getTime());
+      setIncidents(mapped);
     } catch (error) {
       console.error('Error fetching incidents:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -104,6 +107,17 @@ export default function Incidents() {
 
       {loading ? (
         <div className="text-center py-8">Loading incidents...</div>
+      ) : loadError ? (
+        <Card>
+          <CardContent className="py-12 flex flex-col items-center gap-3 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+            <p className="font-medium">Failed to load incidents</p>
+            <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+            <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchIncidents(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : incidents.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

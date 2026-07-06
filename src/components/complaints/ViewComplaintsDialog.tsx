@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,39 +33,37 @@ export function ViewComplaintsDialog({ children }: ViewComplaintsDialogProps) {
     queryKey: ['complaints-list', practiceId, statusFilter],
     queryFn: async () => {
       if (!practiceId) return [];
-      let query = (supabase as any)
-        .from('complaints')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .order('received_at', { ascending: false });
-
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'open') {
-          query = query.is('closed_at', null);
-        } else if (statusFilter === 'closed') {
-          query = query.not('closed_at', 'is', null);
-        }
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      const res = await fetch(`/api/practices/${practiceId}/complaints`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to load complaints (${res.status})`);
+      const rows = await res.json() as any[];
+      // Map API camelCase -> the snake_case this dialog renders.
+      const mapped = rows.map((c) => ({
+        ...c,
+        received_at: c.receivedAt,
+        closed_at: c.closedAt,
+        sla_status: c.slaStatus,
+        complainant_name: c.complainantName,
+      }));
+      const filtered = statusFilter === 'open'
+        ? mapped.filter((c) => !c.closed_at)
+        : statusFilter === 'closed'
+          ? mapped.filter((c) => !!c.closed_at)
+          : mapped;
+      return filtered.sort((a, b) =>
+        new Date(b.received_at || 0).getTime() - new Date(a.received_at || 0).getTime());
     },
-    enabled: !!userData?.practice_id && open,
+    enabled: !!practiceId && open,
   });
 
   const closeComplaint = useMutation({
     mutationFn: async (complaintId: string) => {
-      const { error } = await (supabase as any)
-        .from('complaints')
-        .update({ 
-          closed_at: new Date().toISOString(),
-          sla_status: 'completed',
-          status: 'closed'
-        })
-        .eq('id', complaintId);
-
-      if (error) throw error;
+      const res = await fetch(`/api/practices/${practiceId}/complaints/${complaintId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ closedAt: new Date().toISOString(), slaStatus: 'completed', status: 'closed' }),
+      });
+      if (!res.ok) throw new Error(`Failed to close complaint (${res.status})`);
     },
     onSuccess: () => {
       toast.success('Complaint marked as closed');

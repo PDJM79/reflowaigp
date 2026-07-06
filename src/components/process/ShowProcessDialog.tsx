@@ -23,7 +23,6 @@ import {
   Loader2,
   ChevronRight,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useProcessDiagram } from '@/hooks/useProcessDiagram';
 import { ProcessFlowChart } from './ProcessFlowChart';
 import { exportProcessDiagramToPDF } from '@/lib/processDiagramPdf';
@@ -80,15 +79,15 @@ export function ShowProcessDialog({
   const fetchProcesses = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('process_templates')
-        .select('id, name, frequency, responsible_role')
-        .eq('practice_id', practiceId)
-        .eq('active', true)
-        .order('name');
-
-      if (error) throw error;
-      setProcesses(data || []);
+      const res = await fetch(`/api/practices/${practiceId}/process-templates`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to load processes (${res.status})`);
+      const data = (await res.json() as any[]).map((t) => ({
+        id: t.id,
+        name: t.name,
+        frequency: t.frequency,
+        responsible_role: t.responsibleRole ?? t.responsible_role,
+      })).sort((a, b) => a.name.localeCompare(b.name));
+      setProcesses(data);
     } catch (err) {
       console.error('Error fetching processes:', err);
       toast.error('Failed to load processes');

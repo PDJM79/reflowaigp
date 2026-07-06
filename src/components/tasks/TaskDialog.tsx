@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,30 +63,24 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
     try {
       if (!user?.practiceId) return;
 
-      const [templatesData, usersData] = await Promise.all([
-        supabase
-          .from('task_templates')
-          .select('*')
-          .eq('practice_id', user.practiceId),
-        supabase
-          .from('users')
-          .select(`
-            id,
-            name,
-            user_practice_roles(
-              practice_roles(
-                role_catalog(role_key, display_name)
-              )
-            )
-          `)
-          .eq('practice_id', user.practiceId)
-          .eq('is_active', true),
+      const [templatesRes, usersRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/process-templates`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
       ]);
 
-      setTemplates(templatesData.data || []);
-      setUsers(usersData.data || []);
+      // process_templates uses `name`; this dialog expects `title`.
+      const templatesJson = templatesRes.ok ? await templatesRes.json() : [];
+      setTemplates((Array.isArray(templatesJson) ? templatesJson : []).map((t: any) => ({
+        ...t,
+        title: t.title ?? t.name,
+      })));
+
+      if (!usersRes.ok) throw new Error('Failed to fetch users');
+      const usersData = await usersRes.json();
+      setUsers((Array.isArray(usersData) ? usersData : []).filter((u: any) => u.isActive !== false));
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error('Failed to load team members for assignment');
     }
   };
 
@@ -178,24 +171,26 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="template" className="text-base">Use Template (Optional)</Label>
-            <Select
-              value={formData.template_id}
-              onValueChange={handleTemplateChange}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select a template or create from scratch" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id} className="py-3">
-                    {template.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {templates.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="template" className="text-base">Use Template (Optional)</Label>
+              <Select
+                value={formData.template_id}
+                onValueChange={handleTemplateChange}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select a template or create from scratch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id} className="py-3">
+                      {template.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="title" className="text-base">Title *</Label>
@@ -288,16 +283,11 @@ export function TaskDialog({ isOpen, onClose, onSuccess, task }: TaskDialogProps
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((u) => {
-                    const roleKeys = u.user_practice_roles?.map((upr: any) => 
-                      upr.practice_roles?.role_catalog?.role_key
-                    ).filter(Boolean) || [];
-                    return (
-                      <SelectItem key={u.id} value={u.id} className="py-3">
-                        {u.name} ({roleKeys.length > 0 ? roleKeys.join(', ') : 'No role'})
-                      </SelectItem>
-                    );
-                  })}
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id} className="py-3">
+                      {u.name} ({u.role ? u.role.replace(/_/g, ' ') : 'No role'})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

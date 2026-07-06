@@ -1,0 +1,40 @@
+{
+  "module_id": "GP-MOD-020",
+  "module_name": "Noise at Work",
+  "source_school_module": "MOD-025",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "england_wales": "Control of Noise at Work Regulations 2005",
+    "scotland": "Control of Noise at Work Regulations 2005",
+    "northern_ireland": "Control of Noise at Work Regulations (Northern Ireland) 2006"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager / H&S Lead",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "applicable_condition": "Required where staff are regularly exposed to noise levels at or above 80 dB(A). Typical GP practice sources that may reach this threshold: benchtop autoclave (approximately 75–85 dB(A) at close range during pressurisation cycle), vacuum cleaner (approximately 70–80 dB(A)), suction equipment used in treatment rooms, compressors for compressed air supplies.",
+  "notes": "Differences from school: school DT machinery and grounds maintenance equipment removed. GP-specific noise sources added: autoclave, suction/vacuum equipment, compressors. In most standard GP practices, exposure levels are likely to be below the Lower Exposure Action Value (80 dB(A)), but an assessment must be carried out to confirm this.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-020-001",
+      "title": "Noise Risk Assessment and Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "biennial",
+      "frequency_detail": "At minimum every 2 years. Also review if new noisy equipment is installed or working patterns change.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all significant noise sources in the practice and the staff regularly exposed to them. In a GP practice, typical sources include: benchtop autoclave (dispensary or decontamination room), dental-type suction equipment if used in minor procedures, vacuum cleaners used by cleaning staff, compressors (for compressed air dental/medical equipment), lawnmower or strimmer used by grounds maintenance staff." },
+        { "step_number": 2, "nations": "all", "description": "For each source, estimate or measure noise levels. If levels are uncertain near the 80 dB(A) threshold, a competent person with a calibrated sound level meter should carry out measurements. In most GP practices, levels are likely to be below 80 dB(A) for the majority of staff — document this finding with supporting measurements." },
+        { "step_number": 3, "nations": "all", "description": "Calculate or estimate daily noise exposure (LEP,d) for each exposed worker, taking into account time spent near each source.", "photo_evidence_optional": true, "photo_guidance": "Photograph the sound level meter reading and the noise source being measured." },
+        { "step_number": 4, "nations": "all", "description": "Apply the hierarchy of control: substitute quieter equipment (e.g., quieter autoclave model), engineering controls (enclosures, vibration dampening under autoclave), administrative controls (limit duration of exposure), then hearing protection as a last resort." },
+        { "step_number": 5, "nations": "all", "description": "Where LEP,d is at or above 85 dB(A) (Upper Exposure Action Value): provide and make mandatory the use of hearing protection. Mark hearing protection zones." },
+        { "step_number": 6, "nations": "all", "description": "Where LEP,d is at or above 80 dB(A) (Lower Exposure Action Value): make hearing protection available and provide information and training." },
+        { "step_number": 7, "nations": "all", "description": "Arrange health surveillance (audiometric testing) for staff regularly exposed at or above 85 dB(A)." },
+        { "step_number": 8, "nations": "all", "description": "Record: date, noise sources identified, measured/estimated levels, staff exposed, controls in place, hearing protection provided (if applicable), health surveillance status, next review date." }
+      ]
+    }
+  ]
+}

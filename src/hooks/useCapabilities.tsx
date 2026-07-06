@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, createContext, useContext, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { usePracticeSelection } from './usePracticeSelection';
-import type { Capability, UserPracticeRole, PracticeRole, RoleCatalogEntry } from '@/types/roles';
-import { hasCapability as checkCapability, ALL_CAPABILITIES } from '@/types/roles';
+import type { Capability, UserPracticeRole } from '@/types/roles';
+import { hasCapability as checkCapability } from '@/types/roles';
 
 interface CapabilitiesContextType {
   capabilities: Capability[];
@@ -43,7 +42,6 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
       setLoading(true);
       setError(null);
 
-      // Use session user directly — no Supabase user lookup needed
       const effectivePracticeId = selectedPracticeId || user.practiceId;
 
       if (!effectivePracticeId) {
@@ -54,116 +52,25 @@ export function CapabilitiesProvider({ children }: CapabilitiesProviderProps) {
         return;
       }
 
-      // Grant all capabilities to practice managers (fallback until role migration complete)
-      if (user.isPracticeManager) {
-        setIsPracticeManager(true);
-        setCapabilities([...ALL_CAPABILITIES]);
-        setUserRoles([]);
+      // Capabilities are now computed server-side (catalog defaults + overrides,
+      // with practice managers granted all). See docs/RBAC_MAP.md.
+      const res = await fetch('/api/capabilities', { credentials: 'include' });
+      if (!res.ok) {
+        console.error('Error fetching capabilities:', res.status);
+        setError('Failed to fetch capabilities');
         setLoading(false);
         return;
       }
 
-      setIsPracticeManager(false);
+      const data = await res.json() as {
+        isPracticeManager: boolean;
+        capabilities: Capability[];
+        userRoles: UserPracticeRole[];
+      };
 
-      // Fetch user's practice roles with role catalog details
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_practice_roles')
-        .select(`
-          id,
-          practice_id,
-          user_id,
-          practice_role_id,
-          created_at,
-          updated_at,
-          practice_roles:practice_role_id (
-            id,
-            practice_id,
-            role_catalog_id,
-            is_active,
-            created_at,
-            updated_at,
-            role_catalog:role_catalog_id (
-              id,
-              role_key,
-              display_name,
-              category,
-              default_capabilities,
-              description,
-              created_at,
-              updated_at
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('practice_id', effectivePracticeId);
-
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-        setError('Failed to fetch user roles');
-        setLoading(false);
-        return;
-      }
-
-      // Transform the nested data
-      const transformedRoles: UserPracticeRole[] = (rolesData || []).map((role: any) => ({
-        id: role.id,
-        practice_id: role.practice_id,
-        user_id: role.user_id,
-        practice_role_id: role.practice_role_id,
-        created_at: role.created_at,
-        updated_at: role.updated_at,
-        practice_role: role.practice_roles ? {
-          id: role.practice_roles.id,
-          practice_id: role.practice_roles.practice_id,
-          role_catalog_id: role.practice_roles.role_catalog_id,
-          is_active: role.practice_roles.is_active,
-          created_at: role.practice_roles.created_at,
-          updated_at: role.practice_roles.updated_at,
-          role_catalog: role.practice_roles.role_catalog,
-        } : undefined,
-      }));
-
-      setUserRoles(transformedRoles);
-
-      // Collect all active practice role IDs
-      const activePracticeRoleIds = transformedRoles
-        .filter(r => r.practice_role?.is_active)
-        .map(r => r.practice_role_id);
-
-      if (activePracticeRoleIds.length === 0) {
-        setCapabilities([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch capability overrides
-      const { data: overridesData, error: overridesError } = await supabase
-        .from('practice_role_capabilities')
-        .select('practice_role_id, capability')
-        .in('practice_role_id', activePracticeRoleIds);
-
-      if (overridesError) {
-        console.error('Error fetching capability overrides:', overridesError);
-      }
-
-      // Build capability set: start with defaults, add overrides
-      const capabilitySet = new Set<Capability>();
-
-      // Add default capabilities from role catalog
-      transformedRoles.forEach(role => {
-        if (role.practice_role?.is_active && role.practice_role.role_catalog?.default_capabilities) {
-          role.practice_role.role_catalog.default_capabilities.forEach(cap => {
-            capabilitySet.add(cap as Capability);
-          });
-        }
-      });
-
-      // Add override capabilities
-      (overridesData || []).forEach((override: any) => {
-        capabilitySet.add(override.capability as Capability);
-      });
-
-      setCapabilities(Array.from(capabilitySet));
+      setIsPracticeManager(data.isPracticeManager);
+      setCapabilities(data.capabilities ?? []);
+      setUserRoles(data.userRoles ?? []);
     } catch (err) {
       console.error('Error in fetchCapabilities:', err);
       setError('An unexpected error occurred');

@@ -19,7 +19,6 @@ import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { PendingApprovalItem, ENTITY_TYPE_LABELS } from './types';
 import type { ApprovalDecision } from '@/hooks/useGovernanceNotifications';
 import { useGovernanceNotifications } from '@/hooks/useGovernanceNotifications';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
@@ -53,47 +52,49 @@ export function BulkApprovalDialog({
     
     setSubmitting(true);
     try {
-      // Update all governance_approvals records
+      // Load existing approvals once to find matching pending records.
+      const existingRes = await fetch(`/api/practices/${practiceId}/governance-approvals`, { credentials: 'include' });
+      const existingAll = existingRes.ok ? await existingRes.json() as any[] : [];
+      const nowIso = new Date().toISOString();
+
       const updates = selectedItems.map(async (item) => {
-        // First try to update existing record
-        const { data: existing } = await supabase
-          .from('governance_approvals')
-          .select('id')
-          .eq('entity_type', item.entityType)
-          .eq('entity_id', item.entityId)
-          .eq('decision', 'pending')
-          .single();
+        const existing = existingAll.find((a) =>
+          (a.entityType ?? a.entity_type) === item.entityType &&
+          (a.entityId ?? a.entity_id) === item.entityId &&
+          a.decision === 'pending');
 
         if (existing) {
-          return supabase
-            .from('governance_approvals')
-            .update({
+          return fetch(`/api/practices/${practiceId}/governance-approvals/${existing.id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
               decision,
-              approved_by: user?.id,
-              approved_at: new Date().toISOString(),
-              approval_notes: notes || null,
-              digital_signature: digitalSignature,
-              reviewer_title: reviewerTitle || null,
-            })
-            .eq('id', existing.id);
-        } else {
-          // Create new record if none exists
-          return supabase
-            .from('governance_approvals')
-            .insert({
-              practice_id: practiceId,
-              entity_type: item.entityType,
-              entity_id: item.entityId,
-              entity_name: item.entityName,
-              decision,
-              requested_by: item.requestedBy,
-              approved_by: user?.id,
-              approved_at: new Date().toISOString(),
-              approval_notes: notes || null,
-              digital_signature: digitalSignature,
-              reviewer_title: reviewerTitle || null,
-            });
+              approvedBy: user?.id,
+              approvedAt: nowIso,
+              approvalNotes: notes || null,
+              digitalSignature,
+              reviewerTitle: reviewerTitle || null,
+            }),
+          });
         }
+        return fetch(`/api/practices/${practiceId}/governance-approvals`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityType: item.entityType,
+            entityId: item.entityId,
+            entityName: item.entityName,
+            decision,
+            requestedBy: item.requestedBy,
+            approvedBy: user?.id,
+            approvedAt: nowIso,
+            approvalNotes: notes || null,
+            digitalSignature,
+            reviewerTitle: reviewerTitle || null,
+          }),
+        });
       });
 
       await Promise.all(updates);

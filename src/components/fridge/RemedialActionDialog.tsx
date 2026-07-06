@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import type { TempLogWithFridge } from './types';
 
 interface RemedialActionDialogProps {
@@ -27,14 +27,17 @@ const OUTCOME_OPTIONS = [
 ];
 
 export function RemedialActionDialog({ log, open, onOpenChange, onSuccess }: RemedialActionDialogProps) {
+  const { user } = useAuth();
   const [remedialAction, setRemedialAction] = useState('');
   const [outcome, setOutcome] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (log) {
-      setRemedialAction(log.remedial_action || '');
-      setOutcome(log.outcome || '');
+      // fridge_readings has a single free-text `action_taken` column (no separate
+      // remedial_action/outcome). Prefill the notes from it; outcome starts blank.
+      setRemedialAction((log as any).actionTaken || (log as any).action_taken || '');
+      setOutcome('');
     }
   }, [log]);
 
@@ -53,15 +56,16 @@ export function RemedialActionDialog({ log, open, onOpenChange, onSuccess }: Rem
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('temp_logs')
-        .update({
-          remedial_action: remedialAction.trim(),
-          outcome: outcome
-        })
-        .eq('id', log.id);
-
-      if (error) throw error;
+      // Combine the action + outcome into the single `action_taken` column.
+      const outcomeLabel = OUTCOME_OPTIONS.find(o => o.value === outcome)?.label ?? outcome;
+      const actionTaken = `${remedialAction.trim()} — Outcome: ${outcomeLabel}`;
+      const res = await fetch(`/api/practices/${user!.practiceId}/fridge-readings/${log.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionTaken }),
+      });
+      if (!res.ok) throw new Error(`Failed to record remedial action (${res.status})`);
 
       toast.success('Remedial action recorded successfully');
       onOpenChange(false);

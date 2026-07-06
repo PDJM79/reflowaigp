@@ -1,0 +1,57 @@
+{
+  "module_id": "GP-MOD-016",
+  "module_name": "Environmental and Waste Management",
+  "source_school_module": "MOD-020",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "england_wales": "Environmental Protection Act 1990; Hazardous Waste Regulations 2005 (England and Wales); Controlled Waste (England and Wales) Regulations 2012",
+    "scotland": "Environmental Protection Act 1990; Special Waste Regulations 1996 (Scotland); SEPA guidance",
+    "northern_ireland": "Waste and Contaminated Land (Northern Ireland) Order 1997; Hazardous Waste Regulations (NI) 2005"
+  },
+  "enforcing_body": {
+    "england": "Environment Agency (EA) + CQC",
+    "wales": "Natural Resources Wales (NRW) + HIW",
+    "scotland": "SEPA + HIS",
+    "northern_ireland": "NIEA + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Key difference from school: GP practices generate clinical waste streams that are more extensive than schools. A detailed clinical waste logbook is maintained separately in GP-MOD-025. This module covers non-clinical hazardous waste (fluorescent tubes, batteries, IT equipment, printer cartridges, oil/fuel storage) and general waste duty of care. Clinical waste is intentionally cross-referenced rather than duplicated here.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-016-001",
+      "title": "Hazardous Waste Disposal Record (Non-Clinical)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_disposal",
+      "frequency_detail": "Record each disposal event as it occurs. Note: clinical and medicines waste is recorded in GP-MOD-025.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify the waste type and confirm whether it is classified as hazardous. Non-clinical hazardous waste common to GP practices: fluorescent tubes and compact fluorescent lamps, batteries (all chemistries), waste electrical and electronic equipment (WEEE — computers, monitors, printers, medical devices at end of life), printer toner cartridges, aerosol cans." },
+        { "step_number": 2, "nations": "all", "description": "Arrange collection with a licensed waste carrier — confirm the carrier holds an EA waste carrier licence (England/Wales), SEPA registration (Scotland), or NIEA registration (NI). Confirm they can handle the specific waste type." },
+        { "step_number": 3, "nations": "england", "description": "Complete a Hazardous Waste Consignment Note for hazardous waste movements. Retain copies for minimum 3 years. Report each consignment to EA if the premises is a 'notifiable' hazardous waste producer (>500 kg per year). Check current EA guidance on premises exemptions." },
+        { "step_number": 3, "nations": "wales", "description": "Complete a Hazardous Waste Consignment Note. Retain copies for minimum 3 years. NRW regulates in Wales — confirm NRW carrier registration." },
+        { "step_number": 3, "nations": "scotland", "description": "In Scotland, use a Special Waste Consignment Note. Pre-notification to SEPA is required at least 1 working day in advance for 'special waste' movements. Retain copies for minimum 3 years." },
+        { "step_number": 3, "nations": "northern_ireland", "description": "Complete a Hazardous Waste Consignment Note per NIEA requirements. NIEA-registered carrier required. Retain copies for minimum 3 years." },
+        { "step_number": 4, "nations": "all", "description": "Complete a Waste Transfer Note for non-hazardous waste collections. Retain for minimum 2 years." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, waste type, EWC/LoW code, quantity, carrier name and licence number, consignment/transfer note reference number." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-016-002",
+      "title": "Annual Oil/Fuel Storage Tank Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only required for practices with oil-fired heating systems or on-site fuel storage. Many modern GP premises use mains gas — check with the premises manager.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Visually inspect the oil tank external surfaces for corrosion, leaks, damage or discolouration.", "photo_evidence_optional": true, "photo_guidance": "Photograph the tank, bund and any visible corrosion or staining." },
+        { "step_number": 2, "nations": "all", "description": "Inspect the secondary containment (bund): structurally sound, no cracks, free of standing water and oil. Confirm it can hold 110% of the largest tank volume." },
+        { "step_number": 3, "nations": "all", "description": "Check fill point, vent pipe, OPD (overfill prevention device), fire valve, and oil level gauge — all operational." },
+        { "step_number": 4, "nations": "england", "description": "Compliance with Control of Pollution (Oil Storage) Regulations 2001 (England) required for tanks >200 litres. EA enforces." },
+        { "step_number": 4, "nations": "wales", "description": "Environmental Permitting (England and Wales) Regulations 2016 apply to oil storage in Wales. NRW enforces." },
+        { "step_number": 4, "nations": "scotland", "description": "Water Environment (Oil Storage) (Scotland) Regulations 2006 apply. SEPA enforces. Requirements broadly equivalent to England." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "Control of Pollution (Oil Storage) Regulations (NI) 2010 apply. NIEA enforces." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, tank reference, condition of tank/bund/OPD/valve, any defects, action taken, inspector name." }
+      ]
+    }
+  ]
+}

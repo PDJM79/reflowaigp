@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Clock, User, CheckCircle, AlertTriangle, Play, Calendar } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 import { BackButton } from '@/components/ui/back-button';
+import { toast } from 'sonner';
 
 interface ProcessInstance {
   id: string;
@@ -74,43 +74,55 @@ export default function TaskDetail() {
     const fetchTaskData = async () => {
       try {
         // First try to fetch from process_instances
-        const { data: instance } = await supabase
-          .from('process_instances')
-          .select('*')
-          .eq('id', taskId)
-          .maybeSingle();
+        const piRes = await fetch(`/api/practices/${user!.practiceId}/process-instances/${taskId}`, { credentials: 'include' });
+        const instance = piRes.ok ? await piRes.json() : null;
 
         if (instance) {
-          setProcessInstance(instance);
+          const templateId = instance.templateId ?? instance.template_id;
+          setProcessInstance({ ...instance, template_id: templateId });
           setTaskType('process');
 
           // Fetch template
-          const { data: template } = await supabase
-            .from('process_templates')
-            .select('*')
-            .eq('id', instance.template_id)
-            .single();
-
-          setProcessTemplate(template);
+          const tplRes = await fetch(`/api/practices/${user!.practiceId}/process-templates/${templateId}`, { credentials: 'include' });
+          setProcessTemplate(tplRes.ok ? await tplRes.json() : null);
 
           // Fetch step instances
-          const { data: steps } = await supabase
-            .from('step_instances')
-            .select('*')
-            .eq('process_instance_id', taskId)
-            .order('step_index', { ascending: true });
-
-          setStepInstances(steps || []);
+          const stepsRes = await fetch(`/api/practices/${user!.practiceId}/process-instances/${taskId}/step-instances`, { credentials: 'include' });
+          setStepInstances(stepsRes.ok ? await stepsRes.json() : []);
         } else {
-          // If not found in process_instances, try tasks table
-          const { data: task } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('id', taskId)
-            .maybeSingle();
-
-          if (task) {
-            setSimpleTask(task);
+          // If not found in process_instances, try the tasks API
+          const res = await fetch(`/api/practices/${user!.practiceId}/tasks/${taskId}`, {
+            credentials: 'include',
+          });
+          if (res.ok) {
+            const task = await res.json();
+            // Logbook occurrences with steps deep-link into StepExecution: lazily
+            // create/link the process instance and redirect to step 0.
+            const notDone = task.status !== 'complete' && task.status !== 'closed';
+            if (notDone && (task.sourceType === 'logbook' || task.templateId || task.selectionId)) {
+              const piRes = await fetch(`/api/practices/${user!.practiceId}/tasks/${task.id}/process-instance`, {
+                method: 'POST', credentials: 'include',
+              });
+              if (piRes.ok) {
+                const { processInstanceId, hasSteps } = await piRes.json();
+                if (hasSteps && processInstanceId) {
+                  navigate(`/task/${processInstanceId}/step/0`, { replace: true });
+                  return;
+                }
+              }
+            }
+            setSimpleTask({
+              id: task.id,
+              title: task.title,
+              description: task.description || '',
+              module: task.module || '',
+              status: task.status || 'pending',
+              due_at: task.dueAt,
+              priority: task.priority || 'medium',
+              assigned_to_user_id: task.assigneeId,
+              completed_at: task.completedAt,
+              created_at: task.createdAt,
+            });
             setTaskType('simple');
           }
         }
@@ -129,13 +141,12 @@ export default function TaskDetail() {
 
     try {
       // Update process instance to started
-      await supabase
-        .from('process_instances')
-        .update({ 
-          status: 'in_progress',
-          started_at: new Date().toISOString()
-        })
-        .eq('id', processInstance.id);
+      await fetch(`/api/practices/${user!.practiceId}/process-instances/${processInstance.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress', startedAt: new Date().toISOString() }),
+      });
 
       // Always create step instances when starting a process
       if (processTemplate.steps) {
@@ -157,27 +168,26 @@ export default function TaskDetail() {
         if (Array.isArray(stepsArray) && stepsArray.length > 0) {
         
         // First, check if step instances already exist
-        const { data: existingSteps } = await supabase
-          .from('step_instances')
-          .select('step_index')
-          .eq('process_instance_id', processInstance.id);
+        const existRes = await fetch(`/api/practices/${user!.practiceId}/process-instances/${processInstance.id}/step-instances`, { credentials: 'include' });
+        const existingSteps = existRes.ok ? await existRes.json() as any[] : [];
+        const existingIndices = existingSteps.map(s => s.step_index);
 
-        const existingIndices = existingSteps?.map(s => s.step_index) || [];
-        
         // Create missing step instances
         const stepsToCreate = stepsArray
           .map((step: any, index: number) => ({
-            process_instance_id: processInstance.id,
-            step_index: index,
+            stepIndex: index,
             title: step.title || step.description || `Step ${index + 1}`,
-            status: 'pending' as const
+            status: 'pending' as const,
           }))
           .filter((_, index) => !existingIndices.includes(index));
 
         if (stepsToCreate.length > 0) {
-          await supabase
-            .from('step_instances')
-            .insert(stepsToCreate);
+          await fetch(`/api/practices/${user!.practiceId}/process-instances/${processInstance.id}/step-instances`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ steps: stepsToCreate }),
+          });
         }
       }
       }
@@ -190,20 +200,25 @@ export default function TaskDetail() {
   };
 
   const handleCompleteSimpleTask = async () => {
-    if (!simpleTask) return;
+    if (!simpleTask || !user?.practiceId) return;
 
     try {
-      await supabase
-        .from('tasks')
-        .update({ 
-          status: 'complete',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', simpleTask.id);
+      const res = await fetch(`/api/practices/${user.practiceId}/tasks/${simpleTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'complete' }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? err.error : 'Failed to complete task');
+      }
 
       setSimpleTask({ ...simpleTask, status: 'complete', completed_at: new Date().toISOString() });
+      toast.success('Task completed');
     } catch (error) {
       console.error('Error completing task:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to complete task');
     }
   };
 

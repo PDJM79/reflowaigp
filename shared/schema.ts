@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, jsonb, integer, decimal, pgEnum, varchar, serial, index, date, uniqueIndex, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql, relations } from "drizzle-orm";
@@ -10,6 +10,23 @@ export const userRoleEnum = pgEnum('user_role', [
 
 export const processFrequencyEnum = pgEnum('process_frequency', [
   'daily', 'twice_daily', 'weekly', 'monthly', 'quarterly', 'six_monthly', 'annually'
+]);
+
+// Phase 1: base cadence dimension for curated logbooks. Separate from
+// process_frequency (which stays on process_templates) so it is reversible.
+export const baseCadenceEnum = pgEnum('base_cadence', [
+  'daily', 'twice_daily', 'weekly', 'fortnightly', 'monthly', 'termly', 'quarterly', 'six_monthly',
+  'biennial', 'annual', 'triennial', 'five_yearly', 'periodic_review', 'ad_hoc'
+]);
+
+// Phase 1: home nation / regulator. Distinct from country_code (no NI).
+export const regulatoryBodyEnum = pgEnum('regulatory_body', [
+  'england', 'wales', 'scotland', 'northern_ireland'
+]);
+
+// Phase 1: what produced a task row.
+export const taskSourceTypeEnum = pgEnum('task_source_type', [
+  'adhoc', 'logbook', 'cleaning', 'fridge', 'system'
 ]);
 
 export const processStatusEnum = pgEnum('process_status', [
@@ -53,7 +70,14 @@ export const practices = pgTable("practices", {
   isActive: boolean("is_active").default(true),
   onboardingStage: text("onboarding_stage").default('pending'),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
-  // Added by migration 20260304180000
+  // Phase 1: home nation, timezone, practice type (drive nation filtering + scheduling)
+  regulatoryBody: regulatoryBodyEnum("regulatory_body"),
+  timezone: text("timezone").notNull().default('Europe/London'),
+  isDispensing: boolean("is_dispensing").notNull().default(false),
+  isBranch: boolean("is_branch").notNull().default(false),
+  // Phase 2: general-purpose bag; holds the scheduler_enabled staged-rollout flag.
+  metadata: jsonb("metadata").notNull().default({}),
+  // Onboarding wizard (migration 20260304180000): practice profile fields
   address: text("address"),
   postcode: varchar("postcode", { length: 10 }),
   regulator: varchar("regulator", { length: 10 }).default('cqc'),
@@ -127,6 +151,17 @@ export const processTemplates = pgTable("process_templates", {
   storageHints: jsonb("storage_hints").default({}),
   regulatoryStandards: jsonb("regulatory_standards").default([]),
   isActive: boolean("is_active").default(true),
+  // Phase 1: opt-in scheduling metadata (isScheduled defaults false — existing
+  // templates unaffected until explicitly enabled by the Phase 2 scheduler).
+  preferredDay: integer("preferred_day"),
+  preferredDate: integer("preferred_date"),
+  dueWindowHours: integer("due_window_hours").notNull().default(24),
+  earlyStartHours: integer("early_start_hours").notNull().default(12),
+  defaultAssigneeId: uuid("default_assignee_id").references(() => users.id, { onDelete: "set null" }),
+  defaultAssigneeRole: userRoleEnum("default_assignee_role"),
+  requiresReview: boolean("requires_review").notNull().default(false),
+  importance: text("importance").notNull().default('medium'),
+  isScheduled: boolean("is_scheduled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -279,6 +314,19 @@ export const trainingRecords = pgTable("training_records", {
   evidenceId: uuid("evidence_id"),
   isMandatory: boolean("is_mandatory").default(false),
   reminderSentAt: timestamp("reminder_sent_at"),
+  typeId: uuid("type_id"), // KF4: link to practice training_types (NULL for legacy rows)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KF4: practice-defined catalogue of training types (the phantom table, real).
+export const trainingTypes = pgTable("training_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  renewalFrequency: baseCadenceEnum("renewal_frequency"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -292,6 +340,33 @@ export const dbsChecks = pgTable("dbs_checks", {
   nextReviewDue: timestamp("next_review_due"),
   evidenceId: uuid("evidence_id"),
   reminderSentAt: timestamp("reminder_sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KF2: per-employee appraisal record (the register behind curated GP-LB-028-004).
+export const appraisals = pgTable("appraisals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  appraisalDate: date("appraisal_date", { mode: "string" }).notNull(),
+  appraiserId: uuid("appraiser_id").references(() => users.id, { onDelete: "set null" }),
+  summary: text("summary"),
+  nextDue: date("next_due", { mode: "string" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KF5: per-room assessment register.
+export const roomAssessments = pgTable("room_assessments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  roomId: uuid("room_id").references(() => rooms.id, { onDelete: "cascade" }).notNull(),
+  assessedBy: uuid("assessed_by").references(() => users.id, { onDelete: "set null" }),
+  assessmentDate: date("assessment_date", { mode: "string" }).notNull(),
+  outcome: text("outcome"),
+  notes: text("notes"),
+  nextDue: date("next_due", { mode: "string" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -375,6 +450,9 @@ export const cleaningTasks = pgTable("cleaning_tasks", {
   periodicRule: text("periodic_rule"),
   isActive: boolean("is_active").default(true),
   requiresPhoto: boolean("requires_photo").default(false),
+  // Phase 5: central-scheduler integration (opt-in per practice).
+  selectionId: uuid("selection_id").references(() => practiceLogbookSelections.id, { onDelete: "set null" }),
+  defaultAssigneeRole: text("default_assignee_role"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -406,6 +484,8 @@ export const fridgeUnits = pgTable("fridge_units", {
   minTemp: decimal("min_temp", { precision: 4, scale: 1 }).default('2.0'),
   maxTemp: decimal("max_temp", { precision: 4, scale: 1 }).default('8.0'),
   isActive: boolean("is_active").default(true),
+  // Phase 5: how often this fridge is checked (drives central-scheduler occurrences).
+  readingFrequency: baseCadenceEnum("reading_frequency").notNull().default('daily'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -419,6 +499,18 @@ export const fridgeReadings = pgTable("fridge_readings", {
   recordedBy: uuid("recorded_by").references(() => users.id),
   isOutOfRange: boolean("is_out_of_range").default(false),
   actionTaken: text("action_taken"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Phase 6: record of each generated compliance export (PDF/CSV; Annex B variant).
+export const complianceExports = pgTable("compliance_exports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  params: jsonb("params").notNull().default({}),
+  format: text("format").notNull(),
+  status: text("status").notNull().default('complete'),
+  fileRef: text("file_ref"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -455,6 +547,18 @@ export const claimItems = pgTable("claim_items", {
   totalValue: decimal("total_value", { precision: 10, scale: 2 }),
   evidenceIds: text("evidence_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const claimReviews = pgTable("claim_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  claimRunId: uuid("claim_run_id").references(() => claimRuns.id, { onDelete: "cascade" }).notNull(),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewDate: date("review_date", { mode: "string" }).notNull(),
+  outcome: text("outcome").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const fireRiskAssessmentsV2 = pgTable("fire_risk_assessments_v2", {
@@ -586,6 +690,20 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   module: text("module"),
   metadata: jsonb("metadata").default({}),
+  // Phase 1: source + curated linkage + scheduling window + review workflow.
+  // status stays free text; new values (submitted_for_review/overdue/rejected/
+  // missed) coexist with the existing pending/in_progress/complete. Existing
+  // rows default to source_type='adhoc', so nothing changes behaviourally.
+  sourceType: taskSourceTypeEnum("source_type").notNull().default('adhoc'),
+  selectionId: uuid("selection_id").references(() => practiceLogbookSelections.id, { onDelete: "set null" }),
+  scheduledDate: date("scheduled_date", { mode: 'string' }),
+  slot: text("slot").notNull().default(''), // 'am'/'pm' for twice_daily; '' otherwise
+  visibleFrom: timestamp("visible_from"),
+  importance: text("importance").notNull().default('medium'),
+  submittedForReviewAt: timestamp("submitted_for_review_at"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectedReason: text("rejected_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -675,6 +793,160 @@ export const roleAssignments = pgTable("role_assignments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// MFA secret + phone (server-only; never sent to the client). Read-def.
+export const userAuthSensitive = pgTable("user_auth_sensitive", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  mfaSecret: text("mfa_secret"),
+  phoneNumber: text("phone_number"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Contact email for a role assignment (1:1). Read-def of existing table.
+export const roleAssignmentContacts = pgTable("role_assignment_contacts", {
+  assignmentId: uuid("assignment_id").primaryKey().references(() => roleAssignments.id, { onDelete: "cascade" }),
+  assignedEmail: text("assigned_email").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// The 37 capability enum values, mirrored from src/types/roles.ts for server use.
+export const ALL_CAPABILITIES: string[] = [
+  'view_policies', 'ack_policies', 'manage_policies', 'approve_policies', 'manage_redactions',
+  'manage_cleaning', 'complete_cleaning', 'manage_ipc', 'run_ipc_audit', 'manage_fire', 'run_fire_checks',
+  'manage_hs', 'run_risk_assessment', 'manage_rooms', 'run_room_assessment',
+  'manage_training', 'view_training', 'upload_certificate', 'manage_appraisals', 'run_appraisal', 'collect_360',
+  'report_incident', 'manage_incident', 'log_complaint', 'manage_complaint',
+  'record_script', 'manage_claims', 'manage_medical_requests', 'manage_fridges', 'record_fridge_temp',
+  'manage_qof', 'run_reports', 'view_dashboards', 'manage_users', 'assign_roles', 'configure_practice', 'configure_notifications',
+];
+
+// --- RBAC catalog (read-descriptions of existing Supabase-native tables) ---
+// The `capability` values are modelled as text (reads return the same strings;
+// no enum needed for the read/write access path). See docs/RBAC_MAP.md.
+export const roleCatalog = pgTable("role_catalog", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  roleKey: text("role_key").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  category: text("category").notNull(),
+  defaultCapabilities: text("default_capabilities").array().notNull().default([]),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const practiceRoles = pgTable("practice_roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  roleCatalogId: uuid("role_catalog_id").references(() => roleCatalog.id, { onDelete: "restrict" }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  practiceRoleUnique: uniqueIndex("practice_roles_practice_id_role_catalog_id_key").on(t.practiceId, t.roleCatalogId),
+}));
+
+export const practiceRoleCapabilities = pgTable("practice_role_capabilities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceRoleId: uuid("practice_role_id").references(() => practiceRoles.id, { onDelete: "cascade" }).notNull(),
+  capability: text("capability").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  capabilityUnique: uniqueIndex("practice_role_capabilities_practice_role_id_capability_key").on(t.practiceRoleId, t.capability),
+}));
+
+export const userPracticeRoles = pgTable("user_practice_roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  practiceRoleId: uuid("practice_role_id").references(() => practiceRoles.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  userRoleUnique: uniqueIndex("user_practice_roles_user_id_practice_role_id_key").on(t.userId, t.practiceRoleId),
+}));
+
+// --- Read-descriptions of existing Supabase-native tables (batch c; no ALTER) ---
+export const medicalRequests = pgTable("medical_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  requestType: text("request_type").notNull(),
+  receivedAt: timestamp("received_at").notNull(),
+  emisHash: text("emis_hash"),
+  assignedGpId: uuid("assigned_gp_id"),
+  sentAt: timestamp("sent_at"),
+  status: text("status").default('received'),
+  notes: text("notes"),
+  evidenceIds: uuid("evidence_ids").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const governanceApprovals = pgTable("governance_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  entityName: text("entity_name").notNull(),
+  approvalType: text("approval_type").notNull().default('sign_off'),
+  decision: text("decision").notNull().default('pending'),
+  requestedBy: uuid("requested_by"),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  digitalSignature: text("digital_signature"),
+  reviewerTitle: text("reviewer_title"),
+  urgency: text("urgency").default('medium'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const monthEndScripts = pgTable("month_end_scripts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  month: date("month").notNull(),
+  issueDate: date("issue_date").notNull(),
+  emisHash: text("emis_hash").notNull(),
+  drugCode: text("drug_code").notNull(),
+  drugName: text("drug_name").notNull(),
+  quantity: decimal("quantity").notNull(),
+  prescriber: text("prescriber").notNull(),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const baselineSnapshots = pgTable("baseline_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  baselineName: text("baseline_name").notNull().default('Baseline'),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  complianceScore: decimal("compliance_score", { precision: 5, scale: 2 }).notNull(),
+  fitForAuditScore: decimal("fit_for_audit_score", { precision: 5, scale: 2 }).notNull(),
+  driverDetails: jsonb("driver_details").notNull().default([]),
+  redFlags: jsonb("red_flags").notNull().default([]),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const baselineDocuments = pgTable("baseline_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  baselineId: uuid("baseline_id"),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  storagePath: text("storage_path").notNull(),
+  fileHash: text("file_hash").notNull(),
+  fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
+  processingStatus: text("processing_status").notNull().default('pending'),
+  processingError: text("processing_error"),
+  extractedData: jsonb("extracted_data"),
+  uploadedBy: uuid("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const riskRegister = pgTable("risk_register", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
@@ -722,6 +994,9 @@ export type InsertFridgeUnit = z.infer<typeof insertFridgeUnitSchema>;
 export type InsertFridgeReading = z.infer<typeof insertFridgeReadingSchema>;
 export type FridgeUnit = typeof fridgeUnits.$inferSelect;
 export type FridgeReading = typeof fridgeReadings.$inferSelect;
+export const insertComplianceExportSchema = createInsertSchema(complianceExports).omit({ id: true, createdAt: true });
+export type InsertComplianceExport = z.infer<typeof insertComplianceExportSchema>;
+export type ComplianceExport = typeof complianceExports.$inferSelect;
 
 export type Practice = typeof practices.$inferSelect;
 export type User = typeof users.$inferSelect;
@@ -744,6 +1019,98 @@ export type InsertCleaningLog = z.infer<typeof insertCleaningLogSchema>;
 export type CleaningZone = typeof cleaningZones.$inferSelect;
 export type CleaningTask = typeof cleaningTasks.$inferSelect;
 export type CleaningLog = typeof cleaningLogs.$inferSelect;
+
+// ===========================================================================
+// Phase 1: Curated logbook library + practice selections/closures
+// (schema foundation only — inert until a practice enables a selection)
+// ===========================================================================
+
+// One row per GP module. Module-level attributes (legislation, enforcing body,
+// provenance) live here because the source JSON defines them once per module.
+export const curatedSections = pgTable("curated_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),          // e.g. GP-MOD-001
+  name: text("name").notNull().unique(),          // module_name
+  slug: text("slug").notNull().unique(),          // e.g. fire-safety
+  sortOrder: integer("sort_order").notNull().default(0),
+  responsibleRole: text("responsible_role"),
+  primaryLegislation: jsonb("primary_legislation").notNull().default({}),
+  enforcingBody: jsonb("enforcing_body").notNull().default({}),
+  applicableTo: text("applicable_to").array().notNull().default(sql`ARRAY[]::text[]`),
+  applicableCondition: text("applicable_condition"),
+  notes: text("notes"),
+  provenance: jsonb("provenance").notNull().default({}), // {source_school_module, comparison_status}
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// One row per logbook (92). Nation tagging lives per-step inside the steps
+// JSONB; there is deliberately no logbook-level nation column.
+export const curatedLogbooks = pgTable("curated_logbooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sectionId: uuid("section_id").references(() => curatedSections.id, { onDelete: "cascade" }).notNull(),
+  code: text("code").notNull().unique(),          // e.g. GP-LB-001-001
+  title: text("title").notNull(),
+  applicableTo: text("applicable_to").array().notNull().default(sql`ARRAY[]::text[]`),
+  applicableCondition: text("applicable_condition"),
+  cadence: baseCadenceEnum("cadence").notNull(),
+  triggers: text("triggers").array().notNull().default(sql`ARRAY[]::text[]`), // event/on_change/onboarding
+  frequencyRaw: text("frequency_raw"),            // original JSON frequency string
+  frequencyDetail: text("frequency_detail"),
+  steps: jsonb("steps").notNull().default([]),    // each step keeps its own "nations"
+  // Reserved scaffolding (absent in source JSON; populated in later phases):
+  evidenceRequired: text("evidence_required"),
+  advisorySteps: text("advisory_steps"),
+  importance: text("importance"),
+  regulatoryStandards: jsonb("regulatory_standards"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Which curated logbooks a practice has enabled. Empty on ship.
+export const practiceLogbookSelections = pgTable("practice_logbook_selections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  curatedLogbookId: uuid("curated_logbook_id").references(() => curatedLogbooks.id, { onDelete: "cascade" }).notNull(),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  adHocOnly: boolean("ad_hoc_only").notNull().default(false),
+  cadenceOverride: baseCadenceEnum("cadence_override"),
+  preferredDay: integer("preferred_day"),         // 0-6 weekly/fortnightly
+  preferredDate: integer("preferred_date"),       // 1-28 monthly+
+  dueWindowHours: integer("due_window_hours").notNull().default(24),
+  earlyStartHours: integer("early_start_hours").notNull().default(12),
+  importance: text("importance"),
+  defaultAssigneeId: uuid("default_assignee_id").references(() => users.id, { onDelete: "set null" }),
+  defaultAssigneeRole: userRoleEnum("default_assignee_role"),
+  requiresReview: boolean("requires_review").notNull().default(false),
+  nextReviewDate: date("next_review_date", { mode: 'string' }), // for periodic_review items
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uqPracticeLogbook: uniqueIndex("uq_practice_logbook").on(t.practiceId, t.curatedLogbookId),
+}));
+
+// Days a practice is closed (skipped by the Phase 2 scheduler).
+export const practiceClosureDates = pgTable("practice_closure_dates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  closureDate: date("closure_date", { mode: 'string' }).notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  uqPracticeClosure: uniqueIndex("uq_practice_closure").on(t.practiceId, t.closureDate),
+}));
+
+export const insertCuratedSectionSchema = createInsertSchema(curatedSections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCuratedLogbookSchema = createInsertSchema(curatedLogbooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPracticeLogbookSelectionSchema = createInsertSchema(practiceLogbookSelections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPracticeClosureDateSchema = createInsertSchema(practiceClosureDates).omit({ id: true, createdAt: true });
+export type CuratedSection = typeof curatedSections.$inferSelect;
+export type CuratedLogbook = typeof curatedLogbooks.$inferSelect;
+export type PracticeLogbookSelection = typeof practiceLogbookSelections.$inferSelect;
+export type PracticeClosureDate = typeof practiceClosureDates.$inferSelect;
 
 // ── Onboarding Wizard ─────────────────────────────────────────────────────────
 

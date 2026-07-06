@@ -8,6 +8,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ScriptClaimRunDialogProps {
   open: boolean;
@@ -16,22 +17,34 @@ interface ScriptClaimRunDialogProps {
 }
 
 export function ScriptClaimRunDialog({ open, onOpenChange, onSuccess }: ScriptClaimRunDialogProps) {
+  const { user } = useAuth();
   const now = new Date();
   const [periodStart, setPeriodStart] = useState<Date>(startOfMonth(now));
   const [periodEnd, setPeriodEnd] = useState<Date>(endOfMonth(now));
   const [creating, setCreating] = useState(false);
 
   const handleCreateRun = async () => {
+    if (!user?.practiceId) return;
+    if (periodEnd < periodStart) { toast.error('Period end must be after period start'); return; }
     setCreating(true);
     try {
-      toast("This feature will be available in a future update", {
-        description: "Script claim run creation is coming soon"
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const res = await fetch(`/api/practices/${user.practiceId}/claim-runs`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: iso(periodStart), to: iso(periodEnd), claimType: 'month_end' }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to create claim run (${res.status})`);
+      }
+      const run = await res.json();
+      toast.success(`Claim run created — ${run.totalScripts ?? 0} scripts`);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
-      console.error('Error creating claim run:', error);
-      toast.error('Failed to create claim run');
+      toast.error(error.message || 'Failed to create claim run');
     } finally {
       setCreating(false);
     }

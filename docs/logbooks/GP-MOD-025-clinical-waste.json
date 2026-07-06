@@ -1,0 +1,67 @@
+{
+  "module_id": "GP-MOD-025",
+  "module_name": "Clinical Waste Management",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "england_wales": "Environmental Protection Act 1990; Controlled Waste (England and Wales) Regulations 2012; Hazardous Waste Regulations 2005; HTM 07-01 (Safe Management of Healthcare Waste, England and Wales)",
+    "scotland": "Environmental Protection Act 1990; Special Waste Regulations 1996 (Scotland); HFS (Health Facilities Scotland) Healthcare Waste Management guidance aligned to HTM 07-01",
+    "northern_ireland": "Waste and Contaminated Land (NI) Order 1997; Hazardous Waste Regulations (NI) 2005; HSCB/PHA guidance on healthcare waste aligned to HTM 07-01"
+  },
+  "enforcing_body": {
+    "england": "Environment Agency (EA) + CQC ('Safe' domain)",
+    "wales": "Natural Resources Wales (NRW) + HIW",
+    "scotland": "SEPA + HIS",
+    "northern_ireland": "NIEA + RQIA"
+  },
+  "responsible_role": "Practice Manager",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "GP practices generate multiple clinical waste streams that require segregation at the point of generation per HTM 07-01 (or equivalent). The key streams are: (1) Sharps/infectious waste — yellow-lidded sharps bins; (2) Infectious clinical waste — yellow-bagged (soft offensive clinical waste); (3) Offensive/hygiene waste — yellow/black tiger-striped bags (non-infectious, non-hazardous clinical waste); (4) Medicines waste — blue-lidded bins (non-cytotoxic) or purple-lidded bins (cytotoxic/cytostatic); (5) Amalgam waste (if any dental activity). General non-clinical waste is covered in GP-MOD-016.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-025-001",
+      "title": "Daily Clinical Waste Segregation Check",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "daily",
+      "frequency_detail": "At the end of each clinical session.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Check all sharps bins in clinical rooms: confirm fill level does not exceed the fill line (maximum two-thirds full). When the fill line is reached, assemble the temporary closure mechanism, lock the bin, and replace with a new bin." },
+        { "step_number": 2, "nations": "all", "description": "Check clinical waste bins in clinical rooms: confirm correct colour coding — yellow bags for infectious clinical waste; yellow/black tiger-striped bags for offensive/hygiene waste; blue-lidded bins for non-cytotoxic medicines waste; purple-lidded for cytotoxic waste (dispensing practices). Do not overfill bags beyond the swan-neck tie point." },
+        { "step_number": 3, "nations": "all", "description": "Ensure no clinical waste has been placed in the domestic/municipal waste stream (black bags).", "photo_evidence_optional": true, "photo_guidance": "Photograph any overfilled sharps bin or incorrectly segregated waste." },
+        { "step_number": 4, "nations": "all", "description": "Move full clinical waste containers to the designated secure clinical waste storage area (lockable, separate from domestic waste, not accessible to patients or members of public)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, areas checked, any full bins replaced, any segregation errors found, action taken, name of checker." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-025-002",
+      "title": "Monthly Clinical Waste Storage Area Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inspect the clinical waste storage area: confirm it is locked, clearly labelled as clinical waste storage, not accessible to the public, and provides suitable containment (lidded/sealed containers) to prevent spillage." },
+        { "step_number": 2, "nations": "all", "description": "Confirm waste is not accumulating beyond the permitted storage period: clinical waste must not be stored on-site for more than the period specified in the practice's waste management contract (typically maximum 7 days for infectious/hazardous clinical waste, longer may be permitted for offensive waste — confirm with contractor)." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the collection schedule is on file and the waste contractor's licence is current (EA/NRW/SEPA/NIEA registered carrier, licensed to transport clinical waste)." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the area is free from pest activity (no evidence of rodents or insects — cross-reference with GP-MOD-012 pest control records)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, storage area condition, waste accumulation within permitted period (yes/no), contractor licence confirmed, any issues found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-025-003",
+      "title": "Annual Clinical Waste Contractor Audit and Consignment Record Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review all clinical waste consignment notes / duty of care documentation for the past 12 months: confirm all collections have been documented, signed by the carrier, and copies retained on file (minimum 2 years for non-hazardous waste transfer notes, minimum 3 years for hazardous waste consignment notes)." },
+        { "step_number": 2, "nations": "all", "description": "Confirm the clinical waste contractor holds a current waste carrier licence appropriate for clinical waste (check EA/NRW/SEPA/NIEA registers). Confirm they are licensed to handle infectious/hazardous waste." },
+        { "step_number": 3, "nations": "england", "description": "Confirm compliance with HTM 07-01 (Safe Management of Healthcare Waste) as applicable to primary care. Review whether the practice's waste streams are correctly classified per the current HTM 07-01 colour-coded segregation guide. EA enforces Hazardous Waste Regulations." },
+        { "step_number": 3, "nations": "wales", "description": "Confirm compliance with HTM 07-01 as adopted in Wales. NRW enforces waste regulations in Wales." },
+        { "step_number": 3, "nations": "scotland", "description": "Confirm compliance with HFS healthcare waste management guidance (aligned to HTM 07-01). SEPA enforces Special Waste Regulations in Scotland. Note: in Scotland, medicines waste may be managed differently — confirm current SEPA/HFS guidance." },
+        { "step_number": 3, "nations": "northern_ireland", "description": "Confirm compliance with HSCB/PHA NI healthcare waste guidance. NIEA enforces waste regulations in NI." },
+        { "step_number": 4, "nations": "all", "description": "Confirm staff training in clinical waste segregation is current for all clinical and dispensary staff." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, consignment notes reviewed, contractor licence confirmed, waste streams correctly classified, staff training confirmed, any gaps identified, action plan, reviewer name." }
+      ]
+    }
+  ]
+}

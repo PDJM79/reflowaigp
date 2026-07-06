@@ -1,0 +1,58 @@
+{
+  "module_id": "GP-MOD-021",
+  "module_name": "Lone Working",
+  "source_school_module": "MOD-026",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "england_wales": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999, Regulation 3",
+    "scotland": "Health and Safety at Work Act 1974; Management of Health and Safety at Work Regulations 1999",
+    "northern_ireland": "Health and Safety at Work (NI) Order 1978; Management of Health and Safety at Work Regulations (NI) 2000, Regulation 3"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC ('Safe' domain)",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager / H&S Lead",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "Key differences from school: GP practices have multiple additional lone working scenarios beyond opening/closing. Home visits by GPs and nurses are the highest-risk lone working scenario. Out-of-hours clinical staff are also significant. Practice nurses conducting treatment sessions alone in a room (patient present — while this is a patient safety issue the staff safety component is in scope here: risk of patient aggression).",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-021-001",
+      "title": "Annual Lone Working Risk Assessment and Procedure Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all lone working scenarios in the practice: (a) premises opening/closing by site manager or Practice Manager; (b) early morning or late evening sessions where only one clinical staff member is present; (c) home visits by GPs, nurses, or healthcare assistants; (d) dispensing delivery staff (dispensing practices) working alone on delivery routes; (e) branch surgery staff when no other colleague is present; (f) cleaning staff working outside normal hours." },
+        { "step_number": 2, "nations": "all", "description": "For each scenario assess the risks: what could go wrong? Could the person become unwell, have an accident, or be subject to violence or aggression? For home visits, consider patient risk history and lone worker policy." },
+        { "step_number": 3, "nations": "all", "description": "Confirm controls are in place for each scenario: check-in/check-out procedure, charged mobile phone, lone worker device or app, buddy system (especially for home visits to patients with a history of aggression or to complex social situations), scheduled welfare check calls." },
+        { "step_number": 4, "nations": "all", "description": "For home visits specifically: confirm the practice has a home visit safety policy that requires staff to: check the patient's GP record for any aggression/violence alerts before visiting; inform reception of the visit address and expected return time; have an operational mobile phone; use the lone worker alert system." },
+        { "step_number": 5, "nations": "all", "description": "Confirm all lone workers know the procedure and have access to the appropriate equipment." },
+        { "step_number": 6, "nations": "all", "description": "Review any incidents involving lone workers in the past year and update the risk assessment accordingly." },
+        { "step_number": 7, "nations": "england", "description": "CQC may review lone working procedures as part of the 'Safe' domain, particularly the home visit safety protocol. Ensure documentary evidence is available." },
+        { "step_number": 7, "nations": "wales", "description": "HIW may review lone working procedures as part of service inspection." },
+        { "step_number": 7, "nations": "scotland", "description": "HIS may review lone working arrangements as part of quality visit assessments." },
+        { "step_number": 7, "nations": "northern_ireland", "description": "RQIA may review lone working procedures during inspection visits." },
+        { "step_number": 8, "nations": "all", "description": "Record: date, scenarios identified, controls confirmed, changes made, lone workers informed, equipment issued, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-021-002",
+      "title": "Lone Worker Sign-In/Sign-Out Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Every occasion a lone working scenario occurs — particularly home visits and out-of-hours sessions.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Lone worker records before starting: name, role, location (address for home visits; room/building for premises-based lone working), start time, planned finish time, emergency contact name and number." },
+        { "step_number": 2, "nations": "all", "description": "The designated check-in contact (reception, duty manager, or on-call coordinator) is notified that the lone working period has started." },
+        { "step_number": 3, "nations": "all", "description": "For home visits: the member of staff confirms arrival at the patient's address by calling or messaging reception. If the visit is to a patient flagged with a violence or aggression alert, a second member of staff must be informed and a code word/signal agreed for emergency extraction." },
+        { "step_number": 4, "nations": "all", "description": "If a welfare check call is scheduled, it is made at the agreed time. If the lone worker does not answer, the escalation procedure is followed immediately." },
+        { "step_number": 5, "nations": "all", "description": "On completion of the lone working period, the lone worker signs out and confirms safe return/departure." },
+        { "step_number": 6, "nations": "all", "description": "If a lone worker fails to sign out by their planned finish time and cannot be contacted, the emergency/escalation procedure is activated (contact next of kin, consider contacting emergency services — particularly critical for home visits)." },
+        { "step_number": 7, "nations": "all", "description": "Record: name, date, location, start time, planned finish time, check-in confirmation (yes/no), welfare check times, actual sign-out time, any incidents." }
+      ]
+    }
+  ]
+}

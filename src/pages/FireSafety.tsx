@@ -7,10 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Flame, ListChecks, AlertTriangle, CheckCircle, Plus, Shield, Info } from 'lucide-react';
-import { FireSafetyAssessmentDialog } from '@/components/fire-safety/FireSafetyAssessmentDialog';
-import { FireSafetyActionDialog } from '@/components/fire-safety/FireSafetyActionDialog';
 import { FireRiskWizard } from '@/components/fire-safety/FireRiskWizard';
-import { COSHHAssessmentDialog } from '@/components/coshh/COSHHAssessmentDialog';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FileDown } from 'lucide-react';
@@ -18,10 +15,7 @@ import { FileDown } from 'lucide-react';
 export default function FireSafety() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isAssessmentDialogOpen, setIsAssessmentDialogOpen] = useState(false);
-  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
   const [isFRAWizardOpen, setIsFRAWizardOpen] = useState(false);
-  const [isCOSHHDialogOpen, setIsCOSHHDialogOpen] = useState(false);
 
   const practiceId = user?.practiceId || '';
 
@@ -75,14 +69,6 @@ export default function FireSafety() {
           <Button onClick={() => setIsFRAWizardOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Fire Risk Assessment
-          </Button>
-          <Button variant="outline" onClick={() => setIsCOSHHDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            COSHH Assessment
-          </Button>
-          <Button variant="outline" onClick={() => setIsActionDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Action
           </Button>
         </div>
       </div>
@@ -225,18 +211,6 @@ export default function FireSafety() {
         onSuccess={() => {
           setIsFRAWizardOpen(false);
         }}
-      />
-      <COSHHAssessmentDialog
-        open={isCOSHHDialogOpen}
-        onOpenChange={setIsCOSHHDialogOpen}
-        onSuccess={() => {
-          setIsCOSHHDialogOpen(false);
-        }}
-      />
-      <FireSafetyActionDialog
-        open={isActionDialogOpen}
-        onClose={() => setIsActionDialogOpen(false)}
-        practiceId={practiceId}
       />
     </div>
   );

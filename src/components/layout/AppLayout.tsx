@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { RouteBreadcrumbs } from './RouteBreadcrumbs';
 import { useAuth } from '@/hooks/useAuth';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { usePracticeModules } from '@/hooks/usePracticeModules';
@@ -12,7 +13,8 @@ import {
   Home, Calendar, ListTodo, FileText, FolderOpen, BarChart3,
   Pill, PoundSterling, Shield, Droplet, AlertTriangle, Flame,
   Users, MessageSquare, FileCheck, BookOpen, Thermometer, Mail,
-  Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight, ScrollText
+  Settings, LogOut, Menu, X, Building, ShieldAlert, ChevronDown, ChevronRight, ScrollText,
+  Sun, ClipboardCheck
 } from 'lucide-react';
 import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import type { Capability } from '@/types/roles';
@@ -34,11 +36,11 @@ interface NavGroup {
 // Paths each restricted role may access. Roles not listed here see everything
 // (capability filtering still applies on top of this).
 const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
-  gp: ['/', '/tasks', '/schedule', '/policies', '/incidents', '/complaints', '/staff-self-service', '/processes'],
-  nurse: ['/', '/tasks', '/schedule', '/fridge-temps', '/ipc', '/policies', '/staff-self-service'],
-  hca: ['/', '/tasks', '/fridge-temps', '/staff-self-service'],
-  reception: ['/', '/cleaning'],
-  cleaner: ['/', '/cleaning'],
+  gp: ['/', '/my-day', '/tasks', '/schedule', '/policies', '/incidents', '/complaints', '/staff-self-service', '/processes'],
+  nurse: ['/', '/my-day', '/tasks', '/schedule', '/fridge-temps', '/ipc', '/policies', '/staff-self-service'],
+  hca: ['/', '/my-day', '/tasks', '/fridge-temps', '/staff-self-service'],
+  reception: ['/', '/my-day', '/tasks', '/cleaning'],
+  cleaner: ['/', '/my-day', '/tasks', '/cleaning'],
 };
 
 export function AppLayout() {
@@ -99,7 +101,10 @@ export function AppLayout() {
     {
       title: 'Tasks & Schedule',
       items: [
+        { icon: Sun, label: 'My Day', path: '/my-day', capabilities: 'all' },
         { icon: ListTodo, label: t('nav.tasks'), path: '/tasks', capabilities: 'all' },
+        { icon: ClipboardCheck, label: 'Review Queue', path: '/review-queue', capabilities: ['manage_users'] },
+        { icon: BookOpen, label: 'Logbooks', path: '/logbooks', capabilities: ['configure_practice', 'manage_users'] },
         { icon: Calendar, label: t('nav.schedule'), path: '/schedule', capabilities: ['configure_practice', 'manage_users'] },
         { icon: FileText, label: t('nav.taskTemplates'), path: '/task-templates', capabilities: 'configure_practice' },
       ]
@@ -359,6 +364,7 @@ export function AppLayout() {
 
       {/* Main Content */}
       <main className={`flex-1 overflow-auto ${isMobile ? 'pb-20' : ''}`}>
+        <RouteBreadcrumbs />
         <Outlet />
       </main>
 

@@ -1,0 +1,157 @@
+{
+  "module_id": "GP-MOD-001",
+  "module_name": "Fire Safety",
+  "source_school_module": "MOD-001",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "england_wales": "Regulatory Reform (Fire Safety) Order 2005 (RRO)",
+    "scotland": "Fire (Scotland) Act 2005 and associated Regulations",
+    "northern_ireland": "Fire and Rescue Services (Northern Ireland) Order 2006; Fire Safety Regulations (NI) 2010"
+  },
+  "enforcing_body": {
+    "england": "Local Fire and Rescue Service (FRS) + CQC (as part of 'Safe' domain inspection)",
+    "wales": "Local Fire and Rescue Service + Healthcare Inspectorate Wales (HIW)",
+    "scotland": "Scottish Fire and Rescue Service (SFRS) + Healthcare Improvement Scotland (HIS)",
+    "northern_ireland": "Northern Ireland Fire and Rescue Service (NIFRS) + Regulation and Quality Improvement Authority (RQIA)"
+  },
+  "responsible_role": "Practice Manager (Responsible Person under RRO / equivalent)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-001-001",
+      "title": "Weekly Fire Alarm Test",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "weekly",
+      "frequency_detail": "Every 7 days. Rotate call points so each is tested at least once per quarter.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Select the call point to be tested this week (rotate systematically). Inform staff before activating to avoid unnecessary alarm response." },
+        { "step_number": 2, "nations": "all", "description": "Activate the call point. Confirm the alarm panel shows the correct zone and the audible alarm sounds throughout the premises." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the alarm auto-resets or manually reset the panel. Confirm no faults are displayed on the panel after reset." },
+        { "step_number": 4, "nations": "all", "description": "If the alarm fails to activate or a fault is displayed, contact the alarm service contractor immediately and record the fault. Do not defer repair.", "photo_evidence_optional": true, "photo_guidance": "Photograph any panel fault display." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, time, call point reference tested, outcome (pass/fail), any fault action taken, tester name." },
+        { "step_number": 6, "nations": "england", "description": "Retain the log as evidence of compliance with RRO Article 17. The log may be requested by the local Fire and Rescue Service or CQC inspectors." },
+        { "step_number": 6, "nations": "wales", "description": "Retain the log as evidence of compliance with RRO Article 17. The log may be requested by the local Fire and Rescue Service or Healthcare Inspectorate Wales (HIW)." },
+        { "step_number": 6, "nations": "scotland", "description": "Retain the log as evidence of compliance with the Fire (Scotland) Act 2005. The log may be requested by the Scottish Fire and Rescue Service (SFRS) or Healthcare Improvement Scotland (HIS)." },
+        { "step_number": 6, "nations": "northern_ireland", "description": "Retain the log as evidence of compliance with the Fire Safety Regulations (NI) 2010. The log may be requested by NIFRS or RQIA." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-002",
+      "title": "Weekly Fire Door Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "weekly",
+      "frequency_detail": "Every 7 days.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Walk the premises and check all fire doors (those marked with a blue 'Fire Door Keep Shut' or 'Fire Door Keep Locked' sign)." },
+        { "step_number": 2, "nations": "all", "description": "For each door check: self-closer operational and door closes fully to latch; intumescent strip and cold smoke seal intact; door leaf undamaged; vision panel intact (if fitted); no wedges or props holding door open." },
+        { "step_number": 3, "nations": "all", "description": "Any door that fails to self-close fully must be taken out of service or the fault repaired before the next period of use.", "photo_evidence_optional": true, "photo_guidance": "Photograph any door propped open or with a damaged closer." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, doors inspected, any defects found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-003",
+      "title": "Monthly Fire Extinguisher Visual Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Locate all fire extinguishers on the premises (confirm against the last annual service list / floor plan)." },
+        { "step_number": 2, "nations": "all", "description": "For each extinguisher: confirm it is in its designated location, accessible, and has not been discharged (pressure gauge in green zone where applicable; pin and tamper seal intact; no visible damage or corrosion)." },
+        { "step_number": 3, "nations": "all", "description": "Check the service label is current (annual service not overdue)." },
+        { "step_number": 4, "nations": "all", "description": "Any discharged, damaged, or overdue extinguisher must be replaced or serviced before next use.", "photo_evidence_optional": true, "photo_guidance": "Photograph any extinguisher showing a discharged gauge or broken seal." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, extinguisher reference, location, condition (pass/fail), action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-004",
+      "title": "Monthly Emergency Lighting Functional Test",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month. Test should take no longer than one minute (flick test).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Using the emergency lighting test key or isolator switch, simulate mains failure for each emergency luminaire for approximately 1 minute." },
+        { "step_number": 2, "nations": "all", "description": "Confirm each luminaire illuminates on battery power. Note any that fail to illuminate or are obviously dim." },
+        { "step_number": 3, "nations": "all", "description": "Restore mains power and confirm all luminaires return to mains supply." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, luminaires tested, any failures, remedial action, tester name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-005",
+      "title": "Annual Emergency Lighting 3-Hour Duration Test",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year, ideally during a low-activity period (e.g., Saturday morning when patient access is low).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Notify staff and any patients/visitors in advance. Arrange for reduced or no patient-facing activity during the test period if possible." },
+        { "step_number": 2, "nations": "all", "description": "Discharge all emergency luminaires for a full 3-hour test. Record which luminaires are tested." },
+        { "step_number": 3, "nations": "all", "description": "Confirm all luminaires remain illuminated for the full 3 hours. Any that fail the duration test must be repaired or replaced." },
+        { "step_number": 4, "nations": "all", "description": "Allow a minimum 24-hour recharge period before the next monthly test." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, test duration, luminaires tested, any failures, action taken, tester name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-006",
+      "title": "Annual Fire Evacuation Drill",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum once per year. More frequent drills recommended if staff turnover is high. Note: NHS guidance for GP premises recommends annual rather than the school termly frequency.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inform only those staff members who need to manage the drill. Do not pre-warn all staff (to ensure a realistic response)." },
+        { "step_number": 2, "nations": "all", "description": "Before the drill, confirm the assembly point is accessible and clear. Brief the fire warden(s)." },
+        { "step_number": 3, "nations": "all", "description": "Activate the fire alarm. Record the time of activation." },
+        { "step_number": 4, "nations": "all", "description": "Ensure all staff, patients and visitors evacuate to the assembly point. Fire wardens check all rooms (including consulting rooms and the waiting area). Note: patient mobility may require additional evacuation assistance — this should be covered in the Fire Risk Assessment and Personal Emergency Evacuation Plans (PEEPs)." },
+        { "step_number": 5, "nations": "all", "description": "Record the total evacuation time. Debrief with staff to identify any issues." },
+        { "step_number": 6, "nations": "all", "description": "Review and update PEEPs for any patients or staff with mobility or other evacuation needs who were present during the drill.", "photo_evidence_optional": true, "photo_guidance": "Photograph the assembly point with staff assembled." },
+        { "step_number": 7, "nations": "england", "description": "Record drill outcome and any follow-up actions in the fire safety log. CQC may request evidence of drills as part of the 'Safe' domain inspection." },
+        { "step_number": 7, "nations": "wales", "description": "Record drill outcome and any follow-up actions. HIW may request evidence of evacuation procedures." },
+        { "step_number": 7, "nations": "scotland", "description": "Record drill outcome and any follow-up actions. HIS and SFRS may request evidence of drills." },
+        { "step_number": 7, "nations": "northern_ireland", "description": "Record drill outcome and any follow-up actions. RQIA and NIFRS may request evidence of drills." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-007",
+      "title": "Annual Fire Risk Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually. Also review following any significant change to the premises, use, or occupancy.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the current Fire Risk Assessment (FRA). Confirm it covers all areas of the premises including storage areas, dispensary (dispensing practices), and any basement or plant rooms." },
+        { "step_number": 2, "nations": "all", "description": "Walk the premises and check for any changes since the last FRA: new partitions, new equipment, change of use of rooms, new significant ignition sources, changes to escape routes." },
+        { "step_number": 3, "nations": "all", "description": "Review all actions from the previous FRA — confirm each has been completed or has a documented reason for deferral." },
+        { "step_number": 4, "nations": "all", "description": "Confirm all PEEPs (Personal Emergency Evacuation Plans) are current for any staff or regular patients with mobility or evacuation needs." },
+        { "step_number": 5, "nations": "all", "description": "Update the FRA with findings. If the FRA was commissioned externally, instruct the assessor to re-assess if material changes have occurred." },
+        { "step_number": 6, "nations": "england", "description": "The FRA must be completed by a 'competent person' (RRO Art 9). Ensure the assessor's qualifications are recorded. Retain a copy for CQC inspection. Update the CQC Statement of Purpose if fire safety responsibilities have changed." },
+        { "step_number": 6, "nations": "wales", "description": "The FRA must be completed by a 'competent person' (RRO Art 9). Retain a copy for HIW inspection if requested." },
+        { "step_number": 6, "nations": "scotland", "description": "The FRA must be completed by a 'competent person' (Fire (Scotland) Act 2005, s.53). Retain a copy for SFRS or HIS inspection." },
+        { "step_number": 6, "nations": "northern_ireland", "description": "The FRA must be completed by a 'competent person' (Fire Safety Regulations (NI) 2010). Retain a copy for NIFRS or RQIA inspection." },
+        { "step_number": 7, "nations": "all", "description": "Record: date of review, reviewer name and competency, summary of changes, actions arising, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-008",
+      "title": "Annual Fire Extinguisher Service",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year by a competent contractor (BAFE-registered or equivalent).",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange annual service with a competent contractor (BAFE SP101 registered is best practice)." },
+        { "step_number": 2, "nations": "all", "description": "Contractor services all extinguishers per BS 5306-3: check weight/pressure, internal inspection where required by age/type, replace discharge hose if required, recharge if needed." },
+        { "step_number": 3, "nations": "all", "description": "Contractor affixes a service label to each extinguisher with the date and their company reference." },
+        { "step_number": 4, "nations": "all", "description": "Retain the contractor's service report. Record: date, contractor name, extinguishers serviced, any replaced or condemned, next service due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-001-009",
+      "title": "Annual Fire Alarm System Service",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Full annual service plus 6-monthly inspection by a competent contractor (BAFE SP203 registered). Many contracts include the 6-monthly check.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Arrange the annual service with a BAFE SP203-registered fire alarm contractor. Confirm the system is serviced to BS 5839-1." },
+        { "step_number": 2, "nations": "all", "description": "Contractor tests all detection devices, call points, sounders, and the control panel. Checks battery back-up capacity." },
+        { "step_number": 3, "nations": "all", "description": "Any deficiencies are noted in the contractor's service report. Arrange remediation before the next period of use." },
+        { "step_number": 4, "nations": "all", "description": "Retain the contractor's service certificate. Record: date, contractor name and BAFE reference, system category, deficiencies found, remedial action, next service due." }
+      ]
+    }
+  ]
+}

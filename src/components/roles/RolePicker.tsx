@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight, Users, Stethoscope, Building, Shield, Monitor, Wrench, Network } from 'lucide-react';
 import { RoleCatalogEntry, RoleCategory, ROLE_CATEGORY_LABELS } from '@/types/roles';
-import { supabase } from '@/integrations/supabase/client';
 
 interface RolePickerProps {
   /** IDs of selected roles */
@@ -47,20 +46,17 @@ export function RolePicker({
 
   const fetchRoleCatalog = async () => {
     try {
-      const { data, error } = await supabase
-        .from('role_catalog')
-        .select('*')
-        .order('display_name');
+      const res = await fetch('/api/role-catalog', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json() as any[];
 
-      if (error) throw error;
-      
-      // Map the database response to our type
+      // Map the API response to our type
       const mappedData: RoleCatalogEntry[] = (data || []).map(role => ({
         ...role,
         category: role.category as RoleCategory,
         default_capabilities: (role.default_capabilities || []) as any[],
       }));
-      
+
       setRoleCatalog(mappedData);
     } catch (error) {
       console.error('Error fetching role catalog:', error);

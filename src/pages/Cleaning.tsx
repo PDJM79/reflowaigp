@@ -50,6 +50,15 @@ interface CleaningLog {
   completedBy: string | null;
 }
 
+interface CleaningOccurrence {
+  id: string;               // generated tasks.id
+  status: string;
+  slot: string;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  cleaning_task_id: string | null;
+}
+
 const FREQUENCY_LABELS: Record<string, string> = {
   daily: 'Daily',
   twice_daily: '2x Daily',
@@ -70,6 +79,7 @@ export default function Cleaning() {
   const [zones, setZones] = useState<CleaningZone[]>([]);
   const [tasks, setTasks] = useState<CleaningTask[]>([]);
   const [todayLogs, setTodayLogs] = useState<CleaningLog[]>([]);
+  const [occurrences, setOccurrences] = useState<CleaningOccurrence[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Completion dialog state
@@ -102,14 +112,16 @@ export default function Cleaning() {
     if (!user?.practiceId) { setLoading(false); return; }
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [zRes, tRes, lRes] = await Promise.all([
+      const [zRes, tRes, lRes, oRes] = await Promise.all([
         fetch(`/api/practices/${user.practiceId}/cleaning-zones`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/cleaning-tasks`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/cleaning-logs?date=${today}`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/cleaning-occurrences?date=${today}`, { credentials: 'include' }),
       ]);
       if (zRes.ok) setZones(await zRes.json());
       if (tRes.ok) setTasks(await tRes.json());
       if (lRes.ok) setTodayLogs(await lRes.json());
+      if (oRes.ok) setOccurrences(await oRes.json());
     } catch (error) {
       toast.error('Failed to load cleaning data');
     } finally {
@@ -152,6 +164,10 @@ export default function Cleaning() {
 
   const handleCompleteTask = async () => {
     if (!selectedTask || !user?.practiceId) return;
+    if (hasIssue && !issueDescription.trim()) {
+      toast.error('Please describe the issue you are flagging');
+      return;
+    }
     setSubmitting(true);
     try {
       let photoUrl: string | null = null;
@@ -164,6 +180,9 @@ export default function Cleaning() {
         ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
         : nameParts[0].substring(0, 2).toUpperCase();
 
+      // If a scheduled occurrence exists for this cleaning task, close it in the
+      // same transaction (the server marks the generated task complete).
+      const occurrence = getOpenOccurrence(selectedTask.id);
       const body = {
         taskId: selectedTask.id,
         zoneId: selectedTask.zoneId || null,
@@ -173,6 +192,7 @@ export default function Cleaning() {
         issueDescription: hasIssue ? issueDescription : null,
         initials,
         completedBy: user.id,
+        occurrenceTaskId: occurrence?.id ?? undefined,
       };
 
       const res = await fetch(`/api/practices/${user.practiceId}/cleaning-logs`, {
@@ -200,6 +220,10 @@ export default function Cleaning() {
 
   const isTaskDone = (taskId: string) => todayLogs.some(l => l.taskId === taskId && l.completedAt);
   const getTaskLog = (taskId: string) => todayLogs.find(l => l.taskId === taskId && l.completedAt);
+  // Scheduled occurrences for a cleaning task today (may be 2 for twice_daily).
+  const getOccurrences = (taskId: string) => occurrences.filter(o => o.cleaning_task_id === taskId);
+  const getOpenOccurrence = (taskId: string) =>
+    getOccurrences(taskId).find(o => o.status !== 'complete' && o.status !== 'closed') ?? null;
 
   const activeTasks = tasks.filter(t => t.isActive !== false);
   const completedIds = new Set(todayLogs.filter(l => l.completedAt).map(l => l.taskId));
@@ -220,6 +244,8 @@ export default function Cleaning() {
   const renderTaskRow = (task: CleaningTask) => {
     const done = isTaskDone(task.id);
     const log = getTaskLog(task.id);
+    const taskOccurrences = getOccurrences(task.id);
+    const assigneeName = taskOccurrences.find(o => o.assignee_name)?.assignee_name ?? null;
     return (
       <div
         key={task.id}
@@ -248,6 +274,9 @@ export default function Cleaning() {
           </div>
           {task.description && !done && (
             <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+          )}
+          {assigneeName && !done && (
+            <p className="text-xs text-muted-foreground">Assigned to {assigneeName}</p>
           )}
           {done && log && (
             <p className="text-xs text-muted-foreground">
@@ -302,7 +331,7 @@ export default function Cleaning() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-3 grid-cols-4 sm:gap-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 sm:gap-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3"><CardTitle className="text-xs sm:text-sm font-medium">Zones</CardTitle></CardHeader>
           <CardContent><div className="text-2xl sm:text-3xl font-bold">{zones.filter(z => z.isActive !== false).length}</div></CardContent>

@@ -1,0 +1,95 @@
+{
+  "module_id": "GP-MOD-003",
+  "module_name": "COSHH (Control of Substances Hazardous to Health)",
+  "source_school_module": "MOD-003",
+  "comparison_status": "SIMILAR",
+  "primary_legislation": {
+    "all": "Control of Substances Hazardous to Health Regulations 2002 (COSHH); Health and Safety at Work Act 1974",
+    "northern_ireland": "Control of Substances Hazardous to Health Regulations (Northern Ireland) 2003"
+  },
+  "enforcing_body": {
+    "england": "HSE + CQC ('Safe' domain)",
+    "wales": "HSE + HIW",
+    "scotland": "HSE + HIS",
+    "northern_ireland": "HSENI + RQIA"
+  },
+  "responsible_role": "Practice Manager / Designated COSHH Lead",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "notes": "GP practices use a range of hazardous substances that differ from schools: disinfectants and detergents, hand-hygiene products (chlorhexidine, alcohol gels), skin preparation agents (iodine, chlorhexidine in alcohol), cytotoxic/cytostatic medicines residues (dispensing practices), and oxygen/medical gases (PSSR covered in GP-MOD-011). Medicines themselves are managed under GP-MOD-023. This module covers non-medicinal COSHH substances.",
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-003-001",
+      "title": "Annual COSHH Assessment Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually, or when a new substance is introduced or working practices change.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Retrieve the current COSHH assessments. Confirm they cover all hazardous substances used in the practice: cleaning and disinfecting products (Tristel, Clinell, Actichlor/sodium hypochlorite, Perform), hand hygiene agents (alcohol gels ≥60% ethanol), skin preparation agents (chlorhexidine gluconate in alcohol, povidone-iodine), oxygen cylinders (refer to GP-MOD-011 for PSSR; include in COSHH for oxygen enrichment risk), and any cytotoxic residues if dispensing." },
+        { "step_number": 2, "nations": "all", "description": "For each substance, confirm the assessment covers: hazard identification (SDS Section 2), exposure routes, exposure levels vs WEL, controls in place (substitution, ventilation, PPE), health surveillance if required." },
+        { "step_number": 3, "nations": "all", "description": "Update assessments for any new products introduced since the last review. Remove assessments for discontinued products." },
+        { "step_number": 4, "nations": "all", "description": "Confirm that all staff who use COSHH substances have been informed of the relevant risks and controls (training record or awareness confirmation)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, assessor name, substances reviewed, any new substances added, any substances removed, training confirmation, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-003-002",
+      "title": "Monthly COSHH Storage Inspection",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "monthly",
+      "frequency_detail": "Once per calendar month.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Inspect all COSHH storage locations: cleaning cupboard, clinical store, sluice room, dispensary (if applicable). Confirm substances are stored in original labelled containers." },
+        { "step_number": 2, "nations": "all", "description": "Confirm incompatible substances are segregated (e.g., oxidising agents such as sodium hypochlorite not stored adjacent to flammable materials such as alcohol-based gels)." },
+        { "step_number": 3, "nations": "all", "description": "Check for any substances without a current COSHH assessment. Flag for inclusion in next annual review." },
+        { "step_number": 4, "nations": "all", "description": "Confirm PPE required by COSHH assessments (gloves, apron, eye protection) is available and in date at each storage and use location." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, areas inspected, any issues found, action taken, inspector name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-003-003",
+      "title": "Annual Clinical Disinfectant and Chemical Audit (GP-specific)",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year, aligned with COSHH assessment review.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Compile a full inventory of all disinfectants and cleaning chemicals used in clinical and non-clinical areas of the practice. Include product name, active ingredient, concentration, intended use, and SDS reference." },
+        { "step_number": 2, "nations": "all", "description": "For each disinfectant, confirm it is appropriate for its intended use: surface disinfection of clinical equipment (EN 14476 virucidal efficacy important for IPC compliance), hand hygiene products (WHO-recommended formulations or equivalent), instrument decontamination (HTM 01-05 requirements — see GP-MOD-029)." },
+        { "step_number": 3, "nations": "all", "description": "Confirm dilution instructions are displayed at point of use where relevant (e.g., Actichlor 1,000 ppm for general surfaces vs. 10,000 ppm for blood/body fluid spills)." },
+        { "step_number": 4, "nations": "england", "description": "Confirm the audit is cross-referenced with the IPC lead's annual IPC audit (GP-MOD-022). CQC may review chemical audit as part of COSHH and IPC compliance under 'Safe'." },
+        { "step_number": 4, "nations": "wales", "description": "Confirm the audit is cross-referenced with the IPC lead's annual IPC audit (GP-MOD-022). HIW may review as part of premises safety assessment." },
+        { "step_number": 4, "nations": "scotland", "description": "Confirm the audit is cross-referenced with the IPC lead's annual IPC audit (GP-MOD-022). HIS may review as part of premises standards." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "Confirm the audit is cross-referenced with the IPC lead's annual IPC audit (GP-MOD-022). RQIA may review as part of premises safety." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, inventory completed, any products identified for review or replacement, cross-reference to COSHH assessments, auditor name." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-003-004",
+      "title": "Annual Cytotoxic and Hazardous Medicines Residue Assessment (Dispensing Practices)",
+      "applicable_to": ["dispensing"],
+      "applicable_condition": "Dispensing practices only — where cytotoxic or cytostatic medicines are dispensed or stored, creating risk of staff exposure to residues.",
+      "frequency": "annual",
+      "frequency_detail": "Once per year, or when the dispensed medicines list changes to include new cytotoxic/cytostatic drugs.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Identify all cytotoxic and cytostatic medicines dispensed or handled by the practice (e.g., methotrexate, azathioprine, capecitabine)." },
+        { "step_number": 2, "nations": "all", "description": "For each drug, confirm COSHH assessment covers: exposure routes (skin contact, inhalation of dust when counting tablets), WEL where published, controls required (nitrile gloves minimum, consider respiratory protection for powders)." },
+        { "step_number": 3, "nations": "all", "description": "Confirm segregated waste disposal arrangements are in place for cytotoxic waste residues (purple-lidded bins per HTM 07-01 / equivalent clinical waste guidance)." },
+        { "step_number": 4, "nations": "all", "description": "Confirm health surveillance is in place for dispensary staff regularly handling these medicines (where required by COSHH assessment)." },
+        { "step_number": 5, "nations": "all", "description": "Record: date, medicines reviewed, controls confirmed, waste disposal arrangements confirmed, health surveillance status, next review date." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-003-005",
+      "title": "Annual Health Surveillance Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "applicable_condition": "Only where COSHH assessments have identified the need for health surveillance (e.g., latex sensitisation if latex gloves still in use, occupational asthma risk from cleaning chemicals, cytotoxic exposure for dispensary staff).",
+      "frequency": "annual",
+      "frequency_detail": "At minimum annually.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Review all COSHH assessments that specify health surveillance requirements. Confirm which staff roles are affected." },
+        { "step_number": 2, "nations": "all", "description": "Confirm health surveillance has been carried out for all affected staff within the required frequency (typically annually)." },
+        { "step_number": 3, "nations": "all", "description": "Review any health surveillance findings — if any staff have been identified with work-related ill health, refer to occupational health and update the COSHH assessment to introduce additional controls." },
+        { "step_number": 4, "nations": "all", "description": "Record: date, substances requiring surveillance, staff confirmed as having received surveillance, any referrals made, next review date." }
+      ]
+    }
+  ]
+}

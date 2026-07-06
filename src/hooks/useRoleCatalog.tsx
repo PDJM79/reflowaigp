@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { usePracticeSelection } from './usePracticeSelection';
 import type { 
   RoleCatalogEntry, 
@@ -47,37 +46,19 @@ export function useRoleCatalog(): UseRoleCatalogReturn {
   const [practiceRolesLoading, setPracticeRolesLoading] = useState(true);
   const [practiceRolesError, setPracticeRolesError] = useState<string | null>(null);
 
-  // Fetch global role catalog
+  // Fetch global role catalog (server returns snake_case shape already)
   const fetchRoleCatalog = useCallback(async () => {
     try {
       setCatalogLoading(true);
       setCatalogError(null);
 
-      const { data, error } = await supabase
-        .from('role_catalog')
-        .select('*')
-        .order('category')
-        .order('display_name');
-
-      if (error) {
-        console.error('Error fetching role catalog:', error);
+      const res = await fetch('/api/role-catalog', { credentials: 'include' });
+      if (!res.ok) {
+        console.error('Error fetching role catalog:', res.status);
         setCatalogError('Failed to fetch role catalog');
         return;
       }
-
-      // Transform data to match our types
-      const transformedData: RoleCatalogEntry[] = (data || []).map((role: any) => ({
-        id: role.id,
-        role_key: role.role_key,
-        display_name: role.display_name,
-        category: role.category as RoleCategory,
-        default_capabilities: (role.default_capabilities || []) as Capability[],
-        description: role.description,
-        created_at: role.created_at,
-        updated_at: role.updated_at,
-      }));
-
-      setRoleCatalog(transformedData);
+      setRoleCatalog(await res.json() as RoleCatalogEntry[]);
     } catch (err) {
       console.error('Error in fetchRoleCatalog:', err);
       setCatalogError('An unexpected error occurred');
@@ -98,54 +79,13 @@ export function useRoleCatalog(): UseRoleCatalogReturn {
       setPracticeRolesLoading(true);
       setPracticeRolesError(null);
 
-      const { data, error } = await supabase
-        .from('practice_roles')
-        .select(`
-          id,
-          practice_id,
-          role_catalog_id,
-          is_active,
-          created_at,
-          updated_at,
-          role_catalog:role_catalog_id (
-            id,
-            role_key,
-            display_name,
-            category,
-            default_capabilities,
-            description,
-            created_at,
-            updated_at
-          )
-        `)
-        .eq('practice_id', selectedPracticeId);
-
-      if (error) {
-        console.error('Error fetching practice roles:', error);
+      const res = await fetch(`/api/practices/${selectedPracticeId}/practice-roles`, { credentials: 'include' });
+      if (!res.ok) {
+        console.error('Error fetching practice roles:', res.status);
         setPracticeRolesError('Failed to fetch practice roles');
         return;
       }
-
-      const transformedData: PracticeRole[] = (data || []).map((role: any) => ({
-        id: role.id,
-        practice_id: role.practice_id,
-        role_catalog_id: role.role_catalog_id,
-        is_active: role.is_active,
-        created_at: role.created_at,
-        updated_at: role.updated_at,
-        role_catalog: role.role_catalog ? {
-          id: role.role_catalog.id,
-          role_key: role.role_catalog.role_key,
-          display_name: role.role_catalog.display_name,
-          category: role.role_catalog.category as RoleCategory,
-          default_capabilities: (role.role_catalog.default_capabilities || []) as Capability[],
-          description: role.role_catalog.description,
-          created_at: role.role_catalog.created_at,
-          updated_at: role.role_catalog.updated_at,
-        } : undefined,
-      }));
-
-      setPracticeRoles(transformedData);
+      setPracticeRoles(await res.json() as PracticeRole[]);
     } catch (err) {
       console.error('Error in fetchPracticeRoles:', err);
       setPracticeRolesError('An unexpected error occurred');
@@ -154,121 +94,104 @@ export function useRoleCatalog(): UseRoleCatalogReturn {
     }
   }, [selectedPracticeId]);
 
-  // Enable a role from the catalog for this practice
+  // Enable a role from the catalog for this practice (server handles upsert/reactivate)
   const enableRole = useCallback(async (roleCatalogId: string): Promise<{ success: boolean; error?: string }> => {
     if (!selectedPracticeId) {
       return { success: false, error: 'No practice selected' };
     }
 
     try {
-      // Check if already exists
-      const existing = practiceRoles.find(r => r.role_catalog_id === roleCatalogId);
-      
-      if (existing) {
-        // Reactivate if inactive
-        if (!existing.is_active) {
-          const { error } = await supabase
-            .from('practice_roles')
-            .update({ is_active: true, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-
-          if (error) {
-            return { success: false, error: error.message };
-          }
-        }
-      } else {
-        // Create new practice role
-        const { error } = await supabase
-          .from('practice_roles')
-          .insert({
-            practice_id: selectedPracticeId,
-            role_catalog_id: roleCatalogId,
-            is_active: true,
-          });
-
-        if (error) {
-          return { success: false, error: error.message };
-        }
+      const res = await fetch(`/api/practices/${selectedPracticeId}/practice-roles`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roleCatalogId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to enable role' };
       }
-
       await fetchPracticeRoles();
       return { success: true };
     } catch (err) {
       console.error('Error enabling role:', err);
       return { success: false, error: 'An unexpected error occurred' };
     }
-  }, [selectedPracticeId, practiceRoles, fetchPracticeRoles]);
+  }, [selectedPracticeId, fetchPracticeRoles]);
 
   // Disable a role for this practice
   const disableRole = useCallback(async (practiceRoleId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!selectedPracticeId) {
+      return { success: false, error: 'No practice selected' };
+    }
     try {
-      const { error } = await supabase
-        .from('practice_roles')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', practiceRoleId);
-
-      if (error) {
-        return { success: false, error: error.message };
+      const res = await fetch(`/api/practices/${selectedPracticeId}/practice-roles/${practiceRoleId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: false }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to disable role' };
       }
-
       await fetchPracticeRoles();
       return { success: true };
     } catch (err) {
       console.error('Error disabling role:', err);
       return { success: false, error: 'An unexpected error occurred' };
     }
-  }, [fetchPracticeRoles]);
+  }, [selectedPracticeId, fetchPracticeRoles]);
 
   // Add a capability override for a practice role
   const addCapabilityOverride = useCallback(async (
-    practiceRoleId: string, 
+    practiceRoleId: string,
     capability: Capability
   ): Promise<{ success: boolean; error?: string }> => {
+    if (!selectedPracticeId) {
+      return { success: false, error: 'No practice selected' };
+    }
     try {
-      const { error } = await supabase
-        .from('practice_role_capabilities')
-        .insert({
-          practice_role_id: practiceRoleId,
-          capability,
-        });
-
-      if (error) {
-        // Ignore duplicate key errors
-        if (error.code === '23505') {
-          return { success: true };
-        }
-        return { success: false, error: error.message };
+      const res = await fetch(`/api/practices/${selectedPracticeId}/practice-roles/${practiceRoleId}/capabilities`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capability }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to add capability' };
       }
-
       return { success: true };
     } catch (err) {
       console.error('Error adding capability override:', err);
       return { success: false, error: 'An unexpected error occurred' };
     }
-  }, []);
+  }, [selectedPracticeId]);
 
   // Remove a capability override for a practice role
   const removeCapabilityOverride = useCallback(async (
-    practiceRoleId: string, 
+    practiceRoleId: string,
     capability: Capability
   ): Promise<{ success: boolean; error?: string }> => {
+    if (!selectedPracticeId) {
+      return { success: false, error: 'No practice selected' };
+    }
     try {
-      const { error } = await supabase
-        .from('practice_role_capabilities')
-        .delete()
-        .eq('practice_role_id', practiceRoleId)
-        .eq('capability', capability);
-
-      if (error) {
-        return { success: false, error: error.message };
+      const res = await fetch(
+        `/api/practices/${selectedPracticeId}/practice-roles/${practiceRoleId}/capabilities/${encodeURIComponent(capability)}`,
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to remove capability' };
       }
-
       return { success: true };
     } catch (err) {
       console.error('Error removing capability override:', err);
       return { success: false, error: 'An unexpected error occurred' };
     }
-  }, []);
+  }, [selectedPracticeId]);
 
   // Get roles by category
   const getRolesByCategory = useCallback((category: RoleCategory): RoleCatalogEntry[] => {
@@ -338,52 +261,27 @@ export function useUserRoleAssignment(userId: string) {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('user_practice_roles')
-        .select(`
-          practice_role_id,
-          practice_roles:practice_role_id (
-            id,
-            practice_id,
-            role_catalog_id,
-            is_active,
-            role_catalog:role_catalog_id (
-              id,
-              role_key,
-              display_name,
-              category,
-              default_capabilities,
-              description
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('practice_id', selectedPracticeId);
-
-      if (fetchError) {
+      const res = await fetch(
+        `/api/practices/${selectedPracticeId}/user-practice-roles?userId=${encodeURIComponent(userId)}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) {
         setError('Failed to fetch user roles');
         return;
       }
 
+      const data = await res.json() as any[];
+      // The page consumes PracticeRole shape; unwrap the nested practice_role.
       const roles: PracticeRole[] = (data || [])
-        .filter((item: any) => item.practice_roles)
-        .map((item: any) => ({
-          id: item.practice_roles.id,
-          practice_id: item.practice_roles.practice_id,
-          role_catalog_id: item.practice_roles.role_catalog_id,
-          is_active: item.practice_roles.is_active,
-          created_at: '',
-          updated_at: '',
-          role_catalog: item.practice_roles.role_catalog ? {
-            id: item.practice_roles.role_catalog.id,
-            role_key: item.practice_roles.role_catalog.role_key,
-            display_name: item.practice_roles.role_catalog.display_name,
-            category: item.practice_roles.role_catalog.category,
-            default_capabilities: item.practice_roles.role_catalog.default_capabilities || [],
-            description: item.practice_roles.role_catalog.description,
-            created_at: '',
-            updated_at: '',
-          } : undefined,
+        .filter((item) => item.practice_role)
+        .map((item) => ({
+          id: item.practice_role.id,
+          practice_id: item.practice_role.practice_id,
+          role_catalog_id: item.practice_role.role_catalog_id,
+          is_active: item.practice_role.is_active,
+          created_at: item.practice_role.created_at || '',
+          updated_at: item.practice_role.updated_at || '',
+          role_catalog: item.practice_role.role_catalog || undefined,
         }));
 
       setUserRoles(roles);
@@ -401,21 +299,16 @@ export function useUserRoleAssignment(userId: string) {
     }
 
     try {
-      const { error } = await supabase
-        .from('user_practice_roles')
-        .insert({
-          user_id: userId,
-          practice_id: selectedPracticeId,
-          practice_role_id: practiceRoleId,
-        });
-
-      if (error) {
-        if (error.code === '23505') {
-          return { success: true }; // Already assigned
-        }
-        return { success: false, error: error.message };
+      const res = await fetch(`/api/practices/${selectedPracticeId}/user-practice-roles`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, practiceRoleId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to assign role' };
       }
-
       await fetchUserRoles();
       return { success: true };
     } catch (err) {
@@ -424,27 +317,27 @@ export function useUserRoleAssignment(userId: string) {
   }, [userId, selectedPracticeId, fetchUserRoles]);
 
   const unassignRole = useCallback(async (practiceRoleId: string): Promise<{ success: boolean; error?: string }> => {
-    if (!userId) {
-      return { success: false, error: 'Missing user' };
+    if (!userId || !selectedPracticeId) {
+      return { success: false, error: 'Missing user or practice' };
     }
 
     try {
-      const { error } = await supabase
-        .from('user_practice_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('practice_role_id', practiceRoleId);
-
-      if (error) {
-        return { success: false, error: error.message };
+      const res = await fetch(`/api/practices/${selectedPracticeId}/user-practice-roles`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, practiceRoleId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: body.error || 'Failed to unassign role' };
       }
-
       await fetchUserRoles();
       return { success: true };
     } catch (err) {
       return { success: false, error: 'An unexpected error occurred' };
     }
-  }, [userId, fetchUserRoles]);
+  }, [userId, selectedPracticeId, fetchUserRoles]);
 
   useEffect(() => {
     fetchUserRoles();

@@ -98,8 +98,10 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    // Dynamic import keeps vite out of the production bundle entirely
+  if (process.env.NODE_ENV === "development") {
+    // Dynamic import keeps vite out of the production bundle entirely.
+    // Only development (run via tsx/ESM) loads vite.ts; the esbuild CJS bundle
+    // used for test/production serves static and never touches import.meta.
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {

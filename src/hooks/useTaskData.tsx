@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useMasterUser } from './useMasterUser';
 
@@ -32,103 +31,43 @@ export function useTaskData() {
         targetPracticeId = selectedPracticeId;
       }
 
-      console.log('Fetching data for practice:', targetPracticeId);
 
-      // Get practice manager for default assignment via new role system
-      // First try new role system, then fallback to is_practice_manager flag
-      const { data: practiceManagerViaRole } = await supabase
-        .from('user_practice_roles')
-        .select(`
-          user_id,
-          users!inner(id, name, practice_id),
-          practice_roles!inner(
-            role_catalog!inner(role_key)
-          )
-        `)
-        .eq('users.practice_id', targetPracticeId)
-        .eq('practice_roles.role_catalog.role_key', 'practice_manager')
-        .limit(1)
-        .maybeSingle();
+      // Get practice manager for default assignment via the is_practice_manager flag.
+      const usersRes = await fetch(`/api/practices/${targetPracticeId}/users`, { credentials: 'include' });
+      const allUsers = usersRes.ok ? await usersRes.json() as any[] : [];
+      const pm = allUsers.find((u) => u.isPracticeManager);
+      const practiceManager: { id: string; name: string } | null = pm ? { id: pm.id, name: pm.name } : null;
 
-      let practiceManager: { id: string; name: string } | null = null;
-      
-      if (practiceManagerViaRole?.users) {
-        practiceManager = {
-          id: (practiceManagerViaRole.users as any).id,
-          name: (practiceManagerViaRole.users as any).name
-        };
-      } else {
-        // Fallback to is_practice_manager flag
-        const { data: fallbackPM } = await supabase
-          .from('users')
-          .select('id, name')
-          .eq('practice_id', targetPracticeId)
-          .eq('is_practice_manager', true)
-          .limit(1)
-          .maybeSingle();
-        
-        practiceManager = fallbackPM;
-      }
 
-      console.log('Practice manager:', practiceManager);
+      // Get ALL process instances for the target practice with template + assignee info
+      const fetchInstances = async () => {
+        const r = await fetch(`/api/practices/${targetPracticeId}/process-instances?details=1`, { credentials: 'include' });
+        return r.ok ? await r.json() as any[] : null;
+      };
 
-      // Get ALL process instances for the target practice with template info
-      const { data: processInstances, error: processError } = await supabase
-        .from('process_instances')
-        .select(`
-          *,
-          process_templates!inner (
-            name,
-            responsible_role,
-            steps,
-            sla_hours
-          ),
-          users!assignee_id (
-            id,
-            name
-          )
-        `)
-        .eq('practice_id', targetPracticeId);
-
-      console.log('Process instances:', processInstances, 'Error:', processError);
+      const processInstances = await fetchInstances();
       if (!processInstances) {
-        console.log('No process instances found for practice:', targetPracticeId);
         return;
       }
 
-      // Auto-assign unassigned processes to practice manager
+      // Auto-assign unassigned processes to the practice manager
       const unassignedProcesses = processInstances.filter(p => !p.assignee_id);
-      
-      if (unassignedProcesses.length > 0 && practiceManager) {
-        const { error: assignError } = await supabase
-          .from('process_instances')
-          .update({ assignee_id: practiceManager.id })
-          .in('id', unassignedProcesses.map(p => p.id));
 
-        if (assignError) {
-          console.error('Error auto-assigning to practice manager:', assignError);
-        } else {
-          // Refresh data after assignment
-          const { data: updatedProcessInstances } = await supabase
-            .from('process_instances')
-            .select(`
-              *,
-              process_templates!inner (
-                name,
-                responsible_role,
-                steps,
-                sla_hours
-              ),
-              users!assignee_id (
-                id,
-                name
-              )
-            `)
-            .eq('practice_id', targetPracticeId);
-          
+      if (unassignedProcesses.length > 0 && practiceManager) {
+        try {
+          await Promise.all(unassignedProcesses.map(p =>
+            fetch(`/api/practices/${targetPracticeId}/process-instances/${p.id}`, {
+              method: 'PATCH',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ assigneeId: practiceManager.id }),
+            })));
+          const updatedProcessInstances = await fetchInstances();
           if (updatedProcessInstances) {
             processInstances.splice(0, processInstances.length, ...updatedProcessInstances);
           }
+        } catch (assignError) {
+          console.error('Error auto-assigning to practice manager:', assignError);
         }
       }
 
@@ -168,8 +107,6 @@ export function useTaskData() {
         };
       });
 
-      console.log('All tasks:', tasks);
-      console.log('Current user ID:', user.id);
 
       // Split tasks based on current user
       // User tasks = tasks assigned to the current user
@@ -177,8 +114,6 @@ export function useTaskData() {
       const userTasksList = tasks.filter(task => task.isCurrentUser);
       const otherTasksList = tasks.filter(task => !task.isCurrentUser);
 
-      console.log('User tasks:', userTasksList);
-      console.log('Other tasks:', otherTasksList);
 
       setUserTasks(userTasksList);
       setOtherTasks(otherTasksList);

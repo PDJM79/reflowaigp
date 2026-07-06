@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { useMasterUser } from '@/hooks/useMasterUser';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
   DropdownMenu,
@@ -36,11 +35,9 @@ export function PracticeSwitcher() {
       try {
         if (isMasterUser) {
           // Master user: fetch all practices for dropdown
-          const { data } = await supabase
-            .from('practices')
-            .select('id, name')
-            .order('name');
-          setPractices(data || []);
+          const res = await fetch('/api/practices', { credentials: 'include' });
+          const data = res.ok ? await res.json() : [];
+          setPractices(Array.isArray(data) ? data : []);
         } else {
           // Regular user: get practice name from session
           setUserPracticeName(user.practice?.name || null);

@@ -31,7 +31,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   REQUEST_TYPES,
@@ -75,31 +74,30 @@ export function MedicalRequestDialog({
     setLoading(true);
     try {
       const payload = {
-        practice_id: practiceId,
-        request_type: data.request_type,
-        received_at: data.received_at,
-        emis_hash: data.emis_hash || null,
+        requestType: data.request_type,
+        receivedAt: data.received_at,
+        emisHash: data.emis_hash || null,
         notes: data.notes || null,
         status: 'received' as const,
       };
 
       if (isEditing) {
-        const { error } = await supabase
-          .from('medical_requests')
-          .update({
-            ...payload,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', request.id);
-
-        if (error) throw error;
+        const res = await fetch(`/api/practices/${practiceId}/medical-requests/${request.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`Failed to update request (${res.status})`);
         toast({ title: 'Request updated successfully' });
       } else {
-        const { error } = await supabase
-          .from('medical_requests')
-          .insert(payload);
-
-        if (error) throw error;
+        const res = await fetch(`/api/practices/${practiceId}/medical-requests`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`Failed to log request (${res.status})`);
         toast({ title: 'Request logged successfully' });
       }
 

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useGovernanceApprovals } from '@/hooks/useGovernanceApprovals';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -69,22 +68,19 @@ export default function GovernanceDashboard() {
   const [practiceId, setPracticeId] = useState<string | null>(null);
   const [practiceName, setPracticeName] = useState<string>('Practice');
 
-  // Fetch user's practice ID
+  // Practice comes from the session; fetch its name via the API.
   useEffect(() => {
-    async function fetchPracticeId() {
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from('users')
-        .select('practice_id, practices(name)')
-        .eq('id', user.id)
-        .single();
-      if (data?.practice_id) {
-        setPracticeId(data.practice_id);
-        setPracticeName((data.practices as any)?.name || 'Practice');
+    async function fetchPractice() {
+      if (!user?.practiceId) return;
+      setPracticeId(user.practiceId);
+      const res = await fetch(`/api/practices/${user.practiceId}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setPracticeName(data?.name || 'Practice');
       }
     }
-    fetchPracticeId();
-  }, [user?.id]);
+    fetchPractice();
+  }, [user?.practiceId]);
 
   const {
     pendingItems,

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { usePracticeSelection } from './usePracticeSelection';
 
@@ -45,52 +44,35 @@ export function useAuditLogs(params: UseAuditLogsParams = {}) {
     pageSize = 25,
   } = params;
 
+  const practiceId = selectedPracticeId || user?.practiceId || null;
+
   useEffect(() => {
-    if (!user || !selectedPracticeId) {
+    if (!user || !practiceId) {
       setLoading(false);
       return;
     }
     fetchLogs();
-  }, [user, selectedPracticeId, search, entityType, action, dateRange?.start, dateRange?.end, page, pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, practiceId, search, entityType, action, dateRange?.start, dateRange?.end, page, pageSize]);
 
   async function fetchLogs() {
     setLoading(true);
     setError(null);
     try {
-      let query = (supabase as any)
-        .from('audit_logs')
-        .select('*, users!audit_logs_user_id_fkey(name)', { count: 'exact' })
-        .eq('practice_id', selectedPracticeId)
-        .order('created_at', { ascending: false });
-
-      if (entityType !== 'all') query = query.eq('entity_type', entityType);
-      if (action !== 'all') query = query.eq('action', action);
-      if (search) {
-        query = query.or(
-          `entity_id.ilike.%${search}%,entity_type.ilike.%${search}%`,
-        );
-      }
+      const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (entityType !== 'all') qs.set('entityType', entityType);
+      if (action !== 'all') qs.set('action', action);
+      if (search) qs.set('search', search);
       if (dateRange) {
-        query = query
-          .gte('created_at', dateRange.start.toISOString())
-          .lte('created_at', dateRange.end.toISOString());
+        qs.set('startDate', dateRange.start.toISOString());
+        qs.set('endDate', dateRange.end.toISOString());
       }
+      const res = await fetch(`/api/practices/${practiceId}/audit-logs?${qs.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch audit logs (${res.status})`);
+      const { rows, total } = await res.json() as { rows: AuditLog[]; total: number };
 
-      const from = (page - 1) * pageSize;
-      query = query.range(from, from + pageSize - 1);
-
-      const { data, error: fetchError, count } = await query;
-      if (fetchError) throw fetchError;
-
-      const mapped: AuditLog[] = (data ?? []).map((row: any) => ({
-        ...row,
-        ip_address: row.ip_address ?? null,
-        user_agent: row.user_agent ?? null,
-        user_name: row.users?.name ?? null,
-      }));
-
-      setLogs(mapped);
-      setTotalCount(count ?? 0);
+      setLogs(rows ?? []);
+      setTotalCount(total ?? 0);
     } catch (err: any) {
       setError(err.message ?? 'Failed to fetch audit logs');
     } finally {

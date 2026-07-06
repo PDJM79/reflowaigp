@@ -1,0 +1,77 @@
+{
+  "module_id": "GP-MOD-026",
+  "module_name": "Information Governance and NHS Data Security",
+  "source_school_module": null,
+  "comparison_status": "NEW",
+  "primary_legislation": {
+    "all": "UK General Data Protection Regulation (UK GDPR); Data Protection Act 2018; Network and Information Systems (NIS) Regulations 2018; NHS Contract and GMS Regulations (IG obligations)",
+    "england": "NHS England Data Security and Protection (DSP) Toolkit; National Data Guardian (NDG) Standards",
+    "wales": "NHS Wales Data Security and Protection Toolkit; Welsh Government IG guidance",
+    "scotland": "Scottish Government / NHS Scotland IG policy; NHS Scotland Caldicott Guardian framework",
+    "northern_ireland": "BSO (Business Services Organisation) IG portal; HSCB IG requirements; Department of Health NI IG guidance"
+  },
+  "enforcing_body": {
+    "england": "ICO (UK GDPR/DPA 2018) + CQC ('Well-Led' domain — IG governance) + NHS England (DSP Toolkit compliance)",
+    "wales": "ICO + HIW + NHS Wales",
+    "scotland": "ICO + HIS + NHS Scotland",
+    "northern_ireland": "ICO + RQIA + BSO/HSCB"
+  },
+  "responsible_role": "Practice Manager / Data Protection Officer (DPO) or Data Protection Lead + Caldicott Guardian (must be a senior clinician — GP partner)",
+  "applicable_to": ["all", "dispensing", "branch"],
+  "logbooks": [
+    {
+      "logbook_id": "GP-LB-026-001",
+      "title": "Annual DSP Toolkit / IG Self-Assessment Completion",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Annual submission deadline is 30 June each year (England — NHS England DSP Toolkit). Other nations have equivalent annual cycles — confirm current deadlines with the relevant Health Board / BSO.",
+      "steps": [
+        { "step_number": 1, "nations": "england", "description": "Log into the NHS Data Security and Protection (DSP) Toolkit at www.dsptoolkit.nhs.uk using the practice's ODS code. Review the current year's assertion requirements." },
+        { "step_number": 1, "nations": "wales", "description": "Log into the NHS Wales DSP Toolkit (or the current Welsh Government IG self-assessment platform — confirm current portal with the local Health Board IG team). Review assertion requirements for the current year." },
+        { "step_number": 1, "nations": "scotland", "description": "Complete the NHS Scotland IG self-assessment per current NHS Board requirements. Scotland does not use the England DSP Toolkit — confirm the current assessment framework with the relevant NHS Board IG lead." },
+        { "step_number": 1, "nations": "northern_ireland", "description": "Complete the BSO IG annual self-assessment via the BSO IG portal. Confirm the current assessment framework and submission deadline with BSO." },
+        { "step_number": 2, "nations": "all", "description": "Work through each assertion/standard in the self-assessment: data security awareness training completion rates (target 95% of staff trained annually), access control and system security, data storage and retention, data sharing agreements, business continuity, and incident reporting." },
+        { "step_number": 3, "nations": "all", "description": "Confirm the DPO (or Data Protection Lead) is named and their contact details are published on the practice website/ICO register." },
+        { "step_number": 4, "nations": "all", "description": "Confirm the Caldicott Guardian is a senior clinician (GP partner) and their role is recorded." },
+        { "step_number": 5, "nations": "england", "description": "Submit the completed DSP Toolkit before 30 June. Aim for 'Standards Met' (green) status. 'Approaching Standards' (amber) will require an action plan. 'Standards Not Met' (red) requires escalation and improvement plan." },
+        { "step_number": 5, "nations": "wales", "description": "Submit the self-assessment by the Health Board deadline. Confirm submission receipt." },
+        { "step_number": 5, "nations": "scotland", "description": "Submit the self-assessment to the NHS Board IG team by the required deadline." },
+        { "step_number": 5, "nations": "northern_ireland", "description": "Submit the self-assessment to BSO by the required deadline." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, submission completed, status achieved (if applicable), any action plan items identified, reviewer name, next submission due." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-026-002",
+      "title": "Data Breach and Security Incident Log",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "per_occurrence",
+      "frequency_detail": "Record every data breach or near-miss at the time of occurrence.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Record the incident immediately: date, time, description of what occurred, categories of data involved (special category health data requires the highest level of protection), number of data subjects affected, how the incident was discovered." },
+        { "step_number": 2, "nations": "all", "description": "Assess the risk to data subjects: is there a risk of harm (physical, material, or non-material)? Is there a risk of discrimination, fraud, financial loss, damage to reputation?" },
+        { "step_number": 3, "nations": "all", "description": "If the breach is notifiable (there is a risk to the rights and freedoms of individuals), report to the ICO within 72 hours of becoming aware of the breach (UK GDPR Article 33). If reporting after 72 hours, document the reason for delay." },
+        { "step_number": 4, "nations": "england", "description": "Also report the breach via the NHS England DSP Toolkit incident reporting function. Serious incidents should be escalated to the local ICB." },
+        { "step_number": 4, "nations": "wales", "description": "Report via the NHS Wales IG incident reporting process to the Health Board IG team." },
+        { "step_number": 4, "nations": "scotland", "description": "Report to the NHS Board IG team and via the NHS Scotland incident reporting process." },
+        { "step_number": 4, "nations": "northern_ireland", "description": "Report to the BSO IG team and via the HSCB/HSC Trust incident reporting process." },
+        { "step_number": 5, "nations": "all", "description": "Implement remedial action to prevent recurrence. Review any system access or process that contributed to the breach." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, description, data categories, number of subjects, risk assessment, ICO notification (yes/no, reference number), NHS notification made, remedial action, reviewer." }
+      ]
+    },
+    {
+      "logbook_id": "GP-LB-026-003",
+      "title": "Annual IG Training and Access Control Review",
+      "applicable_to": ["all", "dispensing", "branch"],
+      "frequency": "annual",
+      "frequency_detail": "Once per year.",
+      "steps": [
+        { "step_number": 1, "nations": "all", "description": "Confirm all staff have completed the mandatory annual IG/data security training (typically the NHS-approved online training module, e.g., via IG Learning Management System or equivalent). Target: 95% completion rate for DSP Toolkit compliance." },
+        { "step_number": 2, "nations": "all", "description": "Review clinical system access rights: confirm all staff have the minimum access level required for their role. Remove or revoke access for staff who have left. Review administrative access rights." },
+        { "step_number": 3, "nations": "all", "description": "Confirm all staff passwords for the clinical system are strong (meet NHS/system requirements) and have been changed within the required period. Confirm no shared logins are in use." },
+        { "step_number": 4, "nations": "all", "description": "Review the practice's data sharing agreements and data processing agreements with third-party providers (IT suppliers, transcription services, referral management companies). Confirm all agreements are current and include appropriate GDPR data processing clauses (Article 28 processor agreements)." },
+        { "step_number": 5, "nations": "all", "description": "Confirm the practice's privacy notice is up to date on the website and available in the practice." },
+        { "step_number": 6, "nations": "all", "description": "Record: date, training completion percentage, access rights reviewed, password policy compliance confirmed, data sharing agreements current, privacy notice confirmed, reviewer name, next review due." }
+      ]
+    }
+  ]
+}

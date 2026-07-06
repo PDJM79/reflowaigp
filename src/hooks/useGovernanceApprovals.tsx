@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
   PendingApprovalItem,
@@ -36,38 +35,24 @@ export function useGovernanceApprovals(practiceId: string | null) {
     if (!practiceId) return;
 
     try {
-      // Fetch pending governance approvals
-      const { data: pendingApprovals, error } = await supabase
-        .from('governance_approvals')
-        .select(`
-          id,
-          entity_type,
-          entity_id,
-          entity_name,
-          requested_by,
-          requested_at,
-          urgency
-        `)
-        .eq('practice_id', practiceId)
-        .eq('decision', 'pending')
-        .order('urgency', { ascending: true })
-        .order('requested_at', { ascending: true });
+      const res = await fetch(`/api/practices/${practiceId}/governance-approvals`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const all = await res.json() as any[];
 
-      if (error) throw error;
-
-      // Transform to PendingApprovalItem format
-      const items: PendingApprovalItem[] = (pendingApprovals || []).map((approval) => ({
-        id: approval.id,
-        entityType: approval.entity_type as ApprovableEntityType,
-        entityId: approval.entity_id,
-        entityName: approval.entity_name,
-        requestedBy: approval.requested_by,
-        requestedByName: null, // Could be joined if needed
-        requestedAt: approval.requested_at || new Date().toISOString(),
-        urgency: (approval.urgency as 'high' | 'medium' | 'low') || 'medium',
-        ownerId: approval.requested_by,
-        ownerName: null,
-      }));
+      const items: PendingApprovalItem[] = all
+        .filter((a) => (a.decision ?? a.decision) === 'pending')
+        .map((approval) => ({
+          id: approval.id,
+          entityType: (approval.entityType ?? approval.entity_type) as ApprovableEntityType,
+          entityId: approval.entityId ?? approval.entity_id,
+          entityName: approval.entityName ?? approval.entity_name,
+          requestedBy: approval.requestedBy ?? approval.requested_by,
+          requestedByName: null,
+          requestedAt: approval.requestedAt ?? approval.requested_at ?? new Date().toISOString(),
+          urgency: ((approval.urgency) as 'high' | 'medium' | 'low') || 'medium',
+          ownerId: approval.requestedBy ?? approval.requested_by,
+          ownerName: null,
+        }));
 
       setPendingItems(items);
     } catch (error) {
@@ -79,59 +64,32 @@ export function useGovernanceApprovals(practiceId: string | null) {
     if (!practiceId) return;
 
     try {
-      let query = supabase
-        .from('governance_approvals')
-        .select(`
-          id,
-          entity_type,
-          entity_name,
-          decision,
-          approved_by,
-          approved_at,
-          approval_notes,
-          digital_signature,
-          reviewer_title
-        `)
-        .eq('practice_id', practiceId)
-        .neq('decision', 'pending')
-        .order('approved_at', { ascending: false })
-        .limit(50);
-
-      // Apply filters
-      if (filters.entityTypes.length > 0) {
-        query = query.in('entity_type', filters.entityTypes);
-      }
-
-      if (filters.decision !== 'all') {
-        query = query.eq('decision', filters.decision);
-      }
-
-      if (filters.dateRange.from) {
-        query = query.gte('approved_at', filters.dateRange.from.toISOString());
-      }
-
-      if (filters.dateRange.to) {
-        query = query.lte('approved_at', filters.dateRange.to.toISOString());
-      }
-
-      const { data: history, error } = await query;
-
-      if (error) throw error;
-
-      const items: ApprovalHistoryItem[] = (history || []).map((h) => ({
+      const res = await fetch(`/api/practices/${practiceId}/governance-approvals`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const all = (await res.json() as any[]).map((h) => ({
         id: h.id,
-        entityType: h.entity_type as ApprovableEntityType,
-        entityName: h.entity_name,
-        decision: h.decision as ApprovalHistoryItem['decision'],
-        approvedBy: h.approved_by,
-        approverName: null, // Could be joined if needed
-        approvedAt: h.approved_at || new Date().toISOString(),
-        notes: h.approval_notes,
-        digitalSignature: h.digital_signature,
-        reviewerTitle: h.reviewer_title,
+        entityType: (h.entityType ?? h.entity_type) as ApprovableEntityType,
+        entityName: h.entityName ?? h.entity_name,
+        decision: (h.decision) as ApprovalHistoryItem['decision'],
+        approvedBy: h.approvedBy ?? h.approved_by,
+        approvedAt: h.approvedAt ?? h.approved_at,
+        notes: h.approvalNotes ?? h.approval_notes,
+        digitalSignature: h.digitalSignature ?? h.digital_signature,
+        reviewerTitle: h.reviewerTitle ?? h.reviewer_title,
       }));
 
-      setHistoryItems(items);
+      let items = all.filter((h) => h.decision !== 'pending');
+      if (filters.entityTypes.length > 0) items = items.filter((h) => filters.entityTypes.includes(h.entityType));
+      if (filters.decision !== 'all') items = items.filter((h) => h.decision === filters.decision);
+      if (filters.dateRange.from) items = items.filter((h) => h.approvedAt && new Date(h.approvedAt) >= filters.dateRange.from!);
+      if (filters.dateRange.to) items = items.filter((h) => h.approvedAt && new Date(h.approvedAt) <= filters.dateRange.to!);
+      items.sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime());
+
+      setHistoryItems(items.slice(0, 50).map((h) => ({
+        ...h,
+        approverName: null,
+        approvedAt: h.approvedAt || new Date().toISOString(),
+      })) as ApprovalHistoryItem[]);
     } catch (error) {
       console.error('Error fetching approval history:', error);
     }
@@ -141,39 +99,30 @@ export function useGovernanceApprovals(practiceId: string | null) {
     if (!practiceId) return;
 
     try {
-      // Count pending by type
-      const { data: pending, error: pendingError } = await supabase
-        .from('governance_approvals')
-        .select('entity_type')
-        .eq('practice_id', practiceId)
-        .eq('decision', 'pending');
+      const res = await fetch(`/api/practices/${practiceId}/governance-approvals`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const all = (await res.json() as any[]).map((a) => ({
+        entity_type: a.entityType ?? a.entity_type,
+        decision: a.decision,
+        approved_at: a.approvedAt ?? a.approved_at,
+      }));
 
-      if (pendingError) throw pendingError;
-
-      // Count approved this month
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { count: approvedCount, error: approvedError } = await supabase
-        .from('governance_approvals')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', practiceId)
-        .eq('decision', 'approved')
-        .gte('approved_at', startOfMonth.toISOString());
-
-      if (approvedError) throw approvedError;
-
-      const pendingPolicies = (pending || []).filter((p) => p.entity_type === 'policy').length;
-      const pendingAssessments = (pending || []).filter((p) =>
-        ['fire_safety_assessment', 'ipc_audit', 'room_assessment'].includes(p.entity_type)
-      ).length;
+      const pending = all.filter((a) => a.decision === 'pending');
+      const approvedThisMonth = all.filter((a) =>
+        a.decision === 'approved' && a.approved_at && new Date(a.approved_at) >= startOfMonth).length;
+      const pendingPolicies = pending.filter((p) => p.entity_type === 'policy').length;
+      const pendingAssessments = pending.filter((p) =>
+        ['fire_safety_assessment', 'ipc_audit', 'room_assessment'].includes(p.entity_type)).length;
 
       setStats({
-        totalPending: (pending || []).length,
+        totalPending: pending.length,
         pendingPolicies,
         pendingAssessments,
-        approvedThisMonth: approvedCount || 0,
+        approvedThisMonth,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);

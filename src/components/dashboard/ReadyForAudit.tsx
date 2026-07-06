@@ -6,7 +6,6 @@ import { AlertCircle, Target, CheckCircle2, AlertTriangle, Sparkles, Loader2, In
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ScoreData {
   section_key: string;
@@ -65,22 +64,6 @@ const MODULE_TO_SECTION: Record<string, string> = {
   policies: "Policies",
   incidents: "Incidents",
 };
-
-function computeScore(tasks: { status: string; due_at: string; completed_at: string | null }[]) {
-  const total = tasks.length;
-  if (total === 0) return { score: 100, C: 100, S: 100 };
-  const closedOnTime = tasks.filter(
-    t => t.status === 'closed' && t.completed_at && new Date(t.completed_at) <= new Date(t.due_at)
-  ).length;
-  const closedLate = tasks.filter(
-    t => t.status === 'closed' && t.completed_at && new Date(t.completed_at) > new Date(t.due_at)
-  ).length;
-  const totalClosed = closedOnTime + closedLate;
-  const score = Math.round((closedOnTime + closedLate * 0.7) / total * 100);
-  const C = Math.round(totalClosed / total * 100);
-  const S = totalClosed > 0 ? Math.round(closedOnTime / totalClosed * 100) : 0;
-  return { score, C, S };
-}
 
 const DEFAULT_TARGETS: TargetData[] = [
   { section_key: null, target_score: 85 },
@@ -186,39 +169,33 @@ export function ReadyForAudit() {
     queryFn: async (): Promise<ScoreData[]> => {
       if (!practiceId) return [];
 
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-      const { data: tasks, error } = await supabase
-        .from('tasks')
-        .select('status, due_at, completed_at, module')
-        .eq('practice_id', practiceId)
-        .gte('due_at', thirtyDaysAgo.toISOString())
-        .lte('due_at', now.toISOString());
-
-      if (error || !tasks || tasks.length === 0) return [];
-
-      // Group by module
-      const groups: Record<string, typeof tasks> = {};
-      for (const task of tasks) {
-        const mod = task.module || 'other';
-        if (!groups[mod]) groups[mod] = [];
-        groups[mod].push(task);
-      }
+      // Server-computed per-module + overall scores (Phase 6 analytics).
+      const [mbRes, cRes] = await Promise.all([
+        fetch(`/api/practices/${practiceId}/analytics/module-breakdown`, { credentials: 'include' }),
+        fetch(`/api/practices/${practiceId}/analytics/compliance`, { credentials: 'include' }),
+      ]);
+      if (!mbRes.ok || !cRes.ok) return [];
+      const mb = await mbRes.json();
+      const compliance = await cRes.json();
 
       const result: ScoreData[] = [];
-
-      // Per-module section scores
-      for (const [mod, modTasks] of Object.entries(groups)) {
-        const sectionKey = MODULE_TO_SECTION[mod];
-        if (!sectionKey) continue;
-        const { score, C, S } = computeScore(modTasks);
-        result.push({ section_key: sectionKey, score, contributors_json: { C, S }, gates_json: {} });
+      for (const m of (mb.modules ?? [])) {
+        const sectionKey = MODULE_TO_SECTION[m.module];
+        if (!sectionKey || m.score == null) continue;
+        const completed = m.completed_on_time + m.completed_late;
+        const C = m.expected > 0 ? Math.round((completed / m.expected) * 100) : 0;
+        const S = completed > 0 ? Math.round((m.completed_on_time / completed) * 100) : 0;
+        result.push({ section_key: sectionKey, score: m.score, contributors_json: { C, S }, gates_json: {} });
       }
 
-      // Overall score
-      const { score: overallScore, C, S } = computeScore(tasks);
-      result.push({ section_key: 'Overall', score: overallScore, contributors_json: { C, S }, gates_json: {} });
+      // Overall score = server compliance score (null when no scheduled work).
+      if (compliance.compliance_score != null) {
+        const b = compliance.breakdown;
+        const completed = b.completed_on_time + b.completed_late;
+        const C = b.expected > 0 ? Math.round((completed / b.expected) * 100) : 0;
+        const S = completed > 0 ? Math.round((b.completed_on_time / completed) * 100) : 0;
+        result.push({ section_key: 'Overall', score: compliance.compliance_score, contributors_json: { C, S }, gates_json: {} });
+      }
 
       return result;
     },

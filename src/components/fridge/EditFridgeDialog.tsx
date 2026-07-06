@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import type { Fridge } from './types';
 
 interface EditFridgeDialogProps {
@@ -15,6 +15,7 @@ interface EditFridgeDialogProps {
 }
 
 export function EditFridgeDialog({ fridge, open, onOpenChange, onSuccess }: EditFridgeDialogProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -57,17 +58,18 @@ export function EditFridgeDialog({ fridge, open, onOpenChange, onSuccess }: Edit
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('fridges')
-        .update({
+      const res = await fetch(`/api/practices/${user!.practiceId}/fridge-units/${fridge.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: formData.name.trim(),
           location: formData.location.trim() || null,
-          min_temp: minTemp,
-          max_temp: maxTemp
-        })
-        .eq('id', fridge.id);
-
-      if (error) throw error;
+          minTemp,
+          maxTemp,
+        }),
+      });
+      if (!res.ok) throw new Error(`Failed to update fridge (${res.status})`);
 
       toast.success('Fridge updated successfully');
       onOpenChange(false);

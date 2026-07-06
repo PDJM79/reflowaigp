@@ -50,31 +50,26 @@ export default function Policies() {
         return;
       }
 
-      const { data, error: policiesError } = await supabase
-        .from('policy_documents')
-        .select('*')
-        .eq('practice_id', user.practiceId)
-        .order('created_at', { ascending: false });
-
-      if (policiesError) {
-        console.error('Error fetching policies:', policiesError);
+      // Policies via the Express API (direct-Supabase was RLS-dead). Map the
+      // Drizzle camelCase next_review_date the render reads as review_due.
+      const res = await fetch(`/api/practices/${user.practiceId}/policies`, { credentials: 'include' });
+      if (!res.ok) {
         setError('Failed to load policies. Please try refreshing the page.');
         setLoading(false);
         return;
       }
+      const raw = await res.json();
+      const mapped = (Array.isArray(raw) ? raw : []).map((p: any) => ({
+        ...p,
+        review_due: p.nextReviewDate ?? p.next_review_date ?? null,
+      }));
+      mapped.sort((a, b) => new Date(b.createdAt || b.created_at || 0).getTime() - new Date(a.createdAt || a.created_at || 0).getTime());
+      setPolicies(mapped);
 
-      setPolicies(data || []);
-
-      // Fetch user's acknowledgments using session user.id (DB primary key)
-      const { data: acks } = await supabase
-        .from('policy_acknowledgments')
-        .select('policy_id, version_acknowledged')
-        .eq('user_id', user.id);
-
-      const ackSet = new Set(
-        acks?.map(a => `${a.policy_id}_${a.version_acknowledged}`) || []
-      );
-      setMyAcknowledgments(ackSet);
+      // Per-user acknowledgment tracking needs a dedicated policy_acknowledgments
+      // endpoint (no route yet — deferred). Degrade to "none acknowledged" so the
+      // list and review status still render; acknowledgment prompts show for all.
+      setMyAcknowledgments(new Set());
     } catch (error) {
       console.error('Error fetching policies:', error);
       setError('An unexpected error occurred. Please try refreshing the page.');
