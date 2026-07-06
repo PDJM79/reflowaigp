@@ -276,6 +276,39 @@ export default function Claims() {
         onOpenChange={setIsClaimRunDialogOpen}
         onSuccess={fetchClaims}
       />
+
+      <Dialog open={!!reviewRunId} onOpenChange={(o) => { if (!o) setReviewRunId(null); }}>
+        <DialogContent className="w-[95vw] max-w-lg">
+          <DialogHeader><DialogTitle>Review Claim Run</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Outcome</Label>
+              <Select value={reviewForm.outcome} onValueChange={(v) => setReviewForm({ ...reviewForm, outcome: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="approved">Approve</SelectItem>
+                  <SelectItem value="queried">Query</SelectItem>
+                </SelectContent>
+              </Select>
+              {reviewForm.outcome === 'queried' && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">Querying returns the run for correction (status → queried).</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Review date</Label>
+              <Input type="date" value={reviewForm.reviewDate} onChange={(e) => setReviewForm({ ...reviewForm, reviewDate: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea rows={3} value={reviewForm.notes} onChange={(e) => setReviewForm({ ...reviewForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewRunId(null)}>Cancel</Button>
+            <Button onClick={submitReview} disabled={savingReview}>{savingReview ? 'Saving…' : 'Record review'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
