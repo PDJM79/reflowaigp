@@ -1348,9 +1348,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ ok: true });
     } catch (e) { console.error("DELETE baseline-documents", e); res.status(500).json({ error: "Failed to delete baseline document" }); }
   });
-  app.post("/api/practices/:practiceId/dbs-checks", isAuthenticated, requireSamePractice, async (req, res) => {
-    try { res.status(201).json(await storage.createDbsCheck({ ...stripPracticeId(req.body), practiceId: req.params.practiceId } as any)); }
-    catch (e) { console.error("POST dbs-checks", e); res.status(500).json({ error: "Failed to create DBS check" }); }
+  // DBS records: practice-member read, manager write (HR admin).
+  app.post("/api/practices/:practiceId/dbs-checks", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const body = coerceDates(stripPracticeId(req.body), ["checkDate", "nextReviewDue"]);
+      res.status(201).json(await storage.createDbsCheck({ ...body, practiceId: req.params.practiceId } as any));
+    } catch (e) { console.error("POST dbs-checks", e); res.status(500).json({ error: "Failed to create DBS check" }); }
+  });
+  app.patch("/api/practices/:practiceId/dbs-checks/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const body = coerceDates(stripPracticeId(req.body), ["checkDate", "nextReviewDue"]);
+      const row = await storage.updateDbsCheck(req.params.id as string, req.params.practiceId as string, body as any);
+      if (!row) return res.status(404).json({ error: "DBS check not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH dbs-checks", e); res.status(500).json({ error: "Failed to update DBS check" }); }
+  });
+  app.delete("/api/practices/:practiceId/dbs-checks/:id", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const ok = await storage.deleteDbsCheck(req.params.id as string, req.params.practiceId as string);
+      if (!ok) return res.status(404).json({ error: "DBS check not found" });
+      res.json({ ok: true });
+    } catch (e) { console.error("DELETE dbs-checks", e); res.status(500).json({ error: "Failed to delete DBS check" }); }
   });
 
   // --- MFA (secrets handled server-side only; never returned to the client) ---

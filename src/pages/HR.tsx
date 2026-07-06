@@ -40,6 +40,17 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   group_manager: 'Group Manager',
 };
 
+/** DBS renewal RAG: red = overdue, amber = due within 60 days, none otherwise. */
+function dbsRenewalState(nextReviewDue: string | null | undefined): { label: string; className: string } | null {
+  if (!nextReviewDue) return null;
+  const due = new Date(nextReviewDue).getTime();
+  if (Number.isNaN(due)) return null;
+  const days = Math.floor((due - Date.now()) / 86400000);
+  if (days < 0) return { label: 'Overdue', className: 'bg-destructive text-destructive-foreground' };
+  if (days < 60) return { label: `Due in ${days}d`, className: 'bg-amber-500 text-white' };
+  return null;
+}
+
 export default function HR() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -56,6 +67,7 @@ export default function HR() {
   const [is360FeedbackOpen, setIs360FeedbackOpen] = useState(false);
   const [isTrainingCatalogueOpen, setIsTrainingCatalogueOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedDbsCheck, setSelectedDbsCheck] = useState<any>(null);
   const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
   const [selectedEmployeeForAppraisal, setSelectedEmployeeForAppraisal] = useState<string>('');
   const practiceId = user?.practiceId ?? '';
@@ -545,10 +557,13 @@ export default function HR() {
                   <div className="space-y-3">
                     {dbsChecks.map((check: any) => {
                       const employee = employees.find(e => e.id === check.employee_id);
+                      const renewal = dbsRenewalState(check.next_review_due);
                       return (
-                        <div 
-                          key={check.id} 
-                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg touch-manipulation active:bg-accent gap-2"
+                        <button
+                          type="button"
+                          key={check.id}
+                          onClick={() => { setSelectedEmployee(employee ?? { id: check.employee_id }); setSelectedDbsCheck(check); setIsDBSDialogOpen(true); }}
+                          className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg text-left hover:bg-accent/50 active:bg-accent gap-2 transition-colors"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm sm:text-base">{employee?.name || 'Unknown Employee'}</p>
@@ -556,13 +571,16 @@ export default function HR() {
                               {check.certificate_number && `Cert: ${check.certificate_number}`}
                             </p>
                           </div>
-                          <div className="text-xs sm:text-sm text-muted-foreground text-right">
+                          <div className="text-xs sm:text-sm text-muted-foreground text-right flex flex-col items-end gap-1">
                             <div>Checked: {new Date(check.check_date).toLocaleDateString()}</div>
                             {check.next_review_due && (
-                              <div>Review Due: {new Date(check.next_review_due).toLocaleDateString()}</div>
+                              <div className="flex items-center gap-2">
+                                <span>Review Due: {new Date(check.next_review_due).toLocaleDateString()}</span>
+                                {renewal && <Badge className={renewal.className}>{renewal.label}</Badge>}
+                              </div>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -702,9 +720,11 @@ export default function HR() {
           onClose={() => {
             setIsDBSDialogOpen(false);
             setSelectedEmployee(null);
+            setSelectedDbsCheck(null);
           }}
           employeeId={selectedEmployee.id}
           practiceId={practiceId}
+          existingCheck={selectedDbsCheck}
         />
       )}
 

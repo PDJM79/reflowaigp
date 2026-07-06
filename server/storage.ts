@@ -1339,6 +1339,21 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async updateDbsCheck(id: string, practiceId: string, data: Partial<typeof schema.dbsChecks.$inferInsert>) {
+    const [row] = await db.update(schema.dbsChecks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.dbsChecks.id, id), eq(schema.dbsChecks.practiceId, practiceId)))
+      .returning();
+    return row;
+  }
+
+  async deleteDbsCheck(id: string, practiceId: string): Promise<boolean> {
+    const rows = await db.delete(schema.dbsChecks)
+      .where(and(eq(schema.dbsChecks.id, id), eq(schema.dbsChecks.practiceId, practiceId)))
+      .returning({ id: schema.dbsChecks.id });
+    return rows.length > 0;
+  }
+
   // --- step_instances + evidence (logbook completion flow) ---
   // step_instances/evidence carry no practice_id; scope via the parent
   // process_instance. Shaped snake_case to match the client interfaces.

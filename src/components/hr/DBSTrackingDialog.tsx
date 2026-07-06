@@ -26,31 +26,42 @@ export const DBSTrackingDialog = ({ open, onClose, employeeId, practiceId, exist
 
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      toast({
-        title: 'Info',
-        description: 'DBS check tracking is not yet connected to the backend API',
+      const isEdit = !!existingCheck?.id;
+      const url = isEdit
+        ? `/api/practices/${practiceId}/dbs-checks/${existingCheck.id}`
+        : `/api/practices/${practiceId}/dbs-checks`;
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId,
+          checkDate: data.checkDate,
+          certificateNumber: data.certificateNumber || null,
+          nextReviewDue: data.nextReviewDue,
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to save DBS check (${res.status})`);
+      }
+      return res.json();
     },
     onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: `DBS check ${existingCheck ? 'updated' : 'added'} (saved locally)`,
-      });
+      toast({ title: 'Success', description: `DBS check ${existingCheck ? 'updated' : 'added'}` });
       queryClient.invalidateQueries({ queryKey: ['dbs-checks'] });
       queryClient.invalidateQueries({ queryKey: ['hr-data'] });
       onClose();
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.checkDate) { toast({ title: 'Check date required', variant: 'destructive' }); return; }
+    if (!formData.nextReviewDue) { toast({ title: 'Next review due date required', variant: 'destructive' }); return; }
     saveMutation.mutate(formData);
   };
 
