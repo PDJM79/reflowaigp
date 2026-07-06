@@ -44,6 +44,11 @@ export default function Reports() {
   const [loadError, setLoadError] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
+  const [analytics, setAnalytics] = useState<{
+    modules: Array<{ module: string; expected: number; completed_on_time: number; completed_late: number; overdue_open: number; missed: number; score: number | null }>;
+    trends: Record<string, number | null>;
+    compliance: number | null;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'timeline'>('timeline');
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -93,6 +98,20 @@ export default function Reports() {
         .sort((a, b) => new Date(a.due_at || 0).getTime() - new Date(b.due_at || 0).getTime());
 
       setTasks(mapped);
+
+      // Phase 6: server-computed expected-vs-actual per module + compliance trends.
+      const moduleQ = selectedModule !== 'all' ? `?module=${encodeURIComponent(selectedModule)}` : '';
+      const [mbRes, cRes] = await Promise.all([
+        fetch(`/api/practices/${user.practiceId}/analytics/module-breakdown${moduleQ}`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/analytics/compliance${moduleQ}`, { credentials: 'include' }),
+      ]);
+      if (mbRes.ok && cRes.ok) {
+        const mb = await mbRes.json();
+        const c = await cRes.json();
+        setAnalytics({ modules: mb.modules ?? [], trends: c.trends ?? {}, compliance: c.compliance_score });
+      } else {
+        setAnalytics(null);
+      }
     } catch (error) {
       console.error('Error fetching tasks:', error);
       setLoadError(true);
@@ -332,6 +351,61 @@ export default function Reports() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Phase 6: expected-vs-actual per module + compliance trends */}
+      {analytics && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">Expected vs Actual (last 30 days)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-6 text-sm">
+              <div>
+                <span className="text-muted-foreground">Compliance: </span>
+                <span className="font-semibold">{analytics.compliance != null ? `${analytics.compliance}%` : '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Trend 7d / 30d / 90d: </span>
+                <span className="font-semibold">
+                  {['7d', '30d', '90d'].map((k) => (analytics.trends[k] != null ? `${analytics.trends[k]}%` : '—')).join(' / ')}
+                </span>
+              </div>
+            </div>
+            {analytics.modules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No scheduled occurrences in this period.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-4">Module</th>
+                      <th className="py-2 pr-4 text-right">Expected</th>
+                      <th className="py-2 pr-4 text-right">On time</th>
+                      <th className="py-2 pr-4 text-right">Late</th>
+                      <th className="py-2 pr-4 text-right">Overdue</th>
+                      <th className="py-2 pr-4 text-right">Missed</th>
+                      <th className="py-2 text-right">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.modules.map((m) => (
+                      <tr key={m.module} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-medium capitalize">{m.module}</td>
+                        <td className="py-2 pr-4 text-right">{m.expected}</td>
+                        <td className="py-2 pr-4 text-right text-success">{m.completed_on_time}</td>
+                        <td className="py-2 pr-4 text-right text-warning">{m.completed_late}</td>
+                        <td className="py-2 pr-4 text-right text-destructive">{m.overdue_open}</td>
+                        <td className="py-2 pr-4 text-right text-destructive">{m.missed}</td>
+                        <td className="py-2 text-right font-semibold">{m.score != null ? `${m.score}%` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>

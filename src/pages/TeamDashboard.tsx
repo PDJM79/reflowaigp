@@ -19,6 +19,9 @@ interface TeamMember {
   completed_tasks: number;
   overdue_tasks: number;
   pending_tasks: number;
+  on_time_rate: number | null; // scheduled-occurrence on-time %, from /analytics/team
+  scheduled_load: number;
+  adhoc_load: number;
 }
 
 interface TeamTask {
@@ -54,9 +57,10 @@ export default function TeamDashboard() {
       setLoading(true);
       setLoadError(false);
 
-      const [usersRes, tasksRes] = await Promise.all([
+      const [usersRes, tasksRes, teamRes] = await Promise.all([
         fetch(`/api/practices/${user.practiceId}/users`, { credentials: 'include' }),
         fetch(`/api/practices/${user.practiceId}/tasks`, { credentials: 'include' }),
+        fetch(`/api/practices/${user.practiceId}/analytics/team`, { credentials: 'include' }),
       ]);
       if (!usersRes.ok || !tasksRes.ok) {
         throw new Error('Failed to fetch team data');
@@ -68,6 +72,10 @@ export default function TeamDashboard() {
       const taskList = Array.isArray(tasks) ? tasks : [];
       const now = new Date();
 
+      // Server-computed per-member analytics (scheduled/adhoc load, on-time %, overdue).
+      const teamStats = teamRes.ok ? await teamRes.json() : { members: [] };
+      const statsById = new Map<string, any>((teamStats.members ?? []).map((m: any) => [m.user_id, m]));
+
       const membersWithStats: TeamMember[] = memberList.map((member: any) => {
         const memberTasks = taskList.filter((t: any) => t.assigneeId === member.id);
         const completed = memberTasks.filter((t: any) => COMPLETED_STATUSES.has(t.status)).length;
@@ -75,6 +83,7 @@ export default function TeamDashboard() {
           (t: any) => !COMPLETED_STATUSES.has(t.status) && t.dueAt && new Date(t.dueAt) < now
         ).length;
         const pending = memberTasks.length - completed - overdue;
+        const s = statsById.get(member.id);
 
         return {
           id: member.id,
@@ -83,8 +92,11 @@ export default function TeamDashboard() {
           is_active: member.isActive !== false,
           assigned_tasks: memberTasks.length,
           completed_tasks: completed,
-          overdue_tasks: overdue,
+          overdue_tasks: s ? s.overdue_count : overdue,
           pending_tasks: Math.max(0, pending),
+          on_time_rate: s ? s.on_time_rate : null,
+          scheduled_load: s ? s.scheduled_load : 0,
+          adhoc_load: s ? s.adhoc_load : 0,
         };
       });
 
@@ -323,6 +335,10 @@ export default function TeamDashboard() {
                           <span className="text-amber-600">{member.pending_tasks} ⏳</span>
                           <span className="text-red-600">{member.overdue_tasks} ⚠️</span>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          {member.on_time_rate != null ? `${member.on_time_rate}% on-time` : 'no scheduled work'}
+                          {member.adhoc_load > 0 ? ` · ${member.adhoc_load} ad-hoc` : ''}
+                        </p>
                         <p className={`text-xs font-medium ${getMemberPerformanceColor(member)}`}>
                           {member.overdue_tasks > 0 ? 'Needs attention' :
                            member.completed_tasks > member.pending_tasks ? 'On track' : 'Monitor'}

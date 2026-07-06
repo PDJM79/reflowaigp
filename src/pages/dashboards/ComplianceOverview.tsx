@@ -18,13 +18,18 @@ interface CompliancePolicy {
   status?: string;
 }
 
+interface ComplianceAnalytics {
+  compliance_score: number | null;
+  fit_for_audit_score: number | null;
+  basis: { compliance: string };
+  breakdown: { expected: number; completed_on_time: number; completed_late: number; overdue_open: number; missed: number };
+}
+
 interface ComplianceData {
-  tasks: ComplianceTask[];
+  analytics: ComplianceAnalytics;
   incidents: unknown[];
   policies: CompliancePolicy[];
 }
-
-const LATE_COMPLETION_CREDIT = 0.7;
 
 export default function ComplianceOverview() {
   const { user } = useAuth();
@@ -52,22 +57,22 @@ export default function ComplianceOverview() {
       const practiceId = user?.practiceId;
       if (!practiceId) return null;
 
-      const [tasksRes, incidentsRes, policiesRes] = await Promise.all([
-        fetch(`/api/practices/${practiceId}/tasks`, { credentials: 'include' }),
+      const [analyticsRes, incidentsRes, policiesRes] = await Promise.all([
+        fetch(`/api/practices/${practiceId}/analytics/compliance?from=${dateRange.start}&to=${dateRange.end}`, { credentials: 'include' }),
         fetch(`/api/practices/${practiceId}/incidents`, { credentials: 'include' }),
         fetch(`/api/practices/${practiceId}/policies`, { credentials: 'include' }),
       ]);
 
-      if (!tasksRes.ok || !incidentsRes.ok || !policiesRes.ok) {
+      if (!analyticsRes.ok || !incidentsRes.ok || !policiesRes.ok) {
         throw new Error('Failed to load compliance data');
       }
 
-      const tasks = await tasksRes.json();
+      const analytics = await analyticsRes.json();
       const incidents = await incidentsRes.json();
       const policies = await policiesRes.json();
 
       return {
-        tasks: Array.isArray(tasks) ? tasks : [],
+        analytics,
         incidents: Array.isArray(incidents) ? incidents : [],
         policies: Array.isArray(policies) ? policies : [],
       };
@@ -107,19 +112,17 @@ export default function ComplianceOverview() {
     );
   }
 
-  const { tasks, incidents, policies } = complianceData;
-  const completedTasks = tasks.filter((t) => t.status === 'complete');
-  const completedOnTime = completedTasks.filter(
-    (t) => t.completedAt && t.dueAt && new Date(t.completedAt) <= new Date(t.dueAt)
-  ).length;
-  const completedLate = completedTasks.length - completedOnTime;
-  const avgScore = tasks.length > 0
-    ? Math.round(((completedOnTime + completedLate * LATE_COMPLETION_CREDIT) / tasks.length) * 100)
-    : 0;
-  const taskCompletionRate = tasks.length > 0
-    ? Math.round((completedTasks.length / tasks.length) * 100)
-    : 0;
-  const activePolicies = policies.filter((p) => p.status === 'active').length;
+  const { analytics, incidents, policies } = complianceData;
+  const b = analytics.breakdown;
+  const completedOnTime = b.completed_on_time;
+  const completedLate = b.completed_late;
+  const completedCount = completedOnTime + completedLate;
+  // Server-computed compliance score (on-time + 0.5x late / expected). null = no scheduled work.
+  const hasScore = analytics.compliance_score != null;
+  const avgScore = analytics.compliance_score ?? 0;
+  const fitScore = analytics.fit_for_audit_score;
+  const taskCompletionRate = b.expected > 0 ? Math.round((completedCount / b.expected) * 100) : 0;
+  void policies; // retained in payload for future policy KPIs
 
   const handleExportPDF = async () => {
     const { DashboardPDFExporter, generateFilename } = await import('@/lib/pdfExport');
@@ -132,17 +135,18 @@ export default function ComplianceOverview() {
 
     exporter.addSection('Key Performance Indicators');
     exporter.addMetricsGrid([
-      { label: 'Overall Compliance Score', value: `${avgScore}%`, subtitle: getRAGStatus(avgScore).toUpperCase() },
-      { label: 'Task Completion Rate', value: `${taskCompletionRate}%`, subtitle: `${completedTasks.length} of ${tasks.length} completed` },
-      { label: 'Active Policies', value: `${activePolicies}`, subtitle: 'Currently active' },
+      { label: 'Overall Compliance Score', value: hasScore ? `${avgScore}%` : 'N/A', subtitle: hasScore ? getRAGStatus(avgScore).toUpperCase() : 'No scheduled work' },
+      { label: 'Fit for Audit', value: fitScore != null ? `${fitScore}%` : 'N/A', subtitle: 'Audit readiness' },
+      { label: 'Task Completion Rate', value: `${taskCompletionRate}%`, subtitle: `${completedCount} of ${b.expected} completed` },
       { label: 'Safety Incidents', value: `${incidents.length}`, subtitle: 'Last 3 months' },
     ]);
 
-    exporter.addSection('Task Completion Detail');
+    exporter.addSection('Occurrence Completion Detail');
     exporter.addKeyValuePairs([
       { key: 'Completed on time', value: `${completedOnTime}` },
       { key: 'Completed late', value: `${completedLate}` },
-      { key: 'Outstanding', value: `${tasks.length - completedTasks.length}` },
+      { key: 'Overdue (open)', value: `${b.overdue_open}` },
+      { key: 'Missed', value: `${b.missed}` },
     ]);
 
     exporter.save(generateFilename('compliance-overview', dateRange));
@@ -174,11 +178,30 @@ export default function ComplianceOverview() {
             <CardTitle className="text-xs sm:text-sm font-medium">Overall Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="text-2xl sm:text-3xl font-bold">{avgScore}%</div>
-              <RAGBadge status={getRAGStatus(avgScore)} />
-            </div>
-            <p className="text-xs text-muted-foreground">On-time task completion</p>
+            {hasScore ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl sm:text-3xl font-bold">{avgScore}%</div>
+                  <RAGBadge status={getRAGStatus(avgScore)} />
+                </div>
+                <p className="text-xs text-muted-foreground">On-time completion (late ½ credit)</p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl sm:text-3xl font-bold text-muted-foreground">—</div>
+                <p className="text-xs text-muted-foreground">No scheduled work in period</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="touch-manipulation">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium">Fit for Audit</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl sm:text-3xl font-bold">{fitScore != null ? `${fitScore}%` : '—'}</div>
+            <p className="text-xs text-muted-foreground">Audit readiness</p>
           </CardContent>
         </Card>
 
@@ -189,18 +212,8 @@ export default function ComplianceOverview() {
           <CardContent>
             <div className="text-2xl sm:text-3xl font-bold">{taskCompletionRate}%</div>
             <p className="text-xs text-muted-foreground">
-              {completedTasks.length}/{tasks.length}
+              {completedCount}/{b.expected}
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className="touch-manipulation">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium">Active Policies</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{activePolicies}</div>
-            <p className="text-xs text-muted-foreground">Currently active</p>
           </CardContent>
         </Card>
 
