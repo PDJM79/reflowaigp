@@ -254,3 +254,31 @@ describe("planGeneration — cleaning source (Phase 5)", () => {
     expect(r.rows[0].zoneId ?? null).toBeNull();
   });
 });
+
+describe("planGeneration — fridge source (Phase 5)", () => {
+  it("fridge source sets fridgeUnitId, null selectionId/templateId/cleaningTaskId", () => {
+    const r = plan([sel({ id: "fu-1", sourceKind: "fridge", cadence: "daily", fridgeUnitId: "fu-1", curatedLogbookId: "" })], "2026-07-06");
+    expect(r.rows).toHaveLength(1);
+    const row = r.rows[0];
+    expect(row.fridgeUnitId).toBe("fu-1");
+    expect(row.selectionId).toBe(null);
+    expect(row.templateId).toBe(null);
+    expect(row.cleaningTaskId).toBe(null);
+    expect(row.curatedLogbookId).toBe(null);
+  });
+  it("fridge twice_daily reuses am/pm slots", () => {
+    const r = plan([sel({ id: "fu-2", sourceKind: "fridge", cadence: "twice_daily", fridgeUnitId: "fu-2", curatedLogbookId: "" })], "2026-07-06");
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows.map((x) => x.slot).sort()).toEqual(["am", "pm"]);
+    expect(r.rows.every((x) => x.fridgeUnitId === "fu-2")).toBe(true);
+  });
+  it("fridge resolves assignee from default_assignee_role (estates_lead)", () => {
+    const r = plan([sel({ id: "fu-3", sourceKind: "fridge", cadence: "daily", defaultAssigneeRole: "estates_lead", curatedLogbookId: "" })], "2026-07-06",
+      { roles: [{ role: "estates_lead", userId: "u-estates" }] });
+    expect(r.rows[0].assigneeId).toBe("u-estates");
+  });
+  it("non-fridge sources carry fridgeUnitId=null", () => {
+    const r = plan([sel({ cadence: "daily" })], "2026-07-06");
+    expect(r.rows[0].fridgeUnitId ?? null).toBeNull();
+  });
+});

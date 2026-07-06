@@ -25,10 +25,10 @@ export interface PracticeInfo {
 }
 
 // A schedulable is a curated selection, a bespoke is_scheduled process_template,
-// or (Phase 5) a cleaning_task. The cadence maths are identical; only the
-// identity/idempotency key differs (selection_id / template_id / cleaningTaskId),
-// so the planner tags each planned row with its source.
-export type SourceKind = "selection" | "template" | "cleaning";
+// or (Phase 5) a cleaning_task or fridge_unit. The cadence maths are identical;
+// only the identity/idempotency key differs (selection_id / template_id /
+// cleaningTaskId / fridgeUnitId), so the planner tags each planned row.
+export type SourceKind = "selection" | "template" | "cleaning" | "fridge";
 
 export interface SelectionInput {
   id: string;
@@ -51,6 +51,7 @@ export interface SelectionInput {
   adHocOnly: boolean;
   nextReviewDate: string | null; // for periodic_review
   zoneId?: string | null;        // cleaning source only — the cleaning zone
+  fridgeUnitId?: string | null;  // fridge source only — the fridge unit
 }
 
 export interface RoleAssignment {
@@ -73,6 +74,7 @@ export interface PlannedTask {
   slot: string | null;         // "am" | "pm" for twice_daily; null otherwise
   cleaningTaskId: string | null; // set for cleaning sources
   zoneId: string | null;         // set for cleaning sources
+  fridgeUnitId: string | null;   // set for fridge sources
 }
 
 export interface PlanCounts {
@@ -199,7 +201,8 @@ export function planGeneration(params: {
 
       const isTemplate = sel.sourceKind === "template";
       const isCleaning = sel.sourceKind === "cleaning";
-      const isLogbook = !isTemplate && !isCleaning;
+      const isFridge = sel.sourceKind === "fridge";
+      const isLogbook = !isTemplate && !isCleaning && !isFridge;
       for (const slot of slots) {
         if (!assignee) counts.unassigned++;
         counts.generated++;
@@ -218,6 +221,7 @@ export function planGeneration(params: {
           slot,
           cleaningTaskId: isCleaning ? sel.id : null,
           zoneId: isCleaning ? (sel.zoneId ?? null) : null,
+          fridgeUnitId: isFridge ? sel.id : null,
         });
       }
     }

@@ -361,6 +361,115 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  /** First active holder of a role in a practice, or null (role-resolution fallback). */
+  async resolveRoleHolder(practiceId: string, role: string): Promise<string | null> {
+    const [row] = await db.select({ userId: schema.roleAssignments.userId })
+      .from(schema.roleAssignments)
+      .where(and(
+        eq(schema.roleAssignments.practiceId, practiceId),
+        eq(schema.roleAssignments.role, role),
+      ))
+      .limit(1);
+    return row?.userId ?? null;
+  }
+
+  /**
+   * Phase 5: create a fridge reading and, in ONE transaction:
+   *   - close the matching scheduled fridge occurrence for this unit today (if any);
+   *   - on an out-of-range reading, auto-create a high-importance adhoc remedial
+   *     task assigned to the estates lead (unassigned if no holder), linked back to
+   *     the reading via metadata so the remedial dialog can resolve it.
+   * Returns the reading plus the remedial task id (null when in range).
+   */
+  async createFridgeReadingWithOccurrence(
+    reading: InsertFridgeReading,
+    practiceId: string,
+    fridgeUnitId: string,
+    isOutOfRange: boolean,
+    fridgeName: string,
+  ): Promise<{ reading: FridgeReading; remedialTaskId: string | null; occurrenceClosed: boolean }> {
+    const estatesLead = isOutOfRange ? await this.resolveRoleHolder(practiceId, 'estates_lead') : null;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return db.transaction(async (tx) => {
+      const [created] = await tx.insert(schema.fridgeReadings).values(reading).returning();
+
+      // Close the earliest still-open fridge occurrence for this unit today.
+      const openOcc = await tx.select({ id: schema.tasks.id })
+        .from(schema.tasks)
+        .where(and(
+          eq(schema.tasks.practiceId, practiceId),
+          eq(schema.tasks.sourceType, 'fridge'),
+          eq(schema.tasks.scheduledDate, todayStr),
+          sql`${schema.tasks.metadata}->>'fridgeUnitId' = ${fridgeUnitId}`,
+          sql`${schema.tasks.status} NOT IN ('complete','closed')`,
+        ))
+        .orderBy(schema.tasks.slot)
+        .limit(1);
+      let occurrenceClosed = false;
+      if (openOcc[0]) {
+        await tx.update(schema.tasks)
+          .set({ status: 'complete', completedAt: new Date(), updatedAt: new Date() })
+          .where(eq(schema.tasks.id, openOcc[0].id));
+        occurrenceClosed = true;
+      }
+
+      // Out-of-range → high-importance remedial task.
+      let remedialTaskId: string | null = null;
+      if (isOutOfRange) {
+        const [task] = await tx.insert(schema.tasks).values({
+          practiceId,
+          title: `Remedial: ${fridgeName} temperature breach`,
+          description: `Fridge "${fridgeName}" recorded ${created.temperature}°C, outside its safe range. Investigate and record the remedial action taken.`,
+          sourceType: 'adhoc',
+          status: 'pending',
+          priority: 'high',
+          importance: 'high',
+          module: 'fridge',
+          assigneeId: estatesLead,
+          metadata: { fridgeReadingId: created.id, fridgeUnitId },
+        }).returning({ id: schema.tasks.id });
+        remedialTaskId = task?.id ?? null;
+      }
+
+      return { reading: created, remedialTaskId, occurrenceClosed };
+    });
+  }
+
+  /** Today's (or a given date's) scheduled fridge occurrences, with assignee name. */
+  async getFridgeOccurrences(practiceId: string, date: string) {
+    const rows = await db
+      .select({ t: schema.tasks, assignee: schema.users.name })
+      .from(schema.tasks)
+      .leftJoin(schema.users, eq(schema.tasks.assigneeId, schema.users.id))
+      .where(and(
+        eq(schema.tasks.practiceId, practiceId),
+        eq(schema.tasks.sourceType, 'fridge'),
+        eq(schema.tasks.scheduledDate, date),
+      ));
+    return rows.map(({ t, assignee }) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      slot: t.slot,
+      due_at: t.dueAt,
+      assignee_id: t.assigneeId,
+      assignee_name: assignee ?? null,
+      fridge_unit_id: (t.metadata as any)?.fridgeUnitId ?? null,
+    }));
+  }
+
+  /** Close the remedial task auto-created for a fridge reading (loop-closing). */
+  async closeRemedialTaskForReading(practiceId: string, readingId: string): Promise<void> {
+    await db.update(schema.tasks)
+      .set({ status: 'complete', completedAt: new Date(), updatedAt: new Date() })
+      .where(and(
+        eq(schema.tasks.practiceId, practiceId),
+        eq(schema.tasks.sourceType, 'adhoc'),
+        sql`${schema.tasks.metadata}->>'fridgeReadingId' = ${readingId}`,
+        sql`${schema.tasks.status} NOT IN ('complete','closed')`,
+      ));
+  }
+
   async updateFridgeReading(id: string, practiceId: string, data: Partial<InsertFridgeReading>): Promise<FridgeReading | undefined> {
     const [updated] = await db.update(schema.fridgeReadings).set(data).where(
       and(eq(schema.fridgeReadings.id, id), eq(schema.fridgeReadings.practiceId, practiceId))

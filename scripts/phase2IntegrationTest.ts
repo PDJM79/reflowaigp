@@ -26,15 +26,18 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
   const p = (await pool.query(
     `SELECT id, timezone, is_dispensing, is_branch,
             metadata->>'scheduler_enabled' AS scheduler_enabled,
-            metadata->>'cleaning_scheduling_enabled' AS cleaning_enabled
+            metadata->>'cleaning_scheduling_enabled' AS cleaning_enabled,
+            metadata->>'fridge_scheduling_enabled' AS fridge_enabled
      FROM practices WHERE id=$1
        AND (metadata->>'scheduler_enabled'='true'
-         OR metadata->>'cleaning_scheduling_enabled'='true')`, [practiceId]
+         OR metadata->>'cleaning_scheduling_enabled'='true'
+         OR metadata->>'fridge_scheduling_enabled'='true')`, [practiceId]
   )).rows[0];
   if (!p) return { generated: 0, skipped: true }; // no module scheduling enabled
 
   const schedulerEnabled = p.scheduler_enabled === "true";
   const cleaningEnabled = p.cleaning_enabled === "true";
+  const fridgeEnabled = p.fridge_enabled === "true";
   const practice: PracticeInfo = { id: p.id, timezone: p.timezone, isDispensing: p.is_dispensing, isBranch: p.is_branch };
 
   const sels = (await pool.query(`
@@ -94,6 +97,23 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
     }
   }
 
+  // Fridge units (fourth source, Phase 5) — opt-in per practice.
+  if (fridgeEnabled) {
+    const fus = (await pool.query(`SELECT id, name, reading_frequency, created_at FROM fridge_units WHERE practice_id=$1 AND is_active=true`, [practiceId])).rows;
+    for (const fu of fus) {
+      const cadence = fu.reading_frequency as string;
+      if (cadence === "ad_hoc" || cadence === "periodic_review") continue;
+      selections.push({
+        id: fu.id, sourceKind: "fridge", curatedLogbookId: "", title: `Record temperature — ${fu.name}`, module: "fridge",
+        cadence: cadence as any, cadenceOverride: null, applicableTo: ["all"], preferredDay: null, preferredDate: null,
+        dueWindowHours: 24, earlyStartHours: 12, importance: null,
+        defaultAssigneeId: null, defaultAssigneeRole: "estates_lead",
+        anchorDate: (fu.created_at instanceof Date ? fu.created_at.toISOString() : String(fu.created_at)).slice(0, 10),
+        isEnabled: true, adHocOnly: false, nextReviewDate: null, fridgeUnitId: fu.id,
+      });
+    }
+  }
+
   const roles: RoleAssignment[] = (await pool.query(`SELECT role, user_id FROM role_assignments WHERE practice_id=$1`, [practiceId])).rows
     .map((r) => ({ role: r.role, userId: r.user_id }));
   const closures = new Set<string>((await pool.query(`SELECT closure_date::text AS d FROM practice_closure_dates WHERE practice_id=$1`, [practiceId])).rows
@@ -108,6 +128,12 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
       `SELECT scheduled_date::text AS d, slot, metadata->>'cleaningTaskId' AS ctid
        FROM tasks WHERE practice_id=$1 AND source_type='cleaning' AND scheduled_date BETWEEN $2 AND $3`,
       [practiceId, fromISO, toISO])).rows.map((e) => `${e.ctid ?? ""}|${e.d}|${e.slot ?? ""}`),
+  );
+  const fridgeSeen = new Set<string>(
+    (await pool.query(
+      `SELECT scheduled_date::text AS d, slot, metadata->>'fridgeUnitId' AS fuid
+       FROM tasks WHERE practice_id=$1 AND source_type='fridge' AND scheduled_date BETWEEN $2 AND $3`,
+      [practiceId, fromISO, toISO])).rows.map((e) => `${e.fuid ?? ""}|${e.d}|${e.slot ?? ""}`),
   );
 
   for (const r of rows) {
@@ -131,6 +157,14 @@ async function generateFor(practiceId: string, fromISO: string, toISO: string) {
         INSERT INTO tasks (practice_id, source_type, title, module, scheduled_date, slot, due_at, visible_from, status, importance, assignee_id, metadata)
         VALUES ($1,'cleaning',$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10)`,
         [r.practiceId, r.title, r.module, r.scheduledDate, r.slot ?? "", r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ cleaningTaskId: r.cleaningTaskId, zoneId: r.zoneId })]);
+    } else if (r.fridgeUnitId) {
+      const key = `${r.fridgeUnitId}|${r.scheduledDate}|${r.slot ?? ""}`;
+      if (fridgeSeen.has(key)) continue;
+      fridgeSeen.add(key);
+      await pool.query(`
+        INSERT INTO tasks (practice_id, source_type, title, module, scheduled_date, slot, due_at, visible_from, status, importance, assignee_id, metadata)
+        VALUES ($1,'fridge',$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10)`,
+        [r.practiceId, r.title, r.module, r.scheduledDate, r.slot ?? "", r.dueAt, r.visibleFrom, r.importance, r.assigneeId, JSON.stringify({ fridgeUnitId: r.fridgeUnitId })]);
     }
   }
   return { generated: counts.generated, skipped: false, counts };
@@ -305,6 +339,41 @@ async function main() {
   await generateFor(PID, "2026-05-05", "2026-05-05");
   const cafter = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='cleaning'`, [PID])).rows[0].n;
   check("cleaning double-run is idempotent (0 new rows)", cbefore === cafter, `before=${cbefore} after=${cafter}`);
+
+  console.log("\n=== Test 9: fridge integration (Phase 5) — opt-in, generation, idempotency, assignee ===");
+  await pool.query(`DELETE FROM tasks WHERE practice_id=$1`, [PID]);
+  await pool.query(`DELETE FROM fridge_units WHERE practice_id=$1`, [PID]);
+  await pool.query(`DELETE FROM role_assignments WHERE practice_id=$1 AND role='estates_lead'`, [PID]);
+  const estatesUser = (await pool.query(`SELECT id FROM users LIMIT 1`)).rows[0]?.id ?? null;
+  if (estatesUser) await pool.query(`INSERT INTO role_assignments (practice_id, role, user_id) VALUES ($1,'estates_lead',$2)`, [PID, estatesUser]);
+  const fuDaily = (await pool.query(`INSERT INTO fridge_units (practice_id, name, reading_frequency, created_at) VALUES ($1,'Vaccine Fridge A','daily','2026-01-05T00:00:00Z') RETURNING id`, [PID])).rows[0].id;
+  const fuTwice = (await pool.query(`INSERT INTO fridge_units (practice_id, name, reading_frequency, created_at) VALUES ($1,'Vaccine Fridge B','twice_daily','2026-01-05T00:00:00Z') RETURNING id`, [PID])).rows[0].id;
+
+  // fridge disabled (only scheduler on) -> nothing.
+  await pool.query(`UPDATE practices SET metadata='{"scheduler_enabled":true}'::jsonb WHERE id=$1`, [PID]);
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const fBefore = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='fridge'`, [PID])).rows[0].n;
+  check("fridge disabled => no fridge occurrences", fBefore === 0, `got ${fBefore}`);
+
+  // enable fridge, generate.
+  await pool.query(`UPDATE practices SET metadata = metadata || '{"fridge_scheduling_enabled":true}'::jsonb WHERE id=$1`, [PID]);
+  await pool.query(`DELETE FROM tasks WHERE practice_id=$1`, [PID]);
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const fRows = (await pool.query(
+    `SELECT slot, status, source_type, assignee_id, title, metadata->>'fridgeUnitId' AS fuid
+     FROM tasks WHERE practice_id=$1 AND source_type='fridge' ORDER BY (metadata->>'fridgeUnitId'), slot`, [PID])).rows;
+  const dailyF = fRows.filter((r) => r.fuid === fuDaily);
+  const twiceF = fRows.filter((r) => r.fuid === fuTwice);
+  check("daily fridge => 1 occurrence, slot=''", dailyF.length === 1 && dailyF[0].slot === "", `got ${dailyF.length}`);
+  check("twice_daily fridge => 2 occurrences am+pm", twiceF.length === 2 && twiceF.map((r) => r.slot).sort().join(",") === "am,pm", `slots=${twiceF.map((r) => r.slot).join(",")}`);
+  check("fridge occurrence title is 'Record temperature — <name>'", dailyF[0].title === "Record temperature — Vaccine Fridge A", `title=${dailyF[0].title}`);
+  if (estatesUser) check("fridge occurrences resolve estates_lead assignee", fRows.every((r) => r.assignee_id === estatesUser), "");
+
+  // double-run => idempotent.
+  const fb = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='fridge'`, [PID])).rows[0].n;
+  await generateFor(PID, "2026-05-05", "2026-05-05");
+  const fa = (await pool.query(`SELECT count(*)::int n FROM tasks WHERE practice_id=$1 AND source_type='fridge'`, [PID])).rows[0].n;
+  check("fridge double-run is idempotent (0 new rows)", fb === fa, `before=${fb} after=${fa}`);
 
   console.log(`\n${failures === 0 ? "\x1b[32mALL INTEGRATION CHECKS PASSED\x1b[0m" : `\x1b[31m${failures} CHECK(S) FAILED\x1b[0m`}`);
   await pool.end();

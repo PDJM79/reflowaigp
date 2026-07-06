@@ -437,6 +437,8 @@ export const fridgeUnits = pgTable("fridge_units", {
   minTemp: decimal("min_temp", { precision: 4, scale: 1 }).default('2.0'),
   maxTemp: decimal("max_temp", { precision: 4, scale: 1 }).default('8.0'),
   isActive: boolean("is_active").default(true),
+  // Phase 5: how often this fridge is checked (drives central-scheduler occurrences).
+  readingFrequency: baseCadenceEnum("reading_frequency").notNull().default('daily'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

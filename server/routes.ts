@@ -1578,12 +1578,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/practices/:practiceId/fridge-readings/:id", isAuthenticated, requireSamePractice, async (req, res) => {
     try {
-      const reading = await storage.updateFridgeReading(req.params.id as string, req.params.practiceId as string, stripPracticeId(req.body));
+      const practiceId = req.params.practiceId as string;
+      const readingId = req.params.id as string;
+      const reading = await storage.updateFridgeReading(readingId, practiceId, stripPracticeId(req.body));
       if (!reading) return res.status(404).json({ error: "Fridge reading not found" });
+      // Phase 5: recording the remedial action closes the auto-created remedial task.
+      if (typeof req.body.actionTaken === 'string' && req.body.actionTaken.trim()) {
+        await storage.closeRemedialTaskForReading(practiceId, readingId);
+      }
       res.json(reading);
     } catch (error) {
       console.error("PATCH fridge-reading error:", error);
       res.status(500).json({ error: "Failed to update fridge reading" });
+    }
+  });
+
+  // Phase 5: today's (or ?date=) generated fridge occurrences, with assignee.
+  app.get("/api/practices/:practiceId/fridge-occurrences", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const date = typeof req.query.date === 'string'
+        ? req.query.date
+        : new Date().toISOString().split('T')[0];
+      const occurrences = await storage.getFridgeOccurrences(req.params.practiceId as string, date);
+      res.json(occurrences);
+    } catch (error) {
+      console.error('fridge occurrences error:', error);
+      res.status(500).json({ error: "Failed to fetch fridge occurrences" });
     }
   });
 
@@ -1596,15 +1616,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isOutOfRange = fridge
         ? (temp < parseFloat(fridge.minTemp as string) || temp > parseFloat(fridge.maxTemp as string))
         : false;
-      const dataWithPractice = {
+      const dataWithPractice = coerceDates({
         ...stripPracticeId(body),
         practiceId,
         isOutOfRange,
         recordedBy: body.recordedBy || (req.session as any).userId || undefined,
-      };
+      }, ["readingDate"]);
       const validated = insertFridgeReadingSchema.parse(dataWithPractice);
-      const reading = await storage.createFridgeReading(validated);
-      res.status(201).json({ ...reading, isOutOfRange });
+      // Phase 5: one transaction — insert reading, close today's matching fridge
+      // occurrence, and (on a breach) auto-create the estates-lead remedial task.
+      const { reading, remedialTaskId, occurrenceClosed } = await storage.createFridgeReadingWithOccurrence(
+        validated, practiceId, body.fridgeId, isOutOfRange, fridge?.name ?? 'Fridge',
+      );
+      res.status(201).json({ ...reading, isOutOfRange, remedialTaskId, occurrenceClosed });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });

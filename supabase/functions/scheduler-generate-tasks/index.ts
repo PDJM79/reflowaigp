@@ -70,6 +70,7 @@ serve(async (req) => {
       const isOn = (v: unknown) => v === true || v === "true";
       const schedulerEnabled = isOn(meta.scheduler_enabled);
       const cleaningEnabled = isOn(meta.cleaning_scheduling_enabled);
+      const fridgeEnabled = isOn(meta.fridge_scheduling_enabled);
 
       // Determine the run window (in practice tz).
       const todayISO = toISODate(localDateInTz(new Date(), practice.timezone));
@@ -170,6 +171,35 @@ serve(async (req) => {
         }
       }
 
+      // Fridge units (fourth source, Phase 5) — opt-in per practice. Each active
+      // fridge_unit generates a "Record temperature — {name}" occurrence on its
+      // reading_frequency. Assigned to the estates lead (unassigned fallback) so
+      // it lands in a My Day; idempotency handled in-app below.
+      if (fridgeEnabled) {
+        const { data: fridgeUnits, error: fErr } = await db
+          .from("fridge_units")
+          .select("id, name, reading_frequency, created_at")
+          .eq("practice_id", p.id)
+          .eq("is_active", true);
+        if (fErr) throw fErr;
+        for (const fu of fridgeUnits ?? []) {
+          const cadence = fu.reading_frequency as Cadence; // reading_frequency IS a base_cadence
+          if (cadence === "ad_hoc" || cadence === "periodic_review") continue; // never auto-gen
+          selections.push({
+            id: fu.id, sourceKind: "fridge", curatedLogbookId: "",
+            title: `Record temperature — ${fu.name}`, module: "fridge",
+            cadence, cadenceOverride: null, applicableTo: ["all"],
+            preferredDay: null, preferredDate: null,
+            dueWindowHours: 24, earlyStartHours: 12,
+            importance: null, // reading occurrence is medium; breaches escalate separately
+            defaultAssigneeId: null, defaultAssigneeRole: "estates_lead",
+            anchorDate: (fu.created_at ?? todayISO).slice(0, 10),
+            isEnabled: true, adHocOnly: false, nextReviewDate: null,
+            fridgeUnitId: fu.id,
+          });
+        }
+      }
+
       // Role assignments + closures for this practice.
       const { data: roles } = await db.from("role_assignments")
         .select("role, user_id").eq("practice_id", p.id);
@@ -255,6 +285,45 @@ serve(async (req) => {
         }
       }
 
+      // Fridge occurrences: same in-app dedup as cleaning (metadata-keyed).
+      const fridgePlanned = rows.filter((r) => r.fridgeUnitId);
+      let fridgeGenerated = 0;
+      if (fridgePlanned.length > 0) {
+        const { data: existing, error: exErr } = await db
+          .from("tasks")
+          .select("scheduled_date, slot, metadata")
+          .eq("practice_id", p.id)
+          .eq("source_type", "fridge")
+          .gte("scheduled_date", fromISO)
+          .lte("scheduled_date", toISO);
+        if (exErr) throw exErr;
+        const seen = new Set<string>(
+          (existing ?? []).map((e: Record<string, any>) =>
+            `${(e.metadata as any)?.fridgeUnitId ?? ""}|${e.scheduled_date}|${e.slot ?? ""}`),
+        );
+        const fridgeRows = fridgePlanned
+          .filter((r) => !seen.has(`${r.fridgeUnitId}|${r.scheduledDate}|${r.slot ?? ""}`))
+          .map((r) => ({
+            practice_id: r.practiceId,
+            source_type: "fridge",
+            title: r.title,
+            module: r.module,
+            scheduled_date: r.scheduledDate,
+            slot: r.slot ?? "",
+            due_at: r.dueAt,
+            visible_from: r.visibleFrom,
+            status: "pending",
+            importance: r.importance,
+            assignee_id: r.assigneeId,
+            metadata: { fridgeUnitId: r.fridgeUnitId },
+          }));
+        if (fridgeRows.length > 0) {
+          const { error } = await db.from("tasks").insert(fridgeRows);
+          if (error) throw error;
+          fridgeGenerated = fridgeRows.length;
+        }
+      }
+
       // One audit event per practice per run (audit_logs is practice-scoped).
       await db.from("audit_logs").insert({
         practice_id: p.id,
@@ -265,6 +334,7 @@ serve(async (req) => {
           window: { from: fromISO, to: toISO },
           generated: counts.generated,
           cleaning_generated: cleaningGenerated,
+          fridge_generated: fridgeGenerated,
           skipped_closure: counts.skippedClosure,
           unassigned: counts.unassigned,
           periodic_review_reminders: counts.periodicReviewReminders,
@@ -272,7 +342,7 @@ serve(async (req) => {
         },
       });
 
-      summary.push({ practice_id: p.id, ...counts, cleaning_generated: cleaningGenerated });
+      summary.push({ practice_id: p.id, ...counts, cleaning_generated: cleaningGenerated, fridge_generated: fridgeGenerated });
     }
 
     return new Response(JSON.stringify({ ok: true, practices: summary.length, summary }), {
