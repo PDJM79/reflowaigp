@@ -1310,6 +1310,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     catch (e) { console.error("GET claim-runs", e); res.status(500).json({ error: "Failed to fetch claim runs" }); }
   });
 
+  // KF3: claim runs = dispensing workflow → practice-member write (not manager-only).
+  app.post("/api/practices/:practiceId/claim-runs", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const { from, to, claimType } = req.body ?? {};
+      if (!from || !to) return res.status(400).json({ error: "period from/to required" });
+      res.status(201).json(await storage.createClaimRun(req.params.practiceId as string, from, to, claimType ?? null));
+    } catch (e) { console.error("POST claim-runs", e); res.status(500).json({ error: "Failed to create claim run" }); }
+  });
+  app.patch("/api/practices/:practiceId/claim-runs/:id/submit", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const userId = (req.session as any).userId;
+      const row = await storage.submitClaimRun(req.params.id as string, req.params.practiceId as string, userId);
+      if (!row) return res.status(404).json({ error: "Claim run not found" });
+      res.json(row);
+    } catch (e) { console.error("PATCH claim-runs submit", e); res.status(500).json({ error: "Failed to submit claim run" }); }
+  });
+  // PDF of a claim run + its scripts, recorded in compliance_exports.
+  app.post("/api/practices/:practiceId/claim-runs/:id/export", isAuthenticated, requireSamePractice, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const run = await storage.getClaimRun(req.params.id as string, practiceId);
+      if (!run) return res.status(404).json({ error: "Claim run not found" });
+      const from = new Date(run.periodStart!).toISOString().slice(0, 10);
+      const to = new Date(run.periodEnd!).toISOString().slice(0, 10);
+      const scripts = await storage.getScriptsInPeriod(practiceId, from, to);
+      const pdf = exportService.toClaimRunPdf(run, scripts);
+      const fileRef = `claim-run_${from}_${to}.pdf`;
+      await exportService.recordExport(practiceId, (req.session as any).userId ?? null, { from, to, module: "claims" }, "pdf", fileRef);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileRef}"`);
+      res.send(pdf);
+    } catch (e) { console.error("POST claim-run export", e); res.status(500).json({ error: "Failed to export claim run" }); }
+  });
+
   app.get("/api/practices/:practiceId/rooms", isAuthenticated, requireSamePractice, async (req, res) => {
     try { res.json(await storage.getRoomsByPractice(req.params.practiceId as string)); }
     catch (e) { console.error("GET rooms", e); res.status(500).json({ error: "Failed to fetch rooms" }); }

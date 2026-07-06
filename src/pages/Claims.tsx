@@ -44,6 +44,30 @@ export default function Claims() {
     }
   };
 
+  const submitRun = async (id: string) => {
+    if (!user?.practiceId) return;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/claim-runs/${id}/submit`, { method: 'PATCH', credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      toast.success('Claim run submitted');
+      fetchClaims();
+    } catch { toast.error('Failed to submit claim run'); }
+  };
+
+  const exportRun = async (id: string, _ps?: string, _pe?: string) => {
+    if (!user?.practiceId) return;
+    try {
+      const res = await fetch(`/api/practices/${user.practiceId}/claim-runs/${id}/export`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `claim-run-${id}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Claim run PDF exported');
+    } catch { toast.error('Failed to export claim run'); }
+  };
+
   const draftClaims = claimRuns.filter(c => c.status === 'draft');
   const submittedClaims = claimRuns.filter(c => c.status === 'submitted');
 
@@ -153,45 +177,36 @@ export default function Claims() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {claimRuns.map((run) => (
+              {claimRuns.map((run) => {
+                const ps = run.periodStart ?? run.period_start;
+                const pe = run.periodEnd ?? run.period_end;
+                const scripts = run.totalScripts ?? run.total_scripts ?? 0;
+                const items = run.totalItems ?? run.total_items ?? 0;
+                return (
                 <div key={run.id} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={run.review_status === 'reviewed' ? 'default' : 'secondary'}>
-                        {run.review_status || 'pending review'}
-                      </Badge>
+                      <Badge variant={run.status === 'submitted' ? 'default' : 'secondary'}>{run.status ?? 'draft'}</Badge>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(run.run_date).toLocaleDateString()}
+                        {ps ? new Date(ps).toLocaleDateString() : '?'} – {pe ? new Date(pe).toLocaleDateString() : '?'}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {run.fpps_submitted_at ? `Submitted to FPPS ${new Date(run.fpps_submitted_at).toLocaleDateString()}` : 'Not yet submitted'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{scripts} scripts · {items} items</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" size="sm">
-                      <FileText className="h-4 w-4 mr-1" />
-                      View Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await generateClaimsPackPDF(run.id, supabase);
-                          toast.success('Claims Pack PDF exported');
-                        } catch (error) {
-                          console.error('Export error:', error);
-                          toast.error('Failed to export PDF');
-                        }
-                      }}
-                    >
+                  <div className="flex items-center gap-2">
+                    {run.status === 'draft' && (
+                      <Button variant="default" size="sm" onClick={() => submitRun(run.id)}>
+                        Submit
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => exportRun(run.id, ps, pe)}>
                       <FileDown className="h-4 w-4 mr-1" />
-                      Export Pack
+                      Export PDF
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

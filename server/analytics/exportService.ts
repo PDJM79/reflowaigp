@@ -97,6 +97,33 @@ export function toPdf(rows: ExportRow[], meta: { title: string; subtitle: string
   return Buffer.from(doc.output("arraybuffer"));
 }
 
+/** KF3: PDF of a claim run + its scripts (reuses the Phase 6 jsPDF engine). */
+export function toClaimRunPdf(run: any, scripts: any[]): Buffer {
+  const doc = new jsPDF({ orientation: "landscape" });
+  const from = run.periodStart ? new Date(run.periodStart).toISOString().slice(0, 10) : "";
+  const to = run.periodEnd ? new Date(run.periodEnd).toISOString().slice(0, 10) : "";
+  doc.setFontSize(16);
+  doc.text("Month-End Claim Run", 14, 16);
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(`${from} to ${to}  |  status: ${run.status ?? "draft"}  |  ${run.totalScripts ?? scripts.length} scripts  |  ${run.totalItems ?? ""} items`, 14, 23);
+  autoTable(doc, {
+    startY: 28,
+    head: [["Issue date", "Drug code", "Drug name", "Qty", "Prescriber"]],
+    body: scripts.map((s) => [
+      s.issueDate ? String(s.issueDate).slice(0, 10) : "",
+      s.drugCode ?? "", s.drugName ?? "", String(s.quantity ?? ""), s.prescriber ?? "",
+    ]),
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    headStyles: { fillColor: [30, 64, 90] },
+  });
+  if (scripts.length === 0) {
+    doc.setFontSize(11); doc.setTextColor(120);
+    doc.text("No scripts in this period.", 14, 40);
+  }
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
 /** Persist a compliance_exports row for the generated artefact. */
 export async function recordExport(
   practiceId: string,

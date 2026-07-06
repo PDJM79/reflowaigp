@@ -1311,6 +1311,47 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.claimRuns.periodStart));
   }
 
+  async getClaimRun(id: string, practiceId: string) {
+    const [row] = await db.select().from(schema.claimRuns)
+      .where(and(eq(schema.claimRuns.id, id), eq(schema.claimRuns.practiceId, practiceId)));
+    return row;
+  }
+
+  /** month_end_scripts whose issue_date falls in [from,to] — the run's scripts. */
+  async getScriptsInPeriod(practiceId: string, from: string, to: string) {
+    return db.select().from(schema.monthEndScripts).where(and(
+      eq(schema.monthEndScripts.practiceId, practiceId),
+      gte(schema.monthEndScripts.issueDate, from),
+      lte(schema.monthEndScripts.issueDate, to),
+    ));
+  }
+
+  /** KF3: create a draft claim run, auto-counting scripts + items in the period. */
+  async createClaimRun(practiceId: string, from: string, to: string, claimType: string | null) {
+    const scripts = await this.getScriptsInPeriod(practiceId, from, to);
+    const totalScripts = scripts.length;
+    const totalItems = scripts.reduce((s, x) => s + (Number(x.quantity) || 0), 0);
+    const [row] = await db.insert(schema.claimRuns).values({
+      practiceId,
+      periodStart: new Date(from + "T00:00:00Z"),
+      periodEnd: new Date(to + "T23:59:59Z"),
+      claimType: claimType ?? "month_end",
+      status: "draft",
+      totalScripts,
+      totalItems,
+    } as any).returning();
+    return row;
+  }
+
+  /** KF3: draft -> submitted (records submitter + timestamp). */
+  async submitClaimRun(id: string, practiceId: string, submittedBy: string) {
+    const [row] = await db.update(schema.claimRuns)
+      .set({ status: "submitted", submittedBy, submittedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(schema.claimRuns.id, id), eq(schema.claimRuns.practiceId, practiceId)))
+      .returning();
+    return row;
+  }
+
   async getRoomsByPractice(practiceId: string) {
     return db.select().from(schema.rooms).where(eq(schema.rooms.practiceId, practiceId));
   }
