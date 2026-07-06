@@ -155,7 +155,7 @@ export async function executeComplete(sessionId: string, credentials: ManagerCre
       email: credentials.email,
       name: credentials.name,
       passwordHash,
-      role: 'admin',
+      role: 'practice_manager',
       isPracticeManager: true,
       isActive: true,
     }).returning();
