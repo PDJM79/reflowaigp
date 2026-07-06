@@ -10,7 +10,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { CheckCircle, XCircle, Loader2, ClipboardCheck, ChevronDown, ChevronUp, Camera, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ClipboardCheck, ChevronDown, ChevronUp, Camera, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReviewItem {
@@ -111,7 +111,14 @@ export default function ReviewQueue() {
       {loading ? (
         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : error ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">{error}</CardContent></Card>
+        <Card><CardContent className="p-8 flex flex-col items-center gap-3 text-center">
+          <p className="text-muted-foreground">{error}</p>
+          {!error.includes('permission') && (
+            <Button variant="outline" size="sm" onClick={() => fetchQueue()}>
+              <RefreshCw className="h-4 w-4 mr-2" />Retry
+            </Button>
+          )}
+        </CardContent></Card>
       ) : items.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-muted-foreground">Nothing awaiting review. 🎉</CardContent></Card>
       ) : (

@@ -331,7 +331,7 @@ export default function Cleaning() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-3 grid-cols-4 sm:gap-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 sm:gap-4">
         <Card className="touch-manipulation">
           <CardHeader className="pb-2 sm:pb-3"><CardTitle className="text-xs sm:text-sm font-medium">Zones</CardTitle></CardHeader>
           <CardContent><div className="text-2xl sm:text-3xl font-bold">{zones.filter(z => z.isActive !== false).length}</div></CardContent>

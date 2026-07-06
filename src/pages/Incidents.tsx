@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Plus, Calendar } from 'lucide-react';
+import { AlertTriangle, Plus, Calendar, RefreshCw } from 'lucide-react';
 import { RAGBadge } from '@/components/dashboard/RAGBadge';
 
 export default function Incidents() {
@@ -13,6 +13,7 @@ export default function Incidents() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function Incidents() {
   const fetchIncidents = async () => {
     try {
       if (!user?.practiceId) return;
+      setLoadError(false);
 
       const res = await fetch(`/api/practices/${user.practiceId}/incidents`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load incidents');
@@ -39,6 +41,7 @@ export default function Incidents() {
       setIncidents(mapped);
     } catch (error) {
       console.error('Error fetching incidents:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -104,6 +107,17 @@ export default function Incidents() {
 
       {loading ? (
         <div className="text-center py-8">Loading incidents...</div>
+      ) : loadError ? (
+        <Card>
+          <CardContent className="py-12 flex flex-col items-center gap-3 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+            <p className="font-medium">Failed to load incidents</p>
+            <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+            <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchIncidents(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : incidents.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
