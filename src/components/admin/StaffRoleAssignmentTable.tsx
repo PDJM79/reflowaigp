@@ -66,6 +66,8 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
   const [applying, setApplying] = useState(false);
+  // Staged user activate/deactivate awaiting confirmation (destructive: gates login).
+  const [pendingStatus, setPendingStatus] = useState<{ userId: string; userName: string; currentStatus: boolean } | null>(null);
 
   const fetchData = async () => {
     if (!selectedPracticeId) return;
@@ -339,7 +341,8 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleStatusToggle(u.id, u.isActive)}
+                        title={u.isActive ? 'Deactivate user' : 'Activate user'}
+                        onClick={() => setPendingStatus({ userId: u.id, userName: u.name ?? u.email ?? 'this user', currentStatus: u.isActive })}
                       >
                         {u.isActive ? (
                           <UserX className="h-4 w-4 text-muted-foreground" />
@@ -388,6 +391,34 @@ export function StaffRoleAssignmentTable({ onCapabilitiesChange }: StaffRoleAssi
               disabled={applying}
             >
               {applying ? 'Applying…' : 'Confirm changes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog for activate/deactivate (destructive: gates login). */}
+      <AlertDialog open={pendingStatus !== null} onOpenChange={(open) => { if (!open) setPendingStatus(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingStatus?.currentStatus ? 'Deactivate' : 'Activate'} {pendingStatus?.userName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingStatus?.currentStatus
+                ? 'This immediately prevents the user from signing in until reactivated. Recorded in the audit log.'
+                : 'This restores the user’s ability to sign in. Recorded in the audit log.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingStatus) handleStatusToggle(pendingStatus.userId, pendingStatus.currentStatus);
+                setPendingStatus(null);
+              }}
+            >
+              {pendingStatus?.currentStatus ? 'Deactivate' : 'Activate'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

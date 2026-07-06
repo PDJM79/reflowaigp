@@ -6,6 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -50,6 +54,8 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Role assignment staged for deletion, awaiting confirmation (destructive).
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -229,7 +235,7 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deleteRoleAssignment(assignment.id)}
+                          onClick={() => setPendingDelete({ id: assignment.id, label: `${assignment.assigned_name} — ${roleOptions.find(r => r.value === assignment.role)?.label || assignment.role}` })}
                           className="text-destructive hover:text-destructive flex-shrink-0 ml-2"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -243,6 +249,26 @@ export function RoleManagement({ open, onOpenChange }: RoleManagementProps) {
           </ScrollArea>
         )}
       </DialogContent>
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => { if (!o) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this role assignment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.label} will be removed. This changes who holds this role and is recorded in the audit log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); if (pendingDelete) deleteRoleAssignment(pendingDelete.id); setPendingDelete(null); }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
