@@ -1439,6 +1439,57 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  // KF5: room assessments (with room name), newest first.
+  async getRoomAssessments(practiceId: string) {
+    const rows = await db.select({ a: schema.roomAssessments, roomName: schema.rooms.name })
+      .from(schema.roomAssessments)
+      .leftJoin(schema.rooms, eq(schema.roomAssessments.roomId, schema.rooms.id))
+      .where(eq(schema.roomAssessments.practiceId, practiceId))
+      .orderBy(desc(schema.roomAssessments.assessmentDate));
+    return rows.map(({ a, roomName }) => ({
+      id: a.id,
+      room_id: a.roomId,
+      room_name: roomName,
+      assessment_date: a.assessmentDate,
+      outcome: a.outcome,
+      notes: a.notes,
+      next_due: a.nextDue,
+    }));
+  }
+
+  /**
+   * KF5: record a room assessment; when the outcome flags issues/fail, raise a
+   * high-importance adhoc remedial task (estates lead, unassigned fallback) in
+   * the same transaction — the fridge-breach pattern, reused.
+   */
+  async createRoomAssessment(
+    data: typeof schema.roomAssessments.$inferInsert,
+    roomName: string,
+  ): Promise<{ assessment: typeof schema.roomAssessments.$inferSelect; remedialTaskId: string | null }> {
+    const flagged = data.outcome === "issues" || data.outcome === "fail";
+    const estatesLead = flagged ? await this.resolveRoleHolder(data.practiceId, "estates_lead") : null;
+    return db.transaction(async (tx) => {
+      const [assessment] = await tx.insert(schema.roomAssessments).values(data).returning();
+      let remedialTaskId: string | null = null;
+      if (flagged) {
+        const [task] = await tx.insert(schema.tasks).values({
+          practiceId: data.practiceId,
+          title: `Remedial: ${roomName} assessment ${data.outcome}`,
+          description: `Room "${roomName}" assessment on ${data.assessmentDate} was recorded as "${data.outcome}". Investigate and record the remedial action.${data.notes ? ` Notes: ${data.notes}` : ""}`,
+          sourceType: "adhoc",
+          status: "pending",
+          priority: "high",
+          importance: "high",
+          module: "room",
+          assigneeId: estatesLead,
+          metadata: { roomAssessmentId: assessment.id, roomId: data.roomId },
+        }).returning({ id: schema.tasks.id });
+        remedialTaskId = task?.id ?? null;
+      }
+      return { assessment, remedialTaskId };
+    });
+  }
+
   // --- step_instances + evidence (logbook completion flow) ---
   // step_instances/evidence carry no practice_id; scope via the parent
   // process_instance. Shaped snake_case to match the client interfaces.

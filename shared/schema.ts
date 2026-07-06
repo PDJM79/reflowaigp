@@ -350,6 +350,20 @@ export const appraisals = pgTable("appraisals", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// KF5: per-room assessment register.
+export const roomAssessments = pgTable("room_assessments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),
+  roomId: uuid("room_id").references(() => rooms.id, { onDelete: "cascade" }).notNull(),
+  assessedBy: uuid("assessed_by").references(() => users.id, { onDelete: "set null" }),
+  assessmentDate: date("assessment_date", { mode: "string" }).notNull(),
+  outcome: text("outcome"),
+  notes: text("notes"),
+  nextDue: date("next_due", { mode: "string" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const incidents = pgTable("incidents", {
   id: uuid("id").primaryKey().defaultRandom(),
   practiceId: uuid("practice_id").references(() => practices.id, { onDelete: "cascade" }).notNull(),

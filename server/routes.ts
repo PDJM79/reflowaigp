@@ -1453,6 +1453,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { console.error("PATCH training-record type", e); res.status(500).json({ error: "Failed to type training record" }); }
   });
 
+  // KF5: room assessments — practice-member read, manager write.
+  app.get("/api/practices/:practiceId/room-assessments", isAuthenticated, requireSamePractice, async (req, res) => {
+    try { res.json(await storage.getRoomAssessments(req.params.practiceId as string)); }
+    catch (e) { console.error("GET room-assessments", e); res.status(500).json({ error: "Failed to fetch room assessments" }); }
+  });
+  app.post("/api/practices/:practiceId/room-assessments", isAuthenticated, requireSamePractice, requireManager, async (req, res) => {
+    try {
+      const practiceId = req.params.practiceId as string;
+      const body = stripPracticeId(req.body);
+      if (!body.roomId || !body.assessmentDate) return res.status(400).json({ error: "roomId and assessmentDate required" });
+      const room = (await storage.getRoomsByPractice(practiceId)).find((r: any) => r.id === body.roomId);
+      const { assessment, remedialTaskId } = await storage.createRoomAssessment(
+        { ...body, practiceId, assessedBy: (req.session as any).userId ?? null } as any,
+        room?.name ?? "Room",
+      );
+      res.status(201).json({ ...assessment, remedialTaskId });
+    } catch (e) { console.error("POST room-assessments", e); res.status(500).json({ error: "Failed to create room assessment" }); }
+  });
+
   // --- MFA (secrets handled server-side only; never returned to the client) ---
   // Login-step verification: returns pass/fail only. No secret material leaves the server.
   app.post("/api/auth/mfa/verify", async (req, res) => {
