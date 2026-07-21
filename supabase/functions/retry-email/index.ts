@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { handleOptions, buildCorsHeaders } from '../_shared/cors.ts';
 import { requireJwtAndPractice } from '../_shared/auth.ts';
-import { createAnonClient } from '../_shared/supabase.ts';
+import { createServiceClient, createUserClientFromRequest } from '../_shared/supabase.ts';
 import { requireCapability } from '../_shared/capabilities.ts';
 
 interface RetryEmailRequest {
@@ -22,11 +22,16 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     // Require authenticated user and get their practice
     const { authUserId, practiceId, appUserId } = await requireJwtAndPractice(req);
-    const supabaseClient = createAnonClient(req);
+    // Service-role client for email_logs table access (deny-all RLS); scoped explicitly
+    // by practice_id in the queries below.
+    const supabaseClient = createServiceClient();
+    // JWT-bearing client ONLY for the capability check: has_capability is SECURITY DEFINER
+    // and resolves the caller via auth.uid(), so it must NOT run on a service-role client.
+    const userClient = createUserClientFromRequest(req);
 
     // Verify user has run_reports capability
     await requireCapability(
-      supabaseClient,
+      userClient,
       authUserId,
       'run_reports',
       'Forbidden: run_reports capability required to retry emails'

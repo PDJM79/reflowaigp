@@ -1,7 +1,7 @@
 // supabase/functions/_shared/auth.ts
 // Authentication utilities for edge functions
 
-import { createUserClientFromRequest, getEnvOrThrow } from './supabase.ts';
+import { createServiceClient, createUserClientFromRequest, getEnvOrThrow } from './supabase.ts';
 
 export type AuthedContext = {
   authUserId: string;
@@ -22,10 +22,11 @@ export const requireCronSecret = (req: Request): void => {
 };
 
 /**
- * Require valid JWT and derive practice from user record
- * Never trust client-provided practiceId for authorization
+ * Require valid JWT and derive practice from user record.
+ * Never trust client-provided practiceId for authorization.
  */
 export const requireJwtAndPractice = async (req: Request): Promise<AuthedContext> => {
+  // Validate the JWT via the user/anon client (auth API, not RLS-subject).
   const supabase = createUserClientFromRequest(req);
   const { data: userData, error: userErr } = await supabase.auth.getUser();
 
@@ -34,8 +35,11 @@ export const requireJwtAndPractice = async (req: Request): Promise<AuthedContext
   }
   const authUserId = userData.user.id;
 
-  // Derive practice_id from the app users table (RLS-protected)
-  const { data: appUser, error: appUserErr } = await supabase
+  // Derive practice_id via the service-role client (RLS-immune). The caller is already
+  // authenticated by getUser() above; we read ONLY their own row, keyed on the verified
+  // auth.uid(). All public tables are deny-all RLS, so the anon/user client sees no rows.
+  const admin = createServiceClient();
+  const { data: appUser, error: appUserErr } = await admin
     .from('users')
     .select('id, practice_id')
     .eq('auth_user_id', authUserId)
@@ -62,6 +66,6 @@ export const requireJwt = async (req: Request): Promise<string> => {
   if (userErr || !userData?.user) {
     throw new Error('Unauthorized: invalid JWT');
   }
-  
+
   return userData.user.id;
 };

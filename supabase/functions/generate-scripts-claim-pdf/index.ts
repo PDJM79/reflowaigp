@@ -50,8 +50,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Fetching claim run data for ID: ${claim_run_id}`);
 
-    // Fetch claim run with RLS (user client ensures access control)
-    const supabaseClient = createUserClientFromRequest(req);
+    // Service-role read (deny-all RLS). Access control is enforced explicitly below via
+    // the practice_id check against the JWT-derived practiceId, plus claim_run_id scoping.
+    const supabaseClient = createServiceClient();
     const { data: claimRun, error: claimError } = await supabaseClient
       .from('claim_runs')
       .select(`

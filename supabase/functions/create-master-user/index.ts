@@ -15,8 +15,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Verify JWT authentication
     const authUserId = await requireJwt(req);
 
-    // Check if authenticated user is a master user
-    const supabaseClient = createUserClientFromRequest(req);
+    // Check if authenticated user is a master user. Service-role read (deny-all RLS);
+    // requireJwt already validated the JWT, and we key on the JWT-derived auth_user_id,
+    // so the master-user gate is preserved without an RLS-subject anon read.
+    const supabaseClient = createServiceClient();
     const { data: existingUser } = await supabaseClient
       .from('users')
       .select('is_master_user')

@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# Local CA cert (public, but keep it out of the repo) + Supabase CLI temp dir
+cert.pem
+cert.pem.crt
+supabase/.temp/
+
 # Logs
 logs
 *.log

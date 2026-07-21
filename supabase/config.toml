@@ -1,4 +1,4 @@
-project_id = "eeqfqklcdstbziedsnxc"
+project_id = "fmixseikbpirsuuwxizw"
 
 [functions.ipc-schedule-may-dec]
 verify_jwt = false
@@ -25,6 +25,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.scheduler-overdue-escalator]
+verify_jwt = false
+
+[functions.send-overdue-digest]
 verify_jwt = false
 
 [functions.create-practice-during-setup]
