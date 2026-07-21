@@ -1,3 +1,4 @@
+import "./ipv4-first"; // MUST be first: force IPv4 DNS before any pg Pool connects (Render has no IPv6 egress)
 import 'dotenv/config'
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
