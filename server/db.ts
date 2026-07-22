@@ -1,8 +1,18 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import dns from "node:dns";
+import net from "node:net";
 import * as schema from "@shared/schema";
 
 const { Pool } = pg;
+
+// Belt-and-braces IPv4 pinning, re-asserted right before the Pool is created (mirrors
+// server/ipv4-first.ts, which runs first). Render has no IPv6 egress; without this the
+// Supabase pooler's AAAA record causes ENETUNREACH. pg's JS driver opens sockets via
+// socket.connect(port, host) with no lookup/family passthrough, so this must be
+// process-level rather than a Pool option.
+dns.setDefaultResultOrder("ipv4first");
+net.setDefaultAutoSelectFamily(false);
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
