@@ -28,7 +28,7 @@ import {
   practices, practiceModules, policyDocuments, tasks as tasksTable,
   cleaningZones, cleaningTasks, onboardingSessions,
 } from "@shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import * as OTPAuth from "otpauth";
 import bcrypt from "bcryptjs";
@@ -2210,17 +2210,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           enabledAt:  isEnabled ? new Date() : undefined,
           updatedAt: new Date(),
         })
-        .where(eq(practiceModules.practiceId, practiceId))
+        // Both predicates are required. Filtering on practiceId alone updated
+        // every module row for the practice, so toggling one module silently
+        // toggled all of them and `updated` was an arbitrary row.
+        .where(and(
+          eq(practiceModules.practiceId, practiceId),
+          eq(practiceModules.moduleName, moduleName),
+        ))
         .returning();
       if (!updated) return res.status(404).json({ requestId: rid, error: "Module not found" });
 
-      // Audit log
-      await storage.createAuditLog({
-        practiceId, userId: req.session.userId ?? null,
-        entityType: "practice_module", entityId: updated.id,
-        action: isEnabled ? "module_enabled" : "module_disabled",
-        afterData: { moduleName, isEnabled },
-      } as any);
+      // Audit: deliberately non-fatal. The module row above has already
+      // committed, so failing the request here would tell the user the toggle
+      // failed while the database says it succeeded. Log it and return 200.
+      try {
+        await storage.insertAuditLog({
+          practiceId, userId: req.session.userId ?? null,
+          entityType: "practice_module", entityId: updated.id,
+          action: isEnabled ? "module_enabled" : "module_disabled",
+          afterData: { moduleName, isEnabled },
+        });
+      } catch (auditErr) {
+        console.error("[audit] module toggle audit write failed:", auditErr);
+      }
 
       res.json({ requestId: rid, module: updated });
     } catch (err) {
@@ -2320,12 +2332,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           modulesEnabled: enabledModules, practiceId: newPractice.id, currentStep: 5,
         });
 
-        // 7. Audit
-        await storage.createAuditLog({
+        // 7. Audit — deliberately fatal, and on `tx` rather than the pool.
+        // Cloning a practice creates a regulated entity; a clone that committed
+        // without its audit row would leave a hole in the CQC/HIW trail that is
+        // indistinguishable from nothing having happened. Passing `tx` makes it
+        // all-or-nothing by construction: the audit row and the practice commit
+        // together or neither does.
+        await storage.insertAuditLog({
           practiceId: newPractice.id, userId: req.session.userId ?? null,
           entityType: "practice", entityId: newPractice.id,
           action: "practice_cloned", afterData: { sourcePracticeId, modules: enabledModules.length },
-        } as any);
+        }, tx);
 
         return newPractice.id;
       });

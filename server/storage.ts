@@ -12,6 +12,12 @@ import type {
   CleaningZone, CleaningTask, CleaningLog, InsertCleaningZone, InsertCleaningTask, InsertCleaningLog
 } from "@shared/schema";
 
+/**
+ * Either the pooled `db` or a transaction handle from `db.transaction()`.
+ * These are different connections — see the note on `insertAuditLog`.
+ */
+type DbExecutor = Pick<typeof db, "insert">;
+
 export interface IStorage {
   getAuthUser(id: string): Promise<AuthUser | undefined>;
   upsertAuthUser(user: UpsertAuthUser): Promise<AuthUser>;
@@ -1664,8 +1670,25 @@ export class DatabaseStorage implements IStorage {
       .values({ userId, mfaSecret: secret })
       .onConflictDoUpdate({ target: schema.userAuthSensitive.userId, set: { mfaSecret: secret, updatedAt: new Date() } });
   }
-  async insertAuditLog(row: typeof schema.auditLogs.$inferInsert) {
-    await db.insert(schema.auditLogs).values(row);
+  /**
+   * Append an audit row.
+   *
+   * Pass `tx` whenever the audit must be atomic with a surrounding transaction.
+   * `db` is a connection pool, and `db.transaction()` checks out its own
+   * dedicated client — so a write issued through `db` from inside a transaction
+   * callback runs on a *different* connection and cannot see that transaction's
+   * uncommitted rows. Auditing a not-yet-committed practice that way fails the
+   * `audit_logs.practice_id` foreign key rather than recording anything.
+   *
+   * Callers decide whether a failed audit write is fatal: awaiting this without
+   * a catch makes it fatal, catching it makes it advisory. Both are in use, on
+   * purpose — see the two practice routes in `routes.ts`.
+   */
+  async insertAuditLog(
+    row: typeof schema.auditLogs.$inferInsert,
+    tx?: DbExecutor,
+  ): Promise<void> {
+    await (tx ?? db).insert(schema.auditLogs).values(row);
   }
 
   async createOrganizationSetup(practiceId: string) {
