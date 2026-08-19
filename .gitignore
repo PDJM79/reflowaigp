@@ -37,3 +37,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code local worktrees. Never commit these: each is a full stale checkout
+# holding hardcoded credentials for the retired Supabase project, and vitest globs
+# their *.test.ts files, turning a 10s suite into a 5-minute one.
+.claude/worktrees/
