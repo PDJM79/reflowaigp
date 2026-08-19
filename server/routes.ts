@@ -115,6 +115,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
+      // Deploy identity. Render injects RENDER_GIT_COMMIT and RENDER_GIT_BRANCH
+      // into every service automatically; both fall back to "unknown" off-Render
+      // so local and CI runs still return a valid payload.
+      //
+      // Why this exists: the usual way to prove a deploy landed is to grep the
+      // deployed JS bundle for a string only the newest commit contains. That
+      // does not work here. Server-only changes — which is most of what ships in
+      // this repo — leave the client bundle byte-identical, so the bundle cannot
+      // tell you anything. Without these two fields, "is the new commit live?"
+      // and "which branch does Render actually deploy from?" are both
+      // unanswerable without dashboard access.
+      //
+      // Not a disclosure risk: a commit SHA and a branch name reveal nothing an
+      // attacker can act on, and the repo is private.
+      version: {
+        commit: process.env.RENDER_GIT_COMMIT ?? "unknown",
+        branch: process.env.RENDER_GIT_BRANCH ?? "unknown",
+      },
       services: {
         onboarding: { status: "ok" },
         cqc: { status: cqc.open ? "degraded" : "ok", circuit: cqc },
