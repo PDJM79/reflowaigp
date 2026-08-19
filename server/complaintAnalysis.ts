@@ -1,4 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callModel, getModelApiKey, MODEL_NOT_CONFIGURED } from './services/mistral';
+// Shared with trainingAnalysis — one redaction implementation, tested in
+// redact.test.ts. The local copy this replaced returned '' for a whitespace-only
+// name, which renders as a blank field that looks redacted but proves nothing.
+import { toInitials } from './redact';
 import { db } from './db';
 import { complaints } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -52,16 +56,6 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-// ── Helper: name → initials ─────────────────────────────────────────────────
-function toInitials(name: string | null): string {
-  if (!name) return 'Unknown';
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(p => p[0].toUpperCase() + '.')
-    .join('');
-}
-
 // ── Helper: calculate working days between two dates ─────────────────────
 function calendarDaysBetween(a: Date, b: Date): number {
   return Math.round(Math.abs(b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
@@ -79,8 +73,8 @@ export async function getComplaintAnalysis(
     }
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  const apiKey = getModelApiKey();
+  if (!apiKey) throw new Error(MODEL_NOT_CONFIGURED);
 
   // ── Fetch all complaints for the practice ─────────────────────────────────
   const rows = await db
@@ -208,25 +202,21 @@ Return a single JSON object (no markdown fences) matching this exact structure:
   "risk_areas": [{ "description": string, "complaint_ref": string, "risk_level": "high"|"critical" }]
 }`;
 
-  // ── Call Claude ─────────────────────────────────────────────────────────────
-  const client = new Anthropic({ apiKey });
-
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2000,
+  // ── Call the model ──────────────────────────────────────────────────────────
+  const { content } = await callModel(apiKey, {
+    route: 'complaintAnalysis',
+    maxTokens: 2000,
     system:
       "You are a GP practice complaints analyst for a Welsh GP surgery regulated by Health Inspectorate Wales. Analyse the patient complaints provided and return structured JSON only — no explanations, no markdown. Use patient initials only (never full names). Set sla_performance.status to 'green' if both compliance rates ≥80%, 'amber' if either is 60-79%, 'red' if either is below 60%. Identify up to 5 themes, up to 4 root causes, 3-5 recommendations ordered by priority, and any risk_areas that could escalate to the Public Services Ombudsman Wales or HIW.",
-    messages: [{ role: 'user', content: prompt }],
+    user: prompt,
   });
 
   // ── Parse response ──────────────────────────────────────────────────────────
-  const block = message.content[0];
-  if (block.type !== 'text') {
-    throw new Error('Unexpected response type from Claude API');
-  }
-
+  // callModel guarantees non-empty, already-trimmed content. The fence-stripping
+  // and brace-trimming below stay: they defend against prose around the JSON,
+  // which is a model behaviour, not a provider one.
   let analysis: ComplaintAnalysis;
-  const rawText = block.text.trim();
+  const rawText = content;
 
   // Strip markdown code fences (```json ... ``` or ``` ... ```)
   let text = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();

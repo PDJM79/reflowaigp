@@ -20,6 +20,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: AI provider guard (Mistral only, EU endpoint only)
+        run: npm run check:ai-provider
+
       - name: Lint
         run: npm run lint
 

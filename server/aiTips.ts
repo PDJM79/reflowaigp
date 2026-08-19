@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callModel, getModelApiKey, MODEL_NOT_CONFIGURED } from './services/mistral';
 import { db } from './db';
 import { tasks, incidents, complaints, trainingRecords } from '@shared/schema';
 import { eq, and, ne, sql } from 'drizzle-orm';
@@ -23,8 +23,8 @@ export async function getAITips(
     }
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  const apiKey = getModelApiKey();
+  if (!apiKey) throw new Error(MODEL_NOT_CONFIGURED);
 
   const now = new Date();
 
@@ -127,22 +127,24 @@ TRAINING:
   - Expired records: ${expiredTraining.length} (mandatory: ${expiredTraining.filter(t => t.isMandatory).length})
   - Expiring within 60 days: ${soonExpiring.length} (mandatory: ${soonExpiring.filter(t => t.isMandatory).length})`;
 
-  // ── Call Claude ────────────────────────────────────────────────────────────
-  const client = new Anthropic({ apiKey });
-
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 500,
+  // ── Call the model ─────────────────────────────────────────────────────────
+  const { content } = await callModel(apiKey, {
+    route: 'aiTips',
+    maxTokens: 500,
+    // Deliberately NOT jsonMode: Mistral's json_object response_format requires
+    // a JSON *object*, and this prompt asks for a bare array. The tolerant parse
+    // below is what handles the shape instead.
     system:
       "You are a GP practice compliance advisor for Health Inspectorate Wales. Based on the following compliance data, provide 3-5 specific, actionable improvement tips to improve the practice's audit readiness score. Be concise and practical. Focus on quick wins first. Return ONLY a JSON array of strings — no markdown, no explanation, just the array. Example: [\"Address the 3 overdue fire safety tasks before next inspection.\", \"Book mandatory DBS renewals for 2 staff this month.\"]",
-    messages: [{ role: 'user', content: prompt }],
+    user: prompt,
   });
 
   // ── Parse response ─────────────────────────────────────────────────────────
+  // callModel guarantees non-empty, already-trimmed content, so the old
+  // "is this a text block?" guard has nothing left to check.
   let tips: string[] = [];
-  const block = message.content[0];
-  if (block.type === 'text') {
-    const text = block.text.trim();
+  {
+    const text = content;
     try {
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed)) tips = parsed.map(String);
