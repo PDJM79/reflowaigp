@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callModel, getModelApiKey, MODEL_NOT_CONFIGURED } from './services/mistral';
 
 interface SectionTipsInput {
   section: string;
@@ -38,8 +38,8 @@ export async function getSectionTips(
     return { tips: cached.tips };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  const apiKey = getModelApiKey();
+  if (!apiKey) throw new Error(MODEL_NOT_CONFIGURED);
 
   const regulator = REGULATORY_BODY[input.country?.toLowerCase()] ?? REGULATORY_BODY['england'];
 
@@ -62,19 +62,14 @@ ${contribLines.length > 0 ? `\nScore breakdown:\n${contribLines.map(l => `- ${l}
 
 Provide 3-4 specific, practical steps this GP surgery can take to close the ${input.gap}-point gap in "${input.section}" and meet the ${regulator} target of ${input.target}/100. Focus on the lowest-scoring contributors above. Be direct and actionable — no preamble.`;
 
-  const client = new Anthropic({ apiKey });
-
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 350,
+  const { content } = await callModel(apiKey, {
+    route: 'sectionTips',
+    maxTokens: 350,
     system: `You are an audit readiness advisor for UK GP surgeries regulated by ${regulator}. Give concise, numbered action points that can be acted on this week. Plain text only — no markdown, no headers.`,
-    messages: [{ role: 'user', content: prompt }],
+    user: prompt,
   });
 
-  const block = message.content[0];
-  if (block.type !== 'text') throw new Error('Unexpected response from Claude');
-
-  const tips = block.text.trim();
+  const tips = content;
   cache.set(key, { tips, generatedAt: new Date() });
   return { tips };
 }

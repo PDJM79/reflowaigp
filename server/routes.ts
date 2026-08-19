@@ -6,6 +6,12 @@ import { getAITips } from "./aiTips";
 import { getComplaintAnalysis } from "./complaintAnalysis";
 import { getTrainingAnalysis } from "./trainingAnalysis";
 import { getSectionTips } from "./sectionTips";
+// mapModelError is called with isAdmin=false at every AI route below. No GP
+// practice role can act on "check MISTRAL_API_KEY on Render" — a practice
+// manager runs a surgery, not this server — so the specific cause goes to the
+// server log via logAdminCause and the user sees AI_UNAVAILABLE. Same divergence
+// as the graig-escapes port.
+import { mapModelError, logAdminCause } from "./services/mistral";
 import { registerOnboardingRoutes } from "./onboarding";
 import { getCqcCircuitStatus } from "./services/cqc-service";
 import { auditLogger } from "./auditLogger";
@@ -2080,7 +2086,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── AI section improvement tips (ReadyForAudit / Areas of Concern) ─────────
   app.post("/api/practices/:practiceId/ai/suggest-improvements", isAuthenticated, requireSamePractice, async (req, res) => {
-    console.log('ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY);
     try {
       const { section, score, target, gap, contributors, country } = req.body;
       if (!section) return res.status(400).json({ error: "section is required" });
@@ -2095,11 +2100,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Section tips error:", error);
-      const msg: string = (error as Error).message ?? "";
-      if (msg.includes("ANTHROPIC_API_KEY")) {
-        return res.status(503).json({ error: "AI tips service not configured." });
+      const { status, message, error_type } = mapModelError(error);
+      // 'internal' means this was never a model failure — a DB error, a parse
+      // failure. Those keep their 500; only real provider failures degrade to
+      // 503 (or 429, which clients correctly treat as "back off").
+      if (error_type === "internal") {
+        return res.status(500).json({ error: "Failed to generate improvement tips. Please try again." });
       }
-      res.status(500).json({ error: "Failed to generate improvement tips. Please try again." });
+      logAdminCause("sectionTips", error_type);
+      return res.status(status).json({ error: message });
     }
   });
 
@@ -2111,11 +2120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Training analysis error:", error);
-      const msg: string = (error as Error).message ?? "";
-      if (msg.includes("ANTHROPIC_API_KEY")) {
-        return res.status(503).json({ error: "AI analysis service not configured. Add ANTHROPIC_API_KEY to environment variables." });
+      const { status, message, error_type } = mapModelError(error);
+      if (error_type === "internal") {
+        return res.status(500).json({ error: "Failed to analyse training records. Please try again later." });
       }
-      res.status(500).json({ error: "Failed to analyse training records. Please try again later." });
+      logAdminCause("trainingAnalysis", error_type);
+      return res.status(status).json({ error: message });
     }
   });
 
@@ -2127,11 +2137,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Complaint analysis error:", error);
-      const msg: string = (error as Error).message ?? "";
-      if (msg.includes("ANTHROPIC_API_KEY")) {
-        return res.status(503).json({ error: "AI analysis service not configured. Add ANTHROPIC_API_KEY to environment variables." });
+      const { status, message, error_type } = mapModelError(error);
+      if (error_type === "internal") {
+        return res.status(500).json({ error: "Failed to analyse complaints. Please try again later." });
       }
-      res.status(500).json({ error: "Failed to analyse complaints. Please try again later." });
+      logAdminCause("complaintAnalysis", error_type);
+      return res.status(status).json({ error: message });
     }
   });
 
@@ -2143,11 +2154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("AI tips error:", error);
-      const msg: string = (error as Error).message ?? "";
-      if (msg.includes("ANTHROPIC_API_KEY")) {
-        return res.status(503).json({ error: "AI tips service not configured. Add ANTHROPIC_API_KEY to environment variables." });
+      const { status, message, error_type } = mapModelError(error);
+      if (error_type === "internal") {
+        return res.status(500).json({ error: "Failed to generate AI tips. Please try again later." });
       }
-      res.status(500).json({ error: "Failed to generate AI tips. Please try again later." });
+      logAdminCause("aiTips", error_type);
+      return res.status(status).json({ error: message });
     }
   });
 

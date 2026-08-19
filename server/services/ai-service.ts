@@ -1,14 +1,17 @@
 // ── AI Service ────────────────────────────────────────────────────────────────
-// Wraps the Anthropic SDK for onboarding AI recommendations.
-// Retry: 2 attempts with 5s backoff. Timeout: 30s. Circuit breaker: 3 failures
-// → 5-minute pause. Logs token counts + duration, never session content.
-import Anthropic from '@anthropic-ai/sdk';
+// Onboarding AI recommendations, on the shared Mistral client.
+//
+// Retry and timeout belong to services/mistral.ts (2 retries, 1s/2s backoff,
+// 60s cap) — ONE retry policy per process, not one per module. Stacking this
+// module's old loop on top of the shared one would have meant 9 attempts and a
+// multi-minute worst case on a screen a user is sat waiting on.
+//
+// What stays here is what the shared client has no opinion about: the circuit
+// breaker (3 failures → 5-minute pause) and the deterministic fallback plan.
+// Logs token counts + duration, never session content.
+import { callModel, getModelApiKey, MODEL_NOT_CONFIGURED } from './mistral';
 
-const MODEL            = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS       = 1500;
-const TIMEOUT_MS       = 30_000;
-const MAX_RETRIES      = 2;
-const RETRY_MS         = 5_000;
 const CB_THRESHOLD     = 3;
 const CB_RESET_MS      = 5 * 60_000;
 
@@ -86,11 +89,11 @@ Provide 3-5 focus areas (urgent, specific to their modules and inspection rating
 
 // ── AI Service class ──────────────────────────────────────────────────────────
 class AiService {
-  private client: Anthropic;
+  private apiKey: string;
   constructor() {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new Error('ANTHROPIC_API_KEY is not configured');
-    this.client = new Anthropic({ apiKey: key });
+    const key = getModelApiKey();
+    if (!key) throw new Error(MODEL_NOT_CONFIGURED);
+    this.apiKey = key;
   }
 
   async generatePriorities(summary: SessionSummary): Promise<{ priorities: AIPriorities; fromFallback: boolean }> {
@@ -98,34 +101,24 @@ class AiService {
       console.log(JSON.stringify({ svc: 'ai-service', event: 'circuit_open', fallback: true }));
       return { priorities: buildFallback(summary), fromFallback: true };
     }
-    let lastErr: Error | null = null;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) await new Promise(r => setTimeout(r, RETRY_MS));
-      try {
-        const start = Date.now();
-        const response = await Promise.race([
-          this.client.messages.create({
-            model: MODEL, max_tokens: MAX_TOKENS,
-            system: buildPrompt(summary),
-            messages: [{ role: 'user', content: 'Generate the personalised action plan.' }],
-          }),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), TIMEOUT_MS)),
-        ]);
-        const msg = response as Anthropic.Message;
-        console.log(JSON.stringify({ svc: 'ai-service', event: 'success', durationMs: Date.now() - start, inputTokens: msg.usage.input_tokens, outputTokens: msg.usage.output_tokens }));
-        const content = msg.content[0];
-        if (content.type !== 'text') throw new Error('Unexpected content type');
-        cbReset();
-        return { priorities: parseAiJson(content.text), fromFallback: false };
-      } catch (err: any) {
-        lastErr = err;
-        console.log(JSON.stringify({ svc: 'ai-service', event: 'attempt_failed', attempt, message: err.message }));
-        if (err?.status === 429) await new Promise(r => setTimeout(r, RETRY_MS * 2));
-      }
+    try {
+      const start = Date.now();
+      const { content, usage } = await callModel(this.apiKey, {
+        route: 'ai-service',
+        maxTokens: MAX_TOKENS,
+        system: buildPrompt(summary),
+        user: 'Generate the personalised action plan.',
+      });
+      console.log(JSON.stringify({ svc: 'ai-service', event: 'success', durationMs: Date.now() - start, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens }));
+      cbReset();
+      return { priorities: parseAiJson(content), fromFallback: false };
+    } catch (err: any) {
+      // callModel has already spent its retry budget and written the ai_usage
+      // row by the time we get here, so one failure here is a final failure.
+      cbFail();
+      console.log(JSON.stringify({ svc: 'ai-service', event: 'all_failed', fallback: true, message: err?.message }));
+      return { priorities: buildFallback(summary), fromFallback: true };
     }
-    cbFail();
-    console.log(JSON.stringify({ svc: 'ai-service', event: 'all_failed', fallback: true, message: lastErr?.message }));
-    return { priorities: buildFallback(summary), fromFallback: true };
   }
 }
 

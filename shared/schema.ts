@@ -1181,3 +1181,32 @@ export type OnboardingSession = typeof onboardingSessions.$inferSelect;
 export type ComplianceTemplate = typeof complianceTemplates.$inferSelect;
 export type CleaningTemplate = typeof cleaningTemplates.$inferSelect;
 export type PracticeModule = typeof practiceModules.$inferSelect;
+
+// ── AI usage telemetry ────────────────────────────────────────────────────────
+// One row per model call, success or failure. Platform telemetry only: no
+// prompts, no user id, no practice id — nothing tenant-scoped ever lands here,
+// which is what makes the append-only triggers in
+// migrations/20260819_ai_usage.up.sql safe to apply unconditionally.
+//
+// Written from two runtimes: the Express server (server/services/mistral.ts) and
+// edge functions via the service role. The append-only triggers and the RLS grant
+// are NOT expressible in Drizzle — they live in that migration, which must be
+// applied by hand. drizzle-kit will not generate them.
+export const aiUsage = pgTable("ai_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repo: text("repo").notNull(),
+  route: text("route").notNull().default('unknown'),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  cachedTokens: integer("cached_tokens"),
+  latencyMs: integer("latency_ms").notNull(),
+  success: boolean("success").notNull(),
+  errorType: text("error_type"),
+  estCostUsd: decimal("est_cost_usd", { precision: 14, scale: 8 }).notNull().default('0'),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_ai_usage_created").on(table.createdAt),
+  index("idx_ai_usage_repo_route").on(table.repo, table.route, table.createdAt),
+]);

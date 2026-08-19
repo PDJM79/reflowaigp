@@ -16,6 +16,7 @@
     "start": "node dist/server/index.cjs",
     "migrate": "drizzle-kit migrate",
     "typecheck": "tsc --project tsconfig.node.json --noEmit",
+    "check:ai-provider": "node scripts/checkAiProvider.mjs",
     "test": "vitest run",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -25,7 +26,6 @@
     "pack": "repomix --compress --ignore \"scripts/*.json,scripts/*.csv,migrations/**/*.json,migrations/**/*.sql,migrations-pending/**,supabase/**,*.csv,node_modules,dist,attached_assets,*.md,src/integrations/supabase/types.ts,vibecop-report.json\""
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",

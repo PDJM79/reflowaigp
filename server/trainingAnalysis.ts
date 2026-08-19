@@ -1,4 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callModel, getModelApiKey, MODEL_NOT_CONFIGURED } from './services/mistral';
+// Staff names are redacted to initials at the prompt boundary only. The values
+// returned to the practice's own UI (urgent_actions, upcoming_expirations) keep
+// full names — those never leave the tenant. See server/redact.ts.
+import { toInitials } from './redact';
 import { db } from './db';
 import { trainingRecords, employees } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
@@ -89,8 +93,8 @@ export async function getTrainingAnalysis(
     }
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  const apiKey = getModelApiKey();
+  if (!apiKey) throw new Error(MODEL_NOT_CONFIGURED);
 
   const now = new Date();
   const ninetyDays = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
@@ -232,10 +236,10 @@ OVERALL METRICS:
 - RAG status: ${rag.toUpperCase()}
 
 ${topUrgent.length > 0 ? `TOP EXPIRED (needs immediate action):
-${topUrgent.map(u => `- ${u.staff_name} (${u.role}): ${u.course} — expired ${u.expired_date} (${u.days_overdue}d overdue)${u.is_mandatory ? ' [MANDATORY]' : ''}`).join('\n')}` : 'No expired training records.'}
+${topUrgent.map(u => `- ${toInitials(u.staff_name)} (${u.role}): ${u.course} — expired ${u.expired_date} (${u.days_overdue}d overdue)${u.is_mandatory ? ' [MANDATORY]' : ''}`).join('\n')}` : 'No expired training records.'}
 
 ${topExpiring.length > 0 ? `EXPIRING SOON (next 90 days):
-${topExpiring.map(e => `- ${e.staff_name} (${e.role}): ${e.course} — expires ${e.expiry_date} (${e.days_remaining}d)${e.is_mandatory ? ' [MANDATORY]' : ''}`).join('\n')}` : 'No training expiring in 90 days.'}
+${topExpiring.map(e => `- ${toInitials(e.staff_name)} (${e.role}): ${e.course} — expires ${e.expiry_date} (${e.days_remaining}d)${e.is_mandatory ? ' [MANDATORY]' : ''}`).join('\n')}` : 'No training expiring in 90 days.'}
 
 ${topGaps.length > 0 ? `LOWEST COMPLIANCE COURSES:
 ${topGaps.map(g => `- ${g.course}: ${g.compliance_pct}% (${g.current_count}/${g.total_count} current)${g.is_mandatory ? ' [MANDATORY]' : ''}`).join('\n')}` : ''}
@@ -247,24 +251,19 @@ Return a JSON object with ONLY these two fields (no markdown fences):
     { "action": string, "priority": "high"|"medium"|"low", "rationale": string }
   ]
 }
-Provide 4-6 specific, actionable recommendations referencing actual staff/courses from the data above.`;
+Provide 4-6 specific, actionable recommendations referencing courses by name and staff by the initials exactly as given above. Do not expand initials into names or guess who they refer to.`;
 
-  // ── Call Claude ────────────────────────────────────────────────────────────
-  const client = new Anthropic({ apiKey });
-
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 700,
+  // ── Call the model ─────────────────────────────────────────────────────────
+  const { content } = await callModel(apiKey, {
+    route: 'trainingAnalysis',
+    maxTokens: 700,
     system:
-      "You are an NHS Wales mandatory training compliance advisor for a GP surgery. Provide a concise compliance narrative and specific, actionable recommendations. Reference actual staff names and courses from the data. Return only the JSON object requested — no markdown, no preamble.",
-    messages: [{ role: 'user', content: prompt }],
+      "You are an NHS Wales mandatory training compliance advisor for a GP surgery. Provide a concise compliance narrative and specific, actionable recommendations. Staff are identified by initials only — reference them exactly as given and never expand, guess or invent a full name. Reference courses by name. Return only the JSON object requested — no markdown, no preamble.",
+    user: prompt,
   });
 
-  // ── Parse Claude response ──────────────────────────────────────────────────
-  const block = message.content[0];
-  if (block.type !== 'text') throw new Error('Unexpected response type from Claude');
-
-  const text = block.text.trim();
+  // ── Parse model response ───────────────────────────────────────────────────
+  const text = content;
   let aiOutput: { summary: string; recommendations: TrainingRecommendation[] };
   try {
     aiOutput = JSON.parse(text);
