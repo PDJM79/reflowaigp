@@ -1,10 +1,11 @@
 -- ai_usage — platform AI telemetry. One row per model call, success or failure.
 --
 -- Shared shape across products (graig-escapes, new-school, reflow-care-nucleus).
--- Written from TWO runtimes in this repo, which is the local divergence:
---   * the Express server, via the pg pool in server/db.ts
---   * edge functions, via supabase-js with the service role
--- Both insert the same columns; neither ever reads tenant data into this table.
+-- Written from ONE runtime in this repo: the Express server, INSERT only, via
+-- the pg pool in server/db.ts (server/services/mistral.ts). No edge function
+-- writes this table. It never receives tenant data.
+-- (Corrected 2026-09-29, T-0019: this header previously also listed edge
+-- functions via supabase-js with the service role. None ever did.)
 --
 -- APPEND-ONLY. Revoking UPDATE/DELETE is not sufficient: the Express server
 -- connects as the table owner, and an owner keeps its privileges implicitly, so
