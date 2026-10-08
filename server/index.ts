@@ -58,6 +58,13 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Keep the app out of search results; www.reflowai.co.uk is the indexable site. robots.txt stays
+// "Allow: /" on purpose: Google has to crawl a page to see this header.
+app.use((_req, res, next) => {
+  res.set('X-Robots-Tag', 'noindex');
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
